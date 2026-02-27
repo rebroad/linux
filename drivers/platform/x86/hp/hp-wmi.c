@@ -373,6 +373,9 @@ static struct notifier_block platform_power_source_nb;
 static enum platform_profile_option active_platform_profile;
 static bool platform_profile_support;
 static bool zero_insize_support;
+static bool disable_input_event_path;
+module_param(disable_input_event_path, bool, 0644);
+MODULE_PARM_DESC(disable_input_event_path, "Disable HP WMI input/notify hotkey path while keeping BIOS/platform features");
 
 static struct rfkill *wifi_rfkill;
 static struct rfkill *bluetooth_rfkill;
@@ -2310,10 +2313,12 @@ static int __init hp_wmi_init(void)
 				 sizeof(tmp), sizeof(tmp)) == HPWMI_RET_INVALID_PARAMETERS)
 		zero_insize_support = true;
 
-	if (event_capable) {
+	if (event_capable && !disable_input_event_path) {
 		err = hp_wmi_input_setup();
 		if (err)
 			return err;
+	} else if (event_capable && disable_input_event_path) {
+		pr_info("hotkey/notify input path disabled by module parameter\n");
 	}
 
 	if (bios_capable) {
@@ -2349,7 +2354,7 @@ static int __init hp_wmi_init(void)
 err_unregister_device:
 	platform_device_unregister(hp_wmi_platform_dev);
 err_destroy_input:
-	if (event_capable)
+	if (event_capable && !disable_input_event_path)
 		hp_wmi_input_destroy();
 
 	return err;
@@ -2364,7 +2369,7 @@ static void __exit hp_wmi_exit(void)
 	if (is_victus_s_thermal_profile())
 		victus_s_unregister_powersource_event_handler();
 
-	if (wmi_has_guid(HPWMI_EVENT_GUID))
+	if (wmi_has_guid(HPWMI_EVENT_GUID) && !disable_input_event_path)
 		hp_wmi_input_destroy();
 
 	if (camera_shutter_input_dev)

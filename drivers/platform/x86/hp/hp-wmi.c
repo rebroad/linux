@@ -376,6 +376,9 @@ static bool zero_insize_support;
 static bool disable_input_event_path;
 module_param(disable_input_event_path, bool, 0644);
 MODULE_PARM_DESC(disable_input_event_path, "Disable HP WMI input/notify hotkey path while keeping BIOS/platform features");
+static bool debug_log_events;
+module_param(debug_log_events, bool, 0644);
+MODULE_PARM_DESC(debug_log_events, "Log raw HP WMI event_id/event_data in hp_wmi_notify");
 
 static struct rfkill *wifi_rfkill;
 static struct rfkill *bluetooth_rfkill;
@@ -1021,6 +1024,9 @@ static void hp_wmi_notify(union acpi_object *obj, void *context)
 		pr_info("Unknown buffer length %d\n", obj->buffer.length);
 		return;
 	}
+
+	if (debug_log_events)
+		pr_info("event_id=0x%x event_data=0x%x len=%u\n", event_id, event_data, obj->buffer.length);
 
 	switch (event_id) {
 	case HPWMI_DOCK_EVENT:

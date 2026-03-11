@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/string_helpers.h>
 
 #include <drm/drm_atomic.h>
@@ -240,6 +241,51 @@ static bool drm_connector_enabled(struct drm_connector *connector, bool strict)
 		enable = connector->status != connector_status_disconnected;
 
 	return enable;
+}
+
+static bool drm_connector_is_internal(struct drm_connector *connector)
+{
+	switch (connector->connector_type) {
+	case DRM_MODE_CONNECTOR_eDP:
+	case DRM_MODE_CONNECTOR_LVDS:
+	case DRM_MODE_CONNECTOR_DSI:
+	case DRM_MODE_CONNECTOR_DPI:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static void drm_client_prefer_external_connectors(struct drm_connector *connectors[],
+						  unsigned int connector_count,
+						  bool enabled[])
+{
+	bool have_external = false;
+	bool have_internal = false;
+	int i;
+
+	for (i = 0; i < connector_count; i++) {
+		if (!enabled[i])
+			continue;
+		if (drm_connector_is_internal(connectors[i]))
+			have_internal = true;
+		else
+			have_external = true;
+	}
+
+	if (!have_external || !have_internal)
+		return;
+
+	for (i = 0; i < connector_count; i++) {
+		if (!enabled[i])
+			continue;
+		if (drm_connector_is_internal(connectors[i])) {
+			enabled[i] = false;
+			drm_dbg_kms(connectors[i]->dev,
+					"[CONNECTOR:%d:%s] disabled (prefer external)\n",
+					connectors[i]->base.id, connectors[i]->name);
+		}
+	}
 }
 
 static void drm_client_connectors_enabled(struct drm_connector *connectors[],
@@ -870,6 +916,8 @@ int drm_client_modeset_probe(struct drm_client_dev *client, unsigned int width, 
 	if (!total_modes_count)
 		drm_dbg_kms(dev, "No connectors reported connected with modes\n");
 	drm_client_connectors_enabled(connectors, connector_count, enabled);
+	if (client->name && !strcmp(client->name, "fbdev"))
+		drm_client_prefer_external_connectors(connectors, connector_count, enabled);
 
 	if (!drm_client_firmware_config(client, connectors, connector_count, crtcs,
 					modes, offsets, enabled, width, height)) {

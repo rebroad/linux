@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: build-secureboot-debs.sh [--jobs N] [--localversion SUFFIX]
+
+Build Debian kernel packages from the current linux tree, sign modules with
+your MOK key, and produce Secure Boot-signed linux-image*.deb packages.
+
+Defaults:
+  MOK_PRIV=~/src/rebroad-mok.priv
+  MOK_CERT=~/src/rebroad-mok.der
+  LOCALVERSION=+rebroad
+USAGE
+}
+
+jobs="${JOBS:-$(nproc)}"
+localversion="${LOCALVERSION:-+rebroad}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --jobs)
+      jobs="$2"
+      shift 2
+      ;;
+    --localversion)
+      localversion="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "error: unknown arg: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$repo_root" ]]; then
+  echo "error: run inside linux git repo" >&2
+  exit 1
+fi
+cd "$repo_root"
+
+for cmd in make openssl sbsign dpkg-deb; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    echo "error: missing command: $cmd" >&2
+    exit 1
+  }
+done
+
+mok_priv="${MOK_PRIV:-$HOME/src/rebroad-mok.priv}"
+mok_cert="${MOK_CERT:-$HOME/src/rebroad-mok.der}"
+
+[[ -f "$mok_priv" ]] || { echo "error: missing MOK key: $mok_priv" >&2; exit 1; }
+[[ -f "$mok_cert" ]] || { echo "error: missing MOK cert: $mok_cert" >&2; exit 1; }
+[[ -f .config ]] || { echo "error: missing .config in repo root" >&2; exit 1; }
+[[ -x ./scripts/config ]] || { echo "error: scripts/config is required" >&2; exit 1; }
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+cert_pem="$tmpdir/mok-cert.pem"
+case "$mok_cert" in
+  *.der|*.DER) openssl x509 -inform DER -in "$mok_cert" -out "$cert_pem" ;;
+  *) cp "$mok_cert" "$cert_pem" ;;
+esac
+
+# Kernel module signing expects a PEM containing key + cert.
+module_sig_pem="$tmpdir/module-signing-key.pem"
+cat "$mok_priv" "$cert_pem" > "$module_sig_pem"
+chmod 600 "$module_sig_pem"
+
+echo "Setting module signing config..."
+./scripts/config --file .config --enable MODULE_SIG
+./scripts/config --file .config --enable MODULE_SIG_ALL
+./scripts/config --file .config --set-str MODULE_SIG_KEY "$module_sig_pem"
+./scripts/config --file .config --set-str SYSTEM_TRUSTED_KEYS ""
+./scripts/config --file .config --set-str SYSTEM_REVOCATION_KEYS "" || true
+make olddefconfig >/dev/null
+
+stamp="$tmpdir/build.stamp"
+touch "$stamp"
+
+echo "Building bindeb-pkg (jobs=$jobs, LOCALVERSION=$localversion)..."
+if command -v fakeroot >/dev/null 2>&1; then
+  fakeroot make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion"
+else
+  make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion"
+fi
+
+pkg_dir="$(dirname "$repo_root")"
+mapfile -t image_pkgs < <(find "$pkg_dir" -maxdepth 1 -type f \
+  \( -name 'linux-image-*.deb' -o -name 'linux-image-unsigned-*.deb' \) \
+  -newer "$stamp" | sort)
+
+if [[ ${#image_pkgs[@]} -eq 0 ]]; then
+  echo "error: no new linux-image debs found under $pkg_dir" >&2
+  exit 1
+fi
+
+sign_image_deb() {
+  local deb="$1"
+  local work out
+
+  work="$(mktemp -d)"
+  dpkg-deb -R "$deb" "$work/root"
+
+  mapfile -t vmlinuz_files < <(find "$work/root/boot" -maxdepth 1 -type f -name 'vmlinuz-*' 2>/dev/null || true)
+  for vmlinuz in "${vmlinuz_files[@]}"; do
+    sbsign --key "$mok_priv" --cert "$cert_pem" --output "${vmlinuz}.signed" "$vmlinuz" >/dev/null
+    mv -f "${vmlinuz}.signed" "$vmlinuz"
+  done
+
+  if [[ -f "$work/root/DEBIAN/md5sums" ]]; then
+    (
+      cd "$work/root"
+      find . -type f ! -path './DEBIAN/*' -printf '%P\n' | sort | xargs -r md5sum
+    ) > "$work/root/DEBIAN/md5sums"
+  fi
+
+  out="${deb%.deb}.secureboot-signed.deb"
+  dpkg-deb -b "$work/root" "$out" >/dev/null
+  rm -rf "$work"
+  echo "$out"
+}
+
+echo "Signing kernel image debs for Secure Boot..."
+for deb in "${image_pkgs[@]}"; do
+  signed="$(sign_image_deb "$deb")"
+  echo "  $deb -> $signed"
+done
+
+echo "Done."

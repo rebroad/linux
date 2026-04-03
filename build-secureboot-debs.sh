@@ -4,6 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage: build-secureboot-debs.sh [--jobs N] [--localversion SUFFIX] [--check-only]
+                                [--use-running-config|--no-use-running-config]
 
 Build Debian kernel packages from the current linux tree, sign modules with
 your MOK key, and produce Secure Boot-signed linux-image*.deb packages.
@@ -18,6 +19,7 @@ USAGE
 jobs="${JOBS:-$(nproc)}"
 localversion="${LOCALVERSION:-+rebroad}"
 check_only=0
+use_running_config=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,6 +33,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --check-only)
       check_only=1
+      shift
+      ;;
+    --use-running-config)
+      use_running_config=1
+      shift
+      ;;
+    --no-use-running-config)
+      use_running_config=0
       shift
       ;;
     -h|--help)
@@ -64,8 +74,17 @@ mok_cert="${MOK_CERT:-$HOME/src/rebroad-mok.der}"
 
 [[ -f "$mok_priv" ]] || { echo "error: missing MOK key: $mok_priv" >&2; exit 1; }
 [[ -f "$mok_cert" ]] || { echo "error: missing MOK cert: $mok_cert" >&2; exit 1; }
-[[ -f .config ]] || { echo "error: missing .config in repo root" >&2; exit 1; }
 [[ -x ./scripts/config ]] || { echo "error: scripts/config is required" >&2; exit 1; }
+
+running_cfg="/boot/config-$(uname -r)"
+if [[ "$use_running_config" -eq 1 ]]; then
+  [[ -f "$running_cfg" ]] || {
+    echo "error: running-kernel config not found: $running_cfg" >&2
+    exit 1
+  }
+else
+  [[ -f .config ]] || { echo "error: missing .config in repo root" >&2; exit 1; }
+fi
 
 if [[ "$check_only" -eq 1 ]]; then
   echo "Preflight OK:"
@@ -74,7 +93,16 @@ if [[ "$check_only" -eq 1 ]]; then
   echo "  MOK cert: $mok_cert"
   echo "  jobs: $jobs"
   echo "  localversion: $localversion"
+  echo "  use-running-config: $use_running_config"
+  if [[ "$use_running_config" -eq 1 ]]; then
+    echo "  running config: $running_cfg"
+  fi
   exit 0
+fi
+
+if [[ "$use_running_config" -eq 1 ]]; then
+  echo "Using running kernel config: $running_cfg"
+  cp "$running_cfg" .config
 fi
 
 tmpdir="$(mktemp -d)"

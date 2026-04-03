@@ -3,18 +3,45 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: rebase-master-to-running-kernel.sh [kernel-release]
+Usage: rebase-master-to-running-kernel.sh [--from REF] [kernel-release]
 
 Rebase the current repo's master branch onto upstream tag vX.Y.Z that matches:
 - the provided kernel release, or
 - `uname -r` when omitted.
+
+By default, only local commits in `origin/master..master` are rebased.
+Use `--from REF` to rebase commits in `REF..master` instead.
 USAGE
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
+from_ref="origin/master"
+release=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from)
+      from_ref="${2:-}"
+      if [[ -z "$from_ref" ]]; then
+        echo "error: --from requires a ref" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -n "$release" ]]; then
+        echo "error: unexpected extra argument: $1" >&2
+        usage >&2
+        exit 1
+      fi
+      release="$1"
+      shift
+      ;;
+  esac
+done
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "$repo_root" ]]; then
@@ -33,7 +60,7 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
-release="${1:-$(uname -r)}"
+release="${release:-$(uname -r)}"
 base_ver="$(sed -E 's/^([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/' <<<"$release")"
 if [[ -z "$base_ver" ]]; then
   echo "error: cannot parse kernel version from '$release'" >&2
@@ -52,11 +79,22 @@ fi
 echo "Checking out master..."
 git checkout master >/dev/null
 
-fork_point="$(git merge-base --fork-point upstream/master master 2>/dev/null || true)"
-if [[ -z "$fork_point" ]]; then
-  fork_point="$(git merge-base upstream/master master)"
+if ! git rev-parse -q --verify "$from_ref^{commit}" >/dev/null; then
+  echo "error: ref '$from_ref' does not resolve to a commit" >&2
+  exit 1
 fi
 
-echo "Rebasing commits after ${fork_point} onto ${target_tag}..."
-git rebase --onto "$target_tag" "$fork_point" master
+if ! git merge-base --is-ancestor "$from_ref" master; then
+  echo "error: '$from_ref' is not an ancestor of master" >&2
+  echo "hint: choose an ancestor ref for --from" >&2
+  exit 1
+fi
+
+if [[ "$(git rev-list --count "${from_ref}..master")" -eq 0 ]]; then
+  echo "No commits to rebase in ${from_ref}..master. Nothing to do."
+  exit 0
+fi
+
+echo "Rebasing commits in ${from_ref}..master onto ${target_tag}..."
+git rebase --onto "$target_tag" "$from_ref" master
 echo "Done."

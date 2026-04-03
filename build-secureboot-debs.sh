@@ -76,6 +76,17 @@ mok_cert="${MOK_CERT:-$HOME/src/rebroad-mok.der}"
 [[ -f "$mok_cert" ]] || { echo "error: missing MOK cert: $mok_cert" >&2; exit 1; }
 [[ -x ./scripts/config ]] || { echo "error: scripts/config is required" >&2; exit 1; }
 
+if head -n1 "$mok_priv" 2>/dev/null | grep -q '^version https://git-lfs.github.com/spec/v1$'; then
+  echo "error: MOK key file looks like a Git LFS pointer, not real key material: $mok_priv" >&2
+  echo "hint: fetch real LFS objects or point MOK_PRIV to an actual private key file" >&2
+  exit 1
+fi
+if head -n1 "$mok_cert" 2>/dev/null | grep -q '^version https://git-lfs.github.com/spec/v1$'; then
+  echo "error: MOK cert file looks like a Git LFS pointer, not real cert material: $mok_cert" >&2
+  echo "hint: fetch real LFS objects or point MOK_CERT to an actual x509 cert file" >&2
+  exit 1
+fi
+
 running_cfg="/boot/config-$(uname -r)"
 if [[ "$use_running_config" -eq 1 ]]; then
   [[ -f "$running_cfg" ]] || {

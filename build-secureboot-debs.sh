@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: build-secureboot-debs.sh [--jobs N] [--localversion SUFFIX]
+Usage: build-secureboot-debs.sh [--jobs N] [--localversion SUFFIX] [--check-only]
 
 Build Debian kernel packages from the current linux tree, sign modules with
 your MOK key, and produce Secure Boot-signed linux-image*.deb packages.
@@ -17,6 +17,7 @@ USAGE
 
 jobs="${JOBS:-$(nproc)}"
 localversion="${LOCALVERSION:-+rebroad}"
+check_only=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -27,6 +28,10 @@ while [[ $# -gt 0 ]]; do
     --localversion)
       localversion="$2"
       shift 2
+      ;;
+    --check-only)
+      check_only=1
+      shift
       ;;
     -h|--help)
       usage
@@ -61,6 +66,16 @@ mok_cert="${MOK_CERT:-$HOME/src/rebroad-mok.der}"
 [[ -f "$mok_cert" ]] || { echo "error: missing MOK cert: $mok_cert" >&2; exit 1; }
 [[ -f .config ]] || { echo "error: missing .config in repo root" >&2; exit 1; }
 [[ -x ./scripts/config ]] || { echo "error: scripts/config is required" >&2; exit 1; }
+
+if [[ "$check_only" -eq 1 ]]; then
+  echo "Preflight OK:"
+  echo "  repo: $repo_root"
+  echo "  MOK key: $mok_priv"
+  echo "  MOK cert: $mok_cert"
+  echo "  jobs: $jobs"
+  echo "  localversion: $localversion"
+  exit 0
+fi
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT

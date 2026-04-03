@@ -9,12 +9,13 @@ Rebase the current repo's master branch onto upstream tag vX.Y.Z that matches:
 - the provided kernel release, or
 - `uname -r` when omitted.
 
-By default, only local commits in `origin/master..master` are rebased.
-Use `--from REF` to rebase commits in `REF..master` instead.
+By default, rebases commits in `<base-tag>..master`, where `<base-tag>` is the
+nearest stable tag (vX.Y.Z) on master's first-parent chain.
+Use `--from REF` to override the base explicitly.
 USAGE
 }
 
-from_ref="origin/master"
+from_ref=""
 release=""
 
 while [[ $# -gt 0 ]]; do
@@ -78,6 +79,14 @@ fi
 
 echo "Checking out master..."
 git checkout master >/dev/null
+
+if [[ -z "$from_ref" ]]; then
+  from_ref="$(git describe --first-parent --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 master 2>/dev/null || true)"
+  if [[ -z "$from_ref" ]]; then
+    echo "error: could not auto-detect base stable tag on master; use --from REF" >&2
+    exit 1
+  fi
+fi
 
 if ! git rev-parse -q --verify "$from_ref^{commit}" >/dev/null; then
   echo "error: ref '$from_ref' does not resolve to a commit" >&2

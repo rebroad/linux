@@ -5,6 +5,7 @@ usage() {
   cat <<'USAGE'
 Usage: build-secureboot-debs.sh [--jobs N] [--localversion SUFFIX] [--check-only]
                                 [--use-running-config|--no-use-running-config]
+                                [--clean]
 
 Build Debian kernel packages from the current linux tree, sign modules with
 your MOK key, and produce Secure Boot-signed linux-image*.deb packages.
@@ -20,6 +21,7 @@ jobs="${JOBS:-$(nproc)}"
 localversion="${LOCALVERSION:-+rebroad}"
 check_only=0
 use_running_config=1
+do_clean=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -43,6 +45,10 @@ while [[ $# -gt 0 ]]; do
       use_running_config=0
       shift
       ;;
+    --clean)
+      do_clean=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -61,6 +67,9 @@ if [[ -z "$repo_root" ]]; then
   exit 1
 fi
 cd "$repo_root"
+
+# Force large temporary artifacts into /var/tmp (not /tmp).
+export TMPDIR="/var/tmp"
 
 for cmd in make openssl sbsign dpkg-deb; do
   command -v "$cmd" >/dev/null 2>&1 || {
@@ -105,6 +114,7 @@ if [[ "$check_only" -eq 1 ]]; then
   echo "  jobs: $jobs"
   echo "  localversion: $localversion"
   echo "  use-running-config: $use_running_config"
+  echo "  clean-before-build: $do_clean"
   if [[ "$use_running_config" -eq 1 ]]; then
     echo "  running config: $running_cfg"
   fi
@@ -116,7 +126,12 @@ if [[ "$use_running_config" -eq 1 ]]; then
   cp "$running_cfg" .config
 fi
 
-tmpdir="$(mktemp -d)"
+if [[ "$do_clean" -eq 1 ]]; then
+  echo "Cleaning tree before build..."
+  make clean
+fi
+
+tmpdir="$(mktemp -d -p /var/tmp)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 cert_pem="$tmpdir/mok-cert.pem"
@@ -141,14 +156,66 @@ make olddefconfig >/dev/null
 stamp="$tmpdir/build.stamp"
 touch "$stamp"
 
+print_space_context() {
+  local tmp_base="/var/tmp"
+  echo "Filesystem space context:"
+  df -hP "$repo_root" "$pkg_dir" "$tmp_base" 2>/dev/null | awk '!seen[$0]++'
+  echo
+  echo "Filesystem inode context:"
+  df -iP "$repo_root" "$pkg_dir" "$tmp_base" 2>/dev/null | awk '!seen[$0]++'
+}
+
 echo "Building bindeb-pkg (jobs=$jobs, LOCALVERSION=$localversion)..."
+pkg_dir="$(dirname "$repo_root")"
+build_log="$tmpdir/bindeb-pkg.log"
+set +e
 if command -v fakeroot >/dev/null 2>&1; then
-  fakeroot make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion"
+  fakeroot make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion" 2>&1 \
+    | tee "$build_log" \
+    | awk '
+      /No space left on device/ {
+        nospace++
+        if (nospace == 1) {
+          print "[ENOSPC] No space left on device detected; suppressing repeated lines..."
+        }
+        next
+      }
+      { print }
+      END {
+        if (nospace > 1) {
+          printf "[ENOSPC] Suppressed %d repeated ENOSPC lines.\n", nospace
+        }
+      }'
+  build_status=${PIPESTATUS[0]}
 else
-  make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion"
+  make -j"$jobs" bindeb-pkg LOCALVERSION="$localversion" 2>&1 \
+    | tee "$build_log" \
+    | awk '
+      /No space left on device/ {
+        nospace++
+        if (nospace == 1) {
+          print "[ENOSPC] No space left on device detected; suppressing repeated lines..."
+        }
+        next
+      }
+      { print }
+      END {
+        if (nospace > 1) {
+          printf "[ENOSPC] Suppressed %d repeated ENOSPC lines.\n", nospace
+        }
+      }'
+  build_status=${PIPESTATUS[0]}
+fi
+set -e
+
+if [[ "$build_status" -ne 0 ]]; then
+  if grep -q "No space left on device" "$build_log"; then
+    echo "error: build failed due to insufficient disk space."
+    print_space_context
+  fi
+  exit "$build_status"
 fi
 
-pkg_dir="$(dirname "$repo_root")"
 mapfile -t image_pkgs < <(find "$pkg_dir" -maxdepth 1 -type f \
   \( -name 'linux-image-*.deb' -o -name 'linux-image-unsigned-*.deb' \) \
   -newer "$stamp" | sort)

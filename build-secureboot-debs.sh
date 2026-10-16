@@ -252,9 +252,52 @@ sign_image_deb() {
 }
 
 echo "Signing kernel image debs for Secure Boot..."
+signed_image_pkgs=()
 for deb in "${image_pkgs[@]}"; do
   signed="$(sign_image_deb "$deb")"
+  signed_image_pkgs+=("$signed")
   echo "  $deb -> $signed"
 done
 
+mapfile -t all_built_debs < <(find "$pkg_dir" -maxdepth 1 -type f -name '*.deb' -newer "$stamp" | sort)
+mapfile -t headers_pkgs < <(printf '%s\n' "${all_built_debs[@]}" | grep '/linux-headers-.*\.deb$' || true)
+mapfile -t libc_pkgs < <(printf '%s\n' "${all_built_debs[@]}" | grep '/linux-libc-dev_.*\.deb$' || true)
+mapfile -t dbg_pkgs < <(printf '%s\n' "${all_built_debs[@]}" | grep '/linux-image-.*-dbg_.*\.deb$' || true)
+
+recommended_image=""
+recommended_headers=""
+recommended_libc=""
+if [[ ${#signed_image_pkgs[@]} -gt 0 ]]; then
+  recommended_image="${signed_image_pkgs[-1]}"
+fi
+if [[ ${#headers_pkgs[@]} -gt 0 ]]; then
+  recommended_headers="${headers_pkgs[-1]}"
+fi
+if [[ ${#libc_pkgs[@]} -gt 0 ]]; then
+  recommended_libc="${libc_pkgs[-1]}"
+fi
+
+echo
 echo "Done."
+echo "Build artifacts directory: $pkg_dir"
+echo
+if [[ -n "$recommended_image" ]]; then
+  echo "Recommended install:"
+  if [[ -n "$recommended_headers" ]]; then
+    echo "  sudo dpkg -i \"$recommended_image\" \"$recommended_headers\""
+  else
+    echo "  sudo dpkg -i \"$recommended_image\""
+  fi
+else
+  echo "warning: no secureboot-signed linux-image package found."
+fi
+
+if [[ -n "$recommended_libc" ]]; then
+  echo "Optional (kernel userspace headers):"
+  echo "  sudo dpkg -i \"$recommended_libc\""
+fi
+
+if [[ ${#dbg_pkgs[@]} -gt 0 ]]; then
+  echo "Optional (debug symbols, very large):"
+  echo "  ${dbg_pkgs[-1]}"
+fi

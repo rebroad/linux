@@ -736,8 +736,12 @@ broader filesystem coverage and host rollout remain open.
   history still contained the mistaken style commit. To avoid a force-push, a
   clean branch was created by replaying the four substantive commits; its tree
   matches the corrected tree exactly. Opened draft [PR #1202](https://github.com/openSUSE/snapper/pull/1202)
-  and closed #1201 with a superseding link. At the last check #1202 CI was
-  running and no maintainer review was recorded.
+  and closed #1201 with a superseding link. On #1202, Debian, Fedora, Leap,
+  Ubuntu, and codespell passed. Both Tumbleweed compiler jobs stopped during
+  dependency installation because the repository metadata selected conflicting
+  `libeconf0` versions; neither reached checkout or compilation. A rerun request
+  was denied because this account lacks repository admin rights. No maintainer
+  review was recorded.
 
 ## Host containment status check (2026-10-17 19:53 local)
 

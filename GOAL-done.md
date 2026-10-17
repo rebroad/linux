@@ -203,7 +203,27 @@ broader filesystem coverage and host rollout remain open.
   written. They do not identify an empty level-2 qgroup left by interruption
   immediately after qgroup creation; safely distinguishing such an orphan
   from a deliberately empty qgroup remains open, along with concurrent
-  tracker creation and compressed extents.
+  tracker creation and broader compressed-extent layouts.
+
+## Compressed extent tracker recovery (2026-10-17)
+
+- A follow-up QEMU run used Snapper 0.10.6, the Debian
+  `7.1.13+deb13-amd64` kernel image, and the matching custom Btrfs module. The
+  fixture verified that an 8 MiB zero-filled file was stored in actual Zstd
+  extents, then began with the source qgroup outside level-2 tracker `2/0` and
+  the snapshot-only QGROUP as its sole child.
+- Snapper restored the missing source relation with zero rescans. Four further
+  hourly snapshots and timeline cleanup completed without a `qgroup marked
+  inconsistent` warning or an additional scan. An explicit full rescan after
+  cleanup changed no qgroup counters, and a post-cleanup snapshot also passed.
+  The run reported `SNAPPER-0106-INTEGRATION: PASS`; its log is
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106compressed.log`.
+- The first version of this check incorrectly required tracker recovery to
+  launch a scan. That requirement was removed: the Snapper code starts one
+  only when Btrfs reports inconsistent accounting. The corrected check verifies
+  the missing relation before recovery, its restoration afterward, and counter
+  stability against an explicit full rescan. This covers one compressed
+  workload, not varied compression formats or concurrent configurations.
 
 ## Temporary host containment (2026-10-17)
 

@@ -9,10 +9,11 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 1. **Harden the tracking-parent design.** The level-2 tracker and revised
    snapshot-parent exclusive-count update passed QEMU workloads with outside
-   shared extents and the installed Snapper version. Check compression,
-   duplicate/concurrent Snapper configs, and safe handling of an empty orphan
-   tracker left if interrupted between qgroup creation and its first member
-   assignment. Recovery from a one-sided tracker relation is now tested.
+   shared extents and the installed Snapper version. A Zstd-compressed extent
+   also passed the one-sided tracker-recovery workload. Still check varied
+   compressed layouts, duplicate/concurrent Snapper configs, and safe handling
+   of an empty orphan tracker left if interrupted between qgroup creation and
+   its first member assignment.
 2. **Expand accounting verification.** Test more varied extent layouts and
    cleanup sequences on the Debian `7.1.13+deb13-amd64` kernel, comparing
    incremental counters with a full rescan. The tested fixture covers one

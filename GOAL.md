@@ -39,7 +39,8 @@ their cause, not by hiding inconsistency or weakening accounting.
    also passed a fresh-filesystem QEMU run that repairs an interrupted
    config-only tracker, completes successive hourly snapshots and timeline
    cleanup, and preserves counters across a full rescan. The exact-current
-   Debian Snapper quota-limit test passed with the 7.1.13 candidate module.
+   Debian Snapper quota-limit test passed with the
+   `7.1.13+deb13-amd64` candidate module, matching the running kernel.
    Extend coverage only for additional Btrfs layouts needed to support the
    paired patch, using the same kernel release.
 4. **Investigate reported stalls independently.** Capture task stacks,

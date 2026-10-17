@@ -283,3 +283,46 @@ broader filesystem coverage and host rollout remain open.
   superseded by the root-cause objective. Its QEMU fixture did not establish
   successful suspend/resume behavior; do not treat it as validated or active
   work.
+
+## Snapper tracking-parent diagnosis and verification (2026-10-17)
+
+- The live Kingston configs are correctly split: `root` uses `QGROUP=1/100`,
+  `home` uses `QGROUP=1/101`. Source subvolumes `0/256` (`@`) and `0/257`
+  (`@home`) have no parent qgroups; their snapshots inherit into the
+  corresponding level-1 snapshot group. The live qgroup table had no level-2
+  tracking qgroups.
+- The host's installed Snapper is Debian `0.10.6-1.2` (binary and library
+  timestamps 2024-09-10). Its library has no
+  `Btrfs::prepareQGroupTracking()` symbol. The checked-out 0.10.6 backport does
+  have that function. Linux `v7.1.13` returns the rescan-required result when
+  snapshot inheritance adds a parent to a source qgroup with no existing
+  parent; `btrfs_qgroup_inherit()` then marks accounting inconsistent. This
+  explains the repeated warnings without indicating a kernel accounting bug:
+  the old Snapper path creates snapshots under the snapshot-only qgroup but
+  never establishes the level-2 parent needed for exact incremental updates.
+- A QEMU control using the installed Debian Snapper binary and the same
+  cleanup-enabled timeline workload reproduced the hourly cycle. After each
+  full rescan cleared the flag, the next snapshot round emitted
+  `qgroup inherit needs a rescan`; this happened in all three rounds. The
+  resulting snapshots were parented under `1/0` and `1/1`, with no level-2
+  tracking qgroup. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106_old.log`.
+- The current source build passed the two-config QEMU timeline workload with
+  outside shared extents: one initial tracker scan per config, then three
+  hourly rounds and timeline cleanup without additional scans or inconsistency.
+  A final full rescan changed no qgroup counters. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106multi.current.log`.
+- The current build also passed eight simultaneous first snapshots after
+  adding retry behavior for a level-2 qgroup ID collision (`EEXIST`). The test
+  verified distinct trackers and unchanged counters after a full rescan. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106concurrent.retry.log`.
+- Snapper commits `770bf48e` (tracking-parent backport) and `9c04b2e2`
+  (concurrent tracker-ID collision retry) are pushed to
+  `origin/codex/qgroup-root-cause-0.10.6`. The full build succeeded after
+  installing `libext2fs-dev`, needed by the unrelated `mksubvolume` utility.
+- The patch is not installed on the host. The timeline wrapper's explicit
+  rescan block remains commented out; timeline runs at 12:00, 13:00, and
+  14:00 continued without launching rescans. At the latest check,
+  `btrfs quota rescan -s /mnt/kingston` reported no operation in progress,
+  while qgroup show still warned that data was inconsistent. Broader layout
+  testing and deliberate rollout remain open.

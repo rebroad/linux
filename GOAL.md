@@ -7,36 +7,31 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 ## Remaining work
 
-1. **Harden the tracking-parent design.** The level-2 tracker and revised
-   snapshot-parent exclusive-count update passed QEMU workloads with outside
-   shared extents and the installed Snapper version. Zstd-compressed extents
-   and a sequential two-config `root`/`home` workload also passed. Each fresh
-   config needed one setup rescan; subsequent hourly snapshots and cleanup did
-   not. Still check concurrent tracker creation, varied compressed layouts,
-   and safe handling of an empty orphan tracker left if interrupted between
-   qgroup creation and its first member assignment.
-2. **Expand accounting verification.** Test more varied extent layouts and
-   cleanup sequences on the Debian `7.1.13+deb13-amd64` kernel, comparing
-   incremental counters with a full rescan. The tested fixture covers one
-   legacy two-snapshot layout, hourly creation, and timeline cleanup; it does
-   not cover every filesystem feature or workload.
-3. **Keep the host rollout gated.** The `v0.10.6` Snapper backport is built
-   and tested in QEMU, but neither it nor the custom Btrfs module is installed
-   on the host. Preserve the temporary host containment until broader tests
-   and a deliberate rollout are complete.
-4. **Investigate reported stalls independently.** Capture useful task stacks,
+1. **Expand accounting verification.** The Snapper tracking-parent change and
+   concurrent qgroup-ID collision retry now pass the tested two-config hourly
+   workload, timeline cleanup, and eight simultaneous first snapshots on the
+   Debian `7.1.13+deb13-amd64` kernel. Extend coverage to varied extent layouts,
+   compression, and safe recovery from an empty orphan tracker left if
+   interrupted between qgroup creation and its first member assignment.
+2. **Keep the host rollout gated.** The `v0.10.6` Snapper backport is built
+   and QEMU-tested, but the host still runs Debian Snapper `0.10.6-1.2`, which
+   predates the tracking-parent fix. Neither the backport nor custom Btrfs
+   module is installed. Keep the timeline wrapper's explicit rescan block
+   disabled until broader tests and deliberate rollout are complete.
+3. **Investigate reported stalls independently.** Capture useful task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning
    alone.
-5. **Handle upstream work if warranted.** Search for an existing report if
-   testing demonstrates a Btrfs bug. If none exists, prepare a focused report
-   and patch for the right venue, and present the draft for review before
-   submitting it.
-6. **Keep temporary host containment deliberate.** The timeline wrapper's
-   explicit rescan block remains disabled, and quota-aware Snapper cleanup is
-   temporarily paused. Verify effective behavior so no rescan source is
-   overlooked. Restore the original `SPACE_LIMIT="0.5"` settings only after
-   the accounting fix is verified and automated rescans are safe.
+4. **Handle upstream work if warranted.** Current evidence points to the
+   installed Snapper version omitting the tracking-parent setup, while the
+   kernel's rescan fallback is expected for that qgroup hierarchy. Search for
+   an existing Snapper report before proposing an upstream submission; report
+   a kernel bug only if further tests show the fixed hierarchy still needs an
+   unnecessary rescan or miscounts extents.
+5. **Preserve temporary host containment.** Confirm the wrapper still skips
+   automatic rescans while snapshots continue. Restore the original
+   `SPACE_LIMIT="0.5"` settings only after the patched Snapper is deliberately
+   deployed and its initialization scan and cleanup behavior are verified.
 
 ## Acceptance
 

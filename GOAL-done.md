@@ -69,10 +69,9 @@ This file records verified findings that inform the active tasks in
   metadata and passes `QGROUP` to the snapshot ioctl. Creation itself does not
   run the cleanup algorithm. The wrapper's own later rescan block was a
   separate path. The packaged `snapper-cleanup` service is another path to
-  space-aware qgroup queries. In the current environment, systemd reports its
-  timer enabled and active. Reading the live mounted Snapper configs was denied
-  by the environment, so current `SPACE_LIMIT` values and whether the active
-  timer will enter the quota-aware branch remain unverified here.
+  space-aware qgroup queries. Systemd reports its timer enabled and active.
+  Privileged inspection confirmed that the system and Kingston configs had
+  `SPACE_LIMIT="0.5"` before temporary containment was applied.
 - The current evidence explains why the inconsistency flag is set and why a
   scan can later start, but it does not establish an acceptable replacement
   accounting model. No kernel or Snapper code fix has been selected.
@@ -89,17 +88,28 @@ This file records verified findings that inform the active tasks in
   It accounts the live source together with the snapshots; the earlier
   snapshot-only reproduction reported just 16,384 exclusive bytes for the
   same source data shared with the live source. This layout prevents the
-  inconsistency but changes the cleanup metric, so it is not itself an
-  acceptable fix.
+  inconsistency only while the parent exclusively owns all referenced
+  extents. It changes the cleanup metric, so it is not itself an acceptable
+  fix.
 - A second run waited for `btrfs subvolume sync` after deleting one of three
   snapshots. The deleted qgroup disappeared, the shared parent counters
   decreased by one nodesize, and the filesystem remained consistent with no
   rescan in progress. This confirms the no-rescan result through completed
   snapshot cleanup for this simple layout.
-- A possible metric such as source-inclusive parent `rfer` minus live-source
-  `rfer` needs further testing. The required test must include extents shared
-  with subvolumes outside the cleanup set, because such extents can make this
-  difference overstate bytes exclusively attributable to the snapshots.
+- A controlled external-sharing run confirmed that source-inclusive parent
+  `rfer` minus live-source `rfer` is not an exact substitute for snapshot-only
+  `exclusive`. With source and snapshots in `1/100`, and a separate outside
+  snapshot sharing their old extents, the 7.1.13 kernel still marked qgroups
+  inconsistent on inherited snapshot creation. After a full rescan, the
+  difference `1/100.rfer - source.rfer` was 4,243,456 bytes, while the
+  snapshot-only `1/101.excl` was 49,152 bytes. The outside shared data makes
+  the first metric overstate bytes exclusively attributable to the cleanup
+  set, and the parent no longer satisfies the kernel's `excl == rfer` fast
+  path condition.
+- Together, these runs show that assigning the source to Snapper's snapshot
+  parent avoids rescans only in the special case where no extent referenced by
+  that parent is also referenced outside it. That condition cannot be assumed
+  for the live filesystem.
 
 ## Temporary host containment (2026-10-17)
 
@@ -118,6 +128,12 @@ This file records verified findings that inform the active tasks in
   cancel or interrupt an in-flight scan. A kernel stack showed the
   `btrfs-qgroup-rescan` worker at 08:52, but the available journal excerpt did
   not establish which command started that scan.
+- The current remaining issue is not explained by a faulty quick-inherit
+  calculation: exact qgroup exclusivity for a snapshot-only set requires
+  knowing which extents overlap with source and external subvolumes. The
+  `v7.1.13` kernel's full-rescan fallback is consistent with Btrfs's documented
+  qgroup model. No evidence currently justifies an upstream bug report or a
+  patch that simply skips the consistency check.
 
 ## Earlier containment and suspend work
 

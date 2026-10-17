@@ -795,8 +795,10 @@ broader filesystem coverage and host rollout remain open.
   the kernel reported device loss, an aborted transaction, and a forced
   read-only transition. The detached device remains represented by a dangling
   sysfs device link. Its logged read-error count continued increasing to
-  64,555 by this check, despite no process namespace currently mounting device
-  major:minor `8:1`.
+  64,555 by this check. The earlier check for a mountinfo entry with the
+  underlying block-device number `8:1` was invalid: Btrfs mountinfo and file
+  descriptors use the filesystem's anonymous `s_dev`, not the member device's
+  major:minor.
 - The current `/mnt/kingston` mount is `/dev/sdb1`, reported at runtime with a
   different filesystem UUID and the detached instance's UUID as its metadata
   UUID. Btrfs retains separate sysfs instances for both. This identity and
@@ -809,7 +811,32 @@ broader filesystem coverage and host rollout remain open.
 - In the exact `7.1.13` source, `btrfs_log_dev_io_error()` increments the read
   error counter when a failed, non-read-ahead read BIO completes. The growing
   counter therefore reflects failed read I/O, rather than repeated reads of a
-  stored statistic. A process-FD scan found no open file on device `8:1`, and
-  the Kingston scrub-status query reported no scrub statistics and a zero rate.
-  The source of these failed reads remains unknown and needs tracing during
-  activity.
+  stored statistic. The earlier process-FD scan for device `8:1` was invalid
+  for the same reason as the mountinfo check; it did not establish that no
+  process held a reference to the detached filesystem.
+
+## Detached-filesystem read-error trace (2026-10-17)
+
+- A bounded kprobe on `btrfs_dev_stat_inc_and_print()`, filtered to read
+  errors, captured 408 events over about three minutes. Repeated call stacks
+  show failed metadata reads during directory enumeration:
+  `btrfs_log_dev_io_error()` → `btrfs_simple_end_io()` → Btrfs metadata block
+  reads and tree search → `btrfs_real_readdir()` → `getdents64()`.
+- The failing reads came from a long-lived Codex app-server thread. Inspecting
+  its current working directory through `/proc` showed Btrfs anonymous device
+  `0:204`; a scan of process working directories and file descriptors found
+  lingering references to that device, while no process mountinfo entry
+  contained it. `BTRFS_IOC_FS_INFO` through the directory handle identified
+  the old filesystem instance whose only device is the disconnected USB
+  `/dev/sda1`. The current `/mnt/kingston` filesystem on `/dev/sdb1` is a
+  distinct instance, although its metadata UUID matches the old instance's
+  filesystem UUID.
+- On that old filesystem handle, `btrfs quota rescan -s` reported no rescan
+  in progress and `btrfs scrub status` returned `EIO`. This establishes a
+  concrete source and caller for the observed read errors. It does not prove
+  that this caused the earlier system-wide stall or the Kingston qgroup
+  inconsistency. The reason the long-lived process retains its old working
+  directory, and whether that explains user-visible stalls, remain open.
+- Tracefs was returned to its original state after capture: no probe or events
+  enabled, tracing disabled for the active tracer, and `current_tracer=nop`.
+  No filesystem repair or process termination was performed.

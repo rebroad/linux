@@ -77,12 +77,17 @@ their cause, not by hiding inconsistency or weakening accounting.
    `7.1.13+deb13-amd64` candidate module, matching the running kernel.
    Extend coverage only for additional Btrfs layouts needed to support the
    paired patch, using the same kernel release.
-5. **Investigate reported stalls independently.** Capture task stacks,
-   transaction state, and storage/I/O evidence during an incident. Investigate
-   why the detached-USB Btrfs instance continues logging read errors after its
-   device disappeared, and correlate that with pressure and blocked metadata
-   operations. Do not infer that Kingston rescans caused the stalls from timing
-   or an inconsistency warning alone.
+5. **Investigate reported stalls independently.** A bounded read-error trace
+   captured failed metadata reads from a detached-USB Btrfs instance during
+   directory enumeration by a long-lived Codex app-server thread. A lingering
+   working-directory reference pins that old filesystem despite no mountinfo
+   entry for it; querying its scrub state returns `EIO`, and no qgroup rescan
+   was active there. Correct the earlier invalid checks that matched the
+   underlying block-device number instead of Btrfs's anonymous filesystem
+   device number. Establish why the process retains that reference and whether
+   it explains any reported application stalls. Keep this investigation
+   separate from the Snapper qgroup trigger; neither trace timing nor an
+   inconsistency warning proves the rescan caused the system-wide stall.
 6. **Preserve temporary host containment.** Confirm the timeline wrapper's
    explicit rescan commands remain disabled while snapshots continue. Monitor
    separately for scans started through Snapper quota-query or kernel

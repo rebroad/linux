@@ -225,6 +225,23 @@ broader filesystem coverage and host rollout remain open.
   stability against an explicit full rescan. This covers one compressed
   workload, not varied compression formats or concurrent configurations.
 
+## Sequential root/home timeline workload (2026-10-17)
+
+- A QEMU integration run used two independent Snapper 0.10.6 configs, `root`
+  and `home`, on one Btrfs filesystem with Zstd compression. Each source also
+  had an outside read-only snapshot sharing its extents. The test created four
+  hourly snapshots per config in the same sequential order as the host timeline
+  wrapper, then ran timeline cleanup for both configs.
+- Fresh tracker creation ran one rescan for `root` and one for `home`. After
+  that initialization, three further hourly rounds and both cleanup passes
+  completed without another qgroup scan or an inconsistency warning. The final
+  hierarchy had independent level-2 trackers `2/0` and `2/1`, each containing
+  its source and configured snapshot QGROUP. A full rescan changed no qgroup
+  counters; the fixture reported `SNAPPER-MULTI: PASS`. Its log is
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106multi.log`.
+- This validates sequential independent configs like the timeline wrapper;
+  simultaneous tracker creation remains untested.
+
 ## Temporary host containment (2026-10-17)
 
 - `snapper-cleanup.timer` is enabled and active; the cleanup service was
@@ -254,6 +271,13 @@ broader filesystem coverage and host rollout remain open.
 - Automated qgroup rescans were disabled in the host timeline wrapper to limit
   instability during investigation. This is temporary containment, not a
   solution to inconsistency.
+- The `snapper-timeline.timer` remains active and its systemd override runs
+  `/usr/local/sbin/snapper-timeline-all-roots`, which still creates snapshots.
+  The 13:00 and 14:00 runs logged both `home` and `root` and no rescan
+  invocation. The rescan block in that wrapper is commented out, and the
+  process list showed no qgroup-rescan worker when checked. A live
+  `btrfs quota rescan -s` status could not be read in this session: the direct
+  ioctl returned `Operation not permitted`, and `sudo -n` required a password.
 - A prior effort explored allowing suspend during a qgroup scan, including a
   7.2.6 worktree patch and an unsent upstream report/patch. That effort was
   superseded by the root-cause objective. Its QEMU fixture did not establish

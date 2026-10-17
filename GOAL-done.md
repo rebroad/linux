@@ -878,3 +878,28 @@ broader filesystem coverage and host rollout remain open.
   exercised through a live daemon in this fixture.
 - On PR #1203 at head `bfdccd03`, all GitHub checks passed, including the GCC
   and Clang test jobs and Codespell.
+
+## Latest Snapper PR head quota acceptance (2026-10-18)
+
+- Rechecked that official `openSUSE/snapper` master remained at
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`, the base of PR #1203. Built
+  the local Snapper checkout at PR head
+  `bfdccd031b16988e132c609205ca6367e1dbfaaf` from the external build tree and
+  tested it with the narrowed candidate Btrfs module for the in-use
+  `7.1.13+deb13-amd64` kernel. The guest printed the candidate module's SHA-256
+  (`de0ef9b7a9b0b0ee609fbbae2e234ba940bfcb70f94d4fc903bc48b370059b96`).
+- The root and home configs initialized with one automatic tracker scan shared
+  across the filesystem. The fixture then ran one explicit reconciliation
+  scan before measuring quota behavior, so both configs began the acceptance
+  workload with consistent counters. Three successive hourly root/home
+  snapshot rounds completed without another scan or inconsistent qgroups.
+- Used-space listing remained available. With `SPACE_LIMIT="1 MiB"`, quota
+  cleanup reduced each configuration from four snapshots to one and reduced
+  its exclusive usage from `6,750,208` bytes to `16,384` bytes. A subsequent
+  full rescan left all qgroup counters unchanged. The guest reported
+  `SNAPPER-QUOTA: PASS`.
+- This direct-library `--no-dbus` test used the stock
+  `7.1.13+deb13-amd64` kernel image with the candidate module. The serial log,
+  generated initrd, test script, and fresh Btrfs image are under
+  `/var/tmp/snapper-pr1203-quota/`; the serial log is
+  `serial.log`. It does not verify the live D-Bus daemon path or host rollout.

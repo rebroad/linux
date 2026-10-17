@@ -103,9 +103,12 @@ quota-based cleanup must wait until the counters are consistent.
    The latest-line build must repair an interrupted config-only tracker,
    complete successive hourly snapshots and timeline cleanup, preserve
    counters across a full rescan, and pass quota-limit cleanup with the
-   `7.1.13+deb13-amd64` candidate module. Repeat quota-limit acceptance on
-   the latest-upstream Snapper build. Extend coverage only for additional Btrfs layouts
-   needed to support the paired patch, using the same kernel release.
+   `7.1.13+deb13-amd64` candidate module. On the current PR #1203 head, the
+   hourly root/home workload, used-space listing, quota-limit cleanup, and
+   post-cleanup counter comparison passed with that module; the exact fixture
+   and results are recorded in `GOAL-done.md`. Extend coverage only for
+   additional Btrfs layouts needed to support the paired patch, using the
+   same kernel release.
 5. **Investigate reported stalls independently.** A bounded read-error trace
    captured failed metadata reads from a detached-USB Btrfs instance during
    directory enumeration by a long-lived Codex app-server thread. A lingering

@@ -696,3 +696,14 @@ broader filesystem coverage and host rollout remain open.
   package names, Secure Boot signing, metapackage tracking, and the update
   automation before choosing it. No local repository or package has been
   created.
+
+## Snapper PR formatting audit (2026-10-17)
+
+- Audited every added C++ line in the clean-history PR branch against Snapper's
+  `.editorconfig`, which specifies tabs for `.cc` and `.h` files. Corrected
+  the added `prepareQGroupTracking()` declaration, opening brace, and closing
+  brace in commit `5a71933a` on the PR branch. The full branch diff now has no
+  added C++ lines indented with spaces, and `git diff --check` passes.
+- All seven PR checks passed on head `5a71933a`. PR #1201 remains an open draft
+  without a maintainer review decision; keep it paired with the kernel patch
+  until review.

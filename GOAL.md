@@ -73,11 +73,12 @@ their cause, not by hiding inconsistency or weakening accounting.
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning
    alone.
-6. **Preserve temporary host containment.** Confirm the wrapper still skips
-   automatic rescans while snapshots continue. Restore the original
-   `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
-   deployed and their initialization scan, quota accounting, and cleanup
-   behavior are verified.
+6. **Preserve temporary host containment.** Confirm the timeline wrapper's
+   explicit rescan commands remain disabled while snapshots continue. Monitor
+   separately for scans started through Snapper quota-query or kernel
+   snapshot-inheritance paths. Restore the original `SPACE_LIMIT="0.5"`
+   settings only after both changes are deliberately deployed and their
+   initialization scan, quota accounting, and cleanup behavior are verified.
 
 ## Acceptance
 

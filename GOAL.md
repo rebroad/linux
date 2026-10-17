@@ -1,9 +1,13 @@
 # Goal: fix Snapper-triggered Btrfs qgroup inconsistency
 
-Find and fix why hourly Snapper snapshots make qgroup accounting
-inconsistent, while preserving accurate accounting and expected cleanup
-behavior. The goal is to eliminate unnecessary full rescans by correcting
-their cause, not by hiding inconsistency or weakening accounting.
+Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
+leave the host with a persistent fix that survives normal package upgrades.
+Preserve accurate accounting and expected cleanup behavior. Avoid unnecessary
+full rescans by correcting their cause, not by hiding inconsistency or
+weakening accounting. Any automatic full rescans that remain necessary must be
+rate-limited to at most one per filesystem in any rolling 24-hour period,
+including across multiple Snapper configurations and repeated triggers; a
+rate limit must never report stale counters as consistent.
 
 ## Remaining work
 
@@ -26,8 +30,11 @@ their cause, not by hiding inconsistency or weakening accounting.
    `prepareQGroupTracking()` change; the stock Snapper baseline leaves the
    source and configured snapshot qgroup without a shared level-2 parent. The
    kernel's no-parent rescan fallback is expected for that baseline, so the
-   kernel change alone will not avoid its scans. The no-rescan candidate is a
-   paired Snapper/kernel path. The RFC, differential results, correction, and
+   kernel change alone will not avoid its scans. Prefer a Snapper-only fix if
+   it can correctly prevent the inconsistency and unnecessary scans. Use the
+   paired Snapper/kernel path only if the kernel change is necessary for
+   correct accounting or to meet the daily rescan ceiling. The RFC,
+   differential results, correction, and
    formal kernel patch have been sent to `linux-btrfs`. No maintainer response
    is recorded yet; continue with review feedback and requested checks. The
    narrowed patch was checked against current upstream source and compiled
@@ -39,14 +46,18 @@ their cause, not by hiding inconsistency or weakening accounting.
    review.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
-   until the paired changes have review and the full accounting/quota checks
-   pass. Keep the timeline wrapper's explicit rescan block disabled and
-   `SPACE_LIMIT` empty during investigation.
-3. **Make the fix durable across APT upgrades.** Choose and document a
-   maintainable, APT-managed deployment for the paired kernel and Snapper
-   changes. It must ensure that a kernel upgrade/reinstall does not silently
-   replace the fixed kernel with an unmodified one, and that Snapper package
-   upgrades/reinstalls retain the fix. Prefer reviewed Debian/upstream
+   until the candidate Snapper change and, if required, its paired kernel
+   change have review and the full accounting/quota checks pass. Keep the
+   timeline wrapper's explicit rescan block disabled and `SPACE_LIMIT` empty
+   during investigation.
+3. **Make the fix durable across APT upgrades.** Prefer a Snapper-only
+   deployment if that fully fixes the cause and satisfies the rescan ceiling.
+   If a kernel/module change is required, choose and document a maintainable,
+   APT-managed deployment for the paired kernel and Snapper changes. It must
+   automatically apply/build and activate the Btrfs fix on every kernel
+   upgrade or reinstall, and ensure an upgrade cannot silently leave or boot
+   an unpatched module; Snapper package upgrades/reinstalls must also retain
+   its fix. Prefer reviewed Debian/upstream
    packages when available; if the host needs locally maintained packages,
    define how they are built, installed, and kept current. Do not depend on a
    manually copied kernel module or silently hold back security updates.
@@ -64,7 +75,9 @@ their cause, not by hiding inconsistency or weakening accounting.
    kernel cannot leave APT upgrades failing or boot an unpatched Btrfs module.
    Before considering the host rollout complete, exercise the relevant APT
    upgrade/reinstall path and verify the running kernel, loaded module, and
-   Snapper package contain the intended fix afterward.
+   Snapper package contain the intended fix afterward. Preserve normal kernel
+   security upgrades; do not rely on manual intervention after each APT
+   kernel upgrade.
 4. **Finish accounting and recovery coverage.** QEMU now covers compressed
    and incompressible data, externally shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
@@ -101,13 +114,17 @@ their cause, not by hiding inconsistency or weakening accounting.
 ## Acceptance
 
 Repeated Snapper-style snapshots and cleanup, including externally shared
-extents, keep qgroup data consistent without unnecessary full rescans on the
-supported kernel path; reference and exclusive counters match a full rescan,
-and quota limits retain their existing snapshot-only scope. The fix remains
-installed and active after kernel and Snapper APT upgrade/reinstall operations,
-with the running kernel, loaded module, and installed Snapper package verified.
-Any remaining limitation or unverified stall hypothesis is documented
-explicitly.
+extents, keep qgroup data consistent; reference and exclusive counters match a
+full rescan, and quota limits retain their existing snapshot-only scope.
+Unnecessary rescans do not recur, and any automatic full rescans that remain
+necessary run no more than once per filesystem in any rolling 24-hour period
+across all triggers.
+Prefer a Snapper-only fix. If the kernel/module must change, it is automatically
+reapplied and active after every kernel APT upgrade/reinstall, without blocking
+security updates; the installed Snapper fix also survives its APT
+upgrade/reinstall. Verify the running kernel, loaded module, Snapper package,
+and rescan rate. Any remaining limitation or unverified stall hypothesis is
+documented explicitly.
 
 ## Completed evidence
 

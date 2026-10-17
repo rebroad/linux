@@ -8,32 +8,28 @@ their cause, not by hiding inconsistency or weakening accounting.
 ## Remaining work
 
 1. **Harden the tracking-parent design.** The level-2 tracker and revised
-   snapshot-parent exclusive-count update passed one QEMU workload with
-   externally shared extents. Check compression, broader sharing patterns,
+   snapshot-parent exclusive-count update passed QEMU workloads with outside
+   shared extents and the installed Snapper version. Check compression,
    duplicate/concurrent Snapper configs, and recovery from a partially created
    tracker before treating the fast path as general.
-2. **Target the deployed Snapper version.** The checkout is now master
-   `0.13.2`, while the installed host binary is `0.10.6`. Port and build the
-   Snapper change against `v0.10.6`, then verify the exact installed-version
-   path without enabling host rescans.
-3. **Verify automatic cleanup semantics.** The explicit Snapper deletion run
-   passed the full-rescan counter oracle. The QEMU timeline-retention fixture
-   selected different snapshots than expected and did not complete its
-   assertion; correct that fixture and verify the real cleanup algorithm,
-   qgroup membership, and retained-space decisions.
-4. **Expand matching-kernel verification.** Repeat the migration, snapshot,
-   and cleanup scenarios with more varied extents and compare incremental
-   counters with a full rescan. Continue using the Debian `7.1.13+deb13-amd64`
-   kernel baseline and the external sibling build tree.
-5. **Investigate reported stalls independently.** Capture useful task stacks,
+2. **Expand accounting verification.** Test more varied extent layouts and
+   cleanup sequences on the Debian `7.1.13+deb13-amd64` kernel, comparing
+   incremental counters with a full rescan. The tested fixture covers one
+   legacy two-snapshot layout, hourly creation, and timeline cleanup; it does
+   not cover every filesystem feature or workload.
+3. **Keep the host rollout gated.** The `v0.10.6` Snapper backport is built
+   and tested in QEMU, but neither it nor the custom Btrfs module is installed
+   on the host. Preserve the temporary host containment until broader tests
+   and a deliberate rollout are complete.
+4. **Investigate reported stalls independently.** Capture useful task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning
    alone.
-6. **Handle upstream work if warranted.** Search for an existing report if
+5. **Handle upstream work if warranted.** Search for an existing report if
    testing demonstrates a Btrfs bug. If none exists, prepare a focused report
    and patch for the right venue, and present the draft for review before
    submitting it.
-7. **Keep temporary host containment deliberate.** The timeline wrapper's
+6. **Keep temporary host containment deliberate.** The timeline wrapper's
    explicit rescan block remains disabled, and quota-aware Snapper cleanup is
    temporarily paused. Verify effective behavior so no rescan source is
    overlooked. Restore the original `SPACE_LIMIT="0.5"` settings only after

@@ -1,7 +1,9 @@
 # Completed investigation evidence
 
 This file records verified findings that inform the active tasks in
-[`GOAL.md`](GOAL.md). The cause has not yet been fixed.
+[`GOAL.md`](GOAL.md). A tracking-parent fix candidate has now passed the
+described QEMU snapshot and cleanup workloads on the deployed Snapper version;
+broader filesystem coverage and host rollout remain open.
 
 ## Kernel baseline
 
@@ -135,11 +137,40 @@ This file records verified findings that inform the active tasks in
   `qgroup marked inconsistent` warning after tracker setup, and the full scan
   changed no counters. The tested serial log is
   `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper7.log`.
-- This is a tested prototype, not yet the deployed host fix. The host's
-  installed Snapper is `0.10.6`; the current source checkout is master
-  `0.13.2`. The automatic timeline-retention fixture did not match its expected
-  selection and remains unverified. A separate explicit snapshot deletion
-  passed.
+- The first timeline-retention fixture put all snapshots in the same guest
+  hour and asserted the wrong deletion selection. The corrected fixture below
+  advances the guest clock between snapshots and exercises the retention
+  algorithm across hourly buckets.
+
+## Snapper 0.10.6 backport and hourly cleanup run (2026-10-17)
+
+- The installed host Snapper is `0.10.6`. Backport commit `770bf48e` on
+  `codex/qgroup-root-cause-0.10.6` adapts the tracking-parent change to that
+  release. It is published at
+  `origin/codex/qgroup-root-cause-0.10.6`. The CLI and `libsnapper.so.7` built
+  successfully in the sibling build tree. The full top-level build still
+  cannot build the unrelated `mksubvolume` utility because
+  `libext2fs-dev` is absent; it was not installed.
+- The QEMU run used the Debian `7.1.13+deb13-amd64` kernel image and the
+  matching custom Btrfs module. Its fresh Btrfs image included an outside
+  snapshot sharing source extents. Two existing snapshots were assigned to
+  snapshot-only QGROUP `1/0`, then a cleanup-enabled Snapper snapshot created
+  tracker `2/0` as the parent of both `0/256` (live source) and `1/0`.
+- The tracker migration completed one rescan. Four more snapshots were
+  created at successive guest-hour timestamps. Timeline cleanup then removed
+  the two legacy snapshots and three older tracked snapshots, retaining the
+  newest hourly snapshots. No additional qgroup scan completed during those
+  snapshots or cleanup, and the log contains no `qgroup marked inconsistent`
+  warning. A final explicit full rescan changed none of the qgroup counters;
+  the fixture reported `SNAPPER-0106-INTEGRATION: PASS`.
+- The test init script, overlay, fresh image, and serial log are under
+  `/var/tmp/qgroup-root-cause-7.1.13/`; the log is
+  `serial_snapper0106.log`. This validates the stated legacy layout and hourly
+  cleanup sequence, not compression, concurrent configs, partial tracker
+  recovery, or host runtime behavior.
+- This remains a QEMU-verified candidate rather than a host rollout. Automated
+  rescans and quota-aware cleanup remain contained on the host pending broader
+  tests and a deliberate rollout.
 
 ## Temporary host containment (2026-10-17)
 

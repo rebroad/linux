@@ -3267,24 +3267,32 @@ static int qgroup_auto_inherit(struct btrfs_fs_info *fs_info,
 }
 
 /*
- * Check if we can skip rescan when inheriting qgroups.  If @src has a single
- * @parent, and that @parent is owning all its bytes exclusively, we can skip
- * the full rescan, by just adding nodesize to the @parent's excl/rfer.
+ * Check if we can skip rescan when inheriting qgroups.  This is possible when
+ * the source already belongs to the target parent, or when a tracking parent
+ * contains only the source and target parent and lets us derive the target's
+ * counters exactly.
  *
  * Return <0 for fatal errors (like srcid/parentid has no qgroup).
  * Return 0 if a quick inherit is done.
  * Return >0 if a quick inherit is not possible, and a full rescan is needed.
  */
 static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
-					 u64 srcid, u64 parentid)
+					 u64 srcid, u64 parentid,
+					 u64 src_excl, u64 src_excl_cmpr)
 {
 	struct btrfs_qgroup *src;
 	struct btrfs_qgroup *parent;
+	struct btrfs_qgroup *tracker;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
 	LIST_HEAD(qgroup_list);
 	const u32 nodesize = fs_info->nodesize;
+	u64 new_excl;
+	u64 new_excl_cmpr;
 	int nr_parents = 0;
+	int nr_members = 0;
+	bool tracker_has_src = false;
+	bool tracker_has_parent = false;
 
 	if (btrfs_qgroup_mode(fs_info) != BTRFS_QGROUP_MODE_FULL)
 		return 0;
@@ -3303,27 +3311,62 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	if (list_empty(&src->groups))
 		return 1;
 
-	list_for_each_entry(list, &src->groups, next_group) {
-		/* The parent is not the same, quick update is not possible. */
-		if (list->group->qgroupid != parentid)
-			return 1;
+	list_for_each_entry(list, &src->groups, next_group)
 		nr_parents++;
+	if (nr_parents != 1)
+		return 1;
+	tracker = list_first_entry(&src->groups, struct btrfs_qgroup_list,
+				   next_group)->group;
+
+	if (tracker == parent) {
 		/*
-		 * More than one parent qgroup, we can't be sure about accounting
-		 * consistency.
+		 * The parent already contains the source.  The snapshot only adds
+		 * its new root node to the parent, even when some source extents
+		 * are also referenced outside the parent.
 		 */
-		if (nr_parents > 1)
+		qgroup_iterator_add(&qgroup_list, parent);
+	} else {
+		/*
+		 * A tracking qgroup can account for a snapshot-only parent when it
+		 * contains exactly that parent and the source.  Before the snapshot,
+		 * the union of those groups is the same set of extents as the
+		 * snapshot parent will contain afterwards, except that the source
+		 * root is replaced by the new snapshot root.  The source's exclusive
+		 * extents are the part of the tracker that must not be charged to
+		 * the snapshot-only parent.
+		 */
+		if (!list_is_singular(&parent->groups) ||
+		    list_first_entry(&parent->groups, struct btrfs_qgroup_list,
+				     next_group)->group != tracker)
 			return 1;
+
+		list_for_each_entry(list, &tracker->members, next_member) {
+			nr_members++;
+			if (list->member == src)
+				tracker_has_src = true;
+			else if (list->member == parent)
+				tracker_has_parent = true;
+			else
+				return 1;
+		}
+		if (nr_members != 2 || !tracker_has_src || !tracker_has_parent ||
+		    src_excl > tracker->excl ||
+		    src_excl_cmpr > tracker->excl_cmpr)
+			return 1;
+
+		new_excl = tracker->excl - src_excl + nodesize;
+		new_excl_cmpr = tracker->excl_cmpr - src_excl_cmpr + nodesize;
+		if (new_excl > tracker->rfer ||
+		    new_excl_cmpr > tracker->rfer_cmpr)
+			return 1;
+		parent->rfer = tracker->rfer;
+		parent->rfer_cmpr = tracker->rfer_cmpr;
+		parent->excl = new_excl;
+		parent->excl_cmpr = new_excl_cmpr;
+		qgroup_dirty(fs_info, parent);
+		qgroup_iterator_add(&qgroup_list, tracker);
 	}
 
-	/*
-	 * The parent is not exclusively owning all its bytes.  We're not sure
-	 * if the source has any bytes not fully owned by the parent.
-	 */
-	if (parent->excl != parent->rfer)
-		return 1;
-
-	qgroup_iterator_add(&qgroup_list, parent);
 	list_for_each_entry(qgroup, &qgroup_list, iterator) {
 		qgroup->rfer += nodesize;
 		qgroup->rfer_cmpr += nodesize;
@@ -3362,6 +3405,8 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 	bool need_rescan = false;
 	u32 level_size = 0;
 	u64 nums;
+	u64 src_excl = 0;
+	u64 src_excl_cmpr = 0;
 
 	if (!btrfs_qgroup_enabled(fs_info))
 		return 0;
@@ -3492,6 +3537,8 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 		level_size = fs_info->nodesize;
 		dstgroup->rfer = srcgroup->rfer;
 		dstgroup->rfer_cmpr = srcgroup->rfer_cmpr;
+		src_excl = srcgroup->excl;
+		src_excl_cmpr = srcgroup->excl_cmpr;
 		dstgroup->excl = level_size;
 		dstgroup->excl_cmpr = level_size;
 		srcgroup->excl = level_size;
@@ -3529,7 +3576,8 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 		}
 		if (srcid) {
 			/* Check if we can do a quick inherit. */
-			ret = qgroup_snapshot_quick_inherit(fs_info, srcid, *i_qgroups);
+			ret = qgroup_snapshot_quick_inherit(fs_info, srcid, *i_qgroups,
+							    src_excl, src_excl_cmpr);
 			if (ret < 0)
 				goto unlock;
 			if (ret > 0)

@@ -726,14 +726,17 @@ broader filesystem coverage and host rollout remain open.
 
 ## Snapper PR formatting audit (2026-10-17)
 
-- Audited every added C++ line in the clean-history PR branch against Snapper's
-  `.editorconfig`, which specifies tabs for `.cc` and `.h` files. Corrected
-  the added `prepareQGroupTracking()` declaration, opening brace, and closing
-  brace in commit `5a71933a` on the PR branch. The full branch diff now has no
-  added C++ lines indented with spaces, and `git diff --check` passes.
-- All seven PR checks passed on head `5a71933a`. PR #1201 remains an open draft
-  without a maintainer review decision; keep it paired with the kernel patch
-  until review.
+- The initial audit incorrectly treated `.editorconfig`'s tab setting as the
+  only style evidence. In surrounding `Btrfs.cc` methods, namespace-level
+  declarations and closing braces use four spaces, while function bodies use
+  tabs. Commit `5a71933a` changed the new method's outer lines to tabs and made
+  them inconsistent with that local pattern.
+- Restored the surrounding method style in commit `04a36b55` and pushed it to
+  the PR branch. `git diff --check` passes and the method now matches adjacent
+  definitions. The PR retains both the mistaken style commit and the correcting
+  commit in its history; no history rewrite was done. PR #1201 remains an open
+  draft without a maintainer review decision. Checks for head `04a36b55` were
+  queued at the last check.
 
 ## Host containment status check (2026-10-17 19:53 local)
 

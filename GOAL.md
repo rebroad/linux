@@ -10,9 +10,9 @@ their cause, not by hiding inconsistency or weakening accounting.
 1. **Complete the paired upstream contributions.** Snapper changes for
    upstream `master` and Debian Snapper `0.10.6` stop clean quota queries from
    starting unnecessary rescans. The latest query-path follow-up is
-   QEMU-tested on both Snapper lines and is pending commit/push. It does not
-   alter the stock kernel's
-   snapshot-inheritance decision: the reproduced snapshot-only tracker layout
+   committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested on both
+   Snapper lines. It does not alter the stock kernel's snapshot-inheritance
+   decision: the reproduced snapshot-only tracker layout
    still takes its conservative rescan fallback on Debian's kernel. No qgroup
    counter corruption has been demonstrated; a full rescan agrees with the
    incrementally maintained counters. A same-Snapper QEMU comparison now

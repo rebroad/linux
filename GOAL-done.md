@@ -417,11 +417,14 @@ broader filesystem coverage and host rollout remain open.
   complete-tracker recovery passed on both. The complete-tracker case first
   created an untracked snapshot to set the inconsistency flag; Snapper then
   ran exactly one rescan before continuing.
-- The latest 0.13.2 two-config workload passed repeated hourly snapshots and
-  timeline cleanup. The 0.10.6 workload also passed with compressed data,
-  outside shared snapshots, tracker migration, repeated snapshots, and
-  timeline cleanup. In both, later hourly operations started no scans, and a
-  full-rescan counter comparison remained unchanged. Logs:
+- An earlier 0.13.2 two-config workload passed repeated snapshots and
+  timeline cleanup. Its `set_hour()` helper was later found to ignore the
+  requested hour, so it did not prove successive-hour behavior; the corrected
+  tests are recorded below. The 0.10.6 workload also passed with compressed
+  data, outside shared snapshots, tracker migration, repeated snapshots, and
+  timeline cleanup. These earlier runs prove sequential snapshot behavior,
+  not elapsed-hour cadence. Their full-rescan counter comparisons remained
+  unchanged. Logs:
   `/var/tmp/qgroup-root-cause-7.1.13/serial_candidate_multi_latest.log`,
   `serial_candidate_source_only.log`, `serial_candidate_complete_tracker.log`,
   `serial_candidate_0106_multi_latest.log`,
@@ -473,11 +476,24 @@ broader filesystem coverage and host rollout remain open.
   passed. This isolates the repeated scans to the stock kernel's conservative
   snapshot-inheritance fallback for this hierarchy. Log:
   `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper_master_stockdiag.log`.
-- The same Snapper query-path follow-up was rebuilt and QEMU-tested on
-  0.10.6 earlier in this investigation. The current uncommitted changes are
-  the clean-path `sync()` preservation and `calculateUsedSpace()` helper call
-  on the upstream branch, plus `queryQuotaData()` helper use on the 0.10.6
-  branch; both branches still need these follow-ups committed and pushed.
+- The clean-path `sync()` preservation and `calculateUsedSpace()` helper call
+  are committed and pushed on the upstream Snapper branch as `9d9c8820`.
+  `queryQuotaData()` helper use and the corresponding clean-path sync change
+  are committed and pushed on the 0.10.6 branch as `46fcfbea`. Both builds
+  were exercised in the corrected real-hour QEMU comparison above.
 - A second mailing-list follow-up was sent on 2026-10-17 with the paired
   stock/candidate result, the exact per-round warning and scan counts, and the
   remaining upstream-build/review limitation.
+- Corrected the QEMU clock helper after finding it ignored the requested hour.
+  Fresh runs now set guest time to 01:00 before setup and 02:00, 03:00, and
+  04:00 for successive snapshots. Both Snapper 0.10.6 and 0.13.2 passed
+  quota-aware cleanup and unchanged counters after a full rescan with the
+  candidate and stock modules. After settling tracker setup, each stock-module
+  run produced two inconsistency warnings and two completed scans per hourly
+  root/home round (six across three rounds); the candidate runs produced no
+  further warnings or scans. Logs:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper_0106_quota_hourly.log`,
+  `serial_snapper_0106_stock_hourly.log`,
+  `serial_snapper_master_quota_hourly.log`, and
+  `serial_snapper_master_stock_hourly.log`. A third mailing-list follow-up
+  corrected the earlier time-cadence claim and reported these results.

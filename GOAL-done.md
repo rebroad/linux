@@ -782,3 +782,26 @@ broader filesystem coverage and host rollout remain open.
   matches the previously reproduced no-shared-parent topology that takes the
   stock kernel's conservative rescan fallback. It does not show that the qgroup
   counters are corrupt; the warning remains until a scan reconciles them.
+
+## Detached-device Btrfs errors and current stall snapshot (2026-10-17 21:03 local)
+
+- A read-only check found sustained I/O and memory pressure (`io` PSI some/full
+  10.52%/8.44% over 10 seconds; `memory` PSI some/full 7.37%/6.52%). No tasks
+  were in D state during this sample. The current Kingston filesystem had no
+  exclusive operation, and its per-filesystem qgroup-rescan worker was idle.
+- Kernel logs show that a Btrfs filesystem on a USB-attached `/dev/sda1` was
+  mounted on 14 October. On 16 October at 13:56, the USB device disconnected;
+  the kernel reported device loss, an aborted transaction, and a forced
+  read-only transition. The detached device remains represented by a dangling
+  sysfs device link. Its logged read-error count continued increasing to
+  64,555 by this check, despite no process namespace currently mounting device
+  major:minor `8:1`.
+- The current `/mnt/kingston` mount is `/dev/sdb1`, reported at runtime with a
+  different filesystem UUID and the detached instance's UUID as its metadata
+  UUID. Btrfs retains separate sysfs instances for both. This identity and
+  lifetime relationship is not yet explained; no device or filesystem repair
+  action was taken.
+- This captures a live storage-error source and establishes that no qgroup
+  scan was active during this sample. It does not yet show which kernel path
+  increments the detached device's error count or prove that it caused the
+  earlier application stalls.

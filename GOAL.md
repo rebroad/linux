@@ -78,9 +78,11 @@ their cause, not by hiding inconsistency or weakening accounting.
    Extend coverage only for additional Btrfs layouts needed to support the
    paired patch, using the same kernel release.
 5. **Investigate reported stalls independently.** Capture task stacks,
-   transaction state, and storage/I/O evidence during an incident. Do not infer
-   that rescans caused the stalls from timing or an inconsistency warning
-   alone.
+   transaction state, and storage/I/O evidence during an incident. Investigate
+   why the detached-USB Btrfs instance continues logging read errors after its
+   device disappeared, and correlate that with pressure and blocked metadata
+   operations. Do not infer that Kingston rescans caused the stalls from timing
+   or an inconsistency warning alone.
 6. **Preserve temporary host containment.** Confirm the timeline wrapper's
    explicit rescan commands remain disabled while snapshots continue. Monitor
    separately for scans started through Snapper quota-query or kernel

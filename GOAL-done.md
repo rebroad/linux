@@ -497,3 +497,26 @@ broader filesystem coverage and host rollout remain open.
   `serial_snapper_master_quota_hourly.log`, and
   `serial_snapper_master_stock_hourly.log`. A third mailing-list follow-up
   corrected the earlier time-cadence claim and reported these results.
+- Narrowed the kernel candidate to preserve the pre-existing same-parent
+  exclusivity guard. The new fast path now applies only when the target
+  snapshot-only qgroup is a sole child of the same tracker as the live source,
+  and that tracker has exactly those two members. This avoids broadening an
+  unrelated existing quick-inherit case. Commit `f06fc2e5` is pushed.
+- Rebuilt the narrowed Btrfs module for the running Debian release string
+  `7.1.13+deb13-amd64` and loaded it in QEMU. The isolated module target used
+  `KBUILD_MODPOST_WARN=1` because its dependency symbol tables were not built;
+  QEMU supplied the corresponding dependency modules. Corrected real-hour
+  Snapper 0.10.6 and 0.13.2 workloads both passed repeated snapshots,
+  `SPACE_LIMIT` cleanup, and full-rescan counter comparisons with this module.
+  Logs:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper_0106_narrow_deb13_hourly.log`
+  and `/var/tmp/qgroup-root-cause-7.1.13/serial_master_narrow_deb13_hourly.log`.
+- A focused boundary test created an outside snapshot sharing extents with a
+  source included in qgroup `1/100`. Before snapshot inheritance it measured
+  referenced `8,404,992` bytes and exclusive `16,384` bytes. The narrowed
+  candidate kept the old same-parent fallback, emitted `qgroup inherit needs
+  a rescan`, completed one scan, and preserved counters through a later full
+  rescan. Log: `/var/tmp/qgroup-root-cause-7.1.13/serial_same_parent_fallback.final.log`.
+- A fourth mailing-list follow-up described the preserved guard, the narrowed
+  topology, both real-hour Snapper results, and the boundary test. The RFC is
+  still awaiting upstream review; the v7.3-rc7 build/test remains open.

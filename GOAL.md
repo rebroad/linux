@@ -22,9 +22,10 @@ their cause, not by hiding inconsistency or weakening accounting.
    The kernel quick-inherit change is therefore a narrowly scoped optimization
    for avoiding those snapshot-triggered scans, not a correctness fix required
    to repair bad accounting. The RFC has been updated with the differential
-   result. Before proposing a formal patch, build/test against current upstream
-   and complete kernel review; retain the exact topology guards and fallback
-   for all other layouts.
+   result. The candidate preserves the prior exclusivity guard for the
+   existing same-parent fast path; only the exact two-child tracker hierarchy
+   receives the new optimization. Before proposing a formal patch, build/test
+   against current upstream and complete kernel review.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

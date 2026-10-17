@@ -68,11 +68,38 @@ This file records verified findings that inform the active tasks in
   timeline`. In the inspected Snapper source, this sets the snapshot's cleanup
   metadata and passes `QGROUP` to the snapshot ioctl. Creation itself does not
   run the cleanup algorithm. The wrapper's own later rescan block was a
-  separate path. The daily `snapper-cleanup` service is another path to
-  space-aware qgroup queries.
+  separate path. The packaged `snapper-cleanup` service is another path to
+  space-aware qgroup queries. In the current environment, systemd reports its
+  timer enabled and active. Reading the live mounted Snapper configs was denied
+  by the environment, so current `SPACE_LIMIT` values and whether the active
+  timer will enter the quota-aware branch remain unverified here.
 - The current evidence explains why the inconsistency flag is set and why a
   scan can later start, but it does not establish an acceptable replacement
   accounting model. No kernel or Snapper code fix has been selected.
+
+## Source-inclusive qgroup experiment
+
+- On the exact Debian 7.1.13 kernel, a disposable Btrfs image was configured
+  with the source subvolume and snapshot subvolumes under the same parent
+  qgroup. Three inherited snapshots followed by deletion of one snapshot and
+  `btrfs subvolume sync` completed with qgroup data consistent and no rescan in
+  progress. This matches the kernel fast-path condition.
+- That parent qgroup reported `rfer == excl == 33,619,968` bytes after three
+  snapshots of a 32 MiB source, and `33,603,584` bytes after deletion completed.
+  It accounts the live source together with the snapshots; the earlier
+  snapshot-only reproduction reported just 16,384 exclusive bytes for the
+  same source data shared with the live source. This layout prevents the
+  inconsistency but changes the cleanup metric, so it is not itself an
+  acceptable fix.
+- A second run waited for `btrfs subvolume sync` after deleting one of three
+  snapshots. The deleted qgroup disappeared, the shared parent counters
+  decreased by one nodesize, and the filesystem remained consistent with no
+  rescan in progress. This confirms the no-rescan result through completed
+  snapshot cleanup for this simple layout.
+- A possible metric such as source-inclusive parent `rfer` minus live-source
+  `rfer` needs further testing. The required test must include extents shared
+  with subvolumes outside the cleanup set, because such extents can make this
+  difference overstate bytes exclusively attributable to the snapshots.
 
 ## Earlier containment and suspend work
 

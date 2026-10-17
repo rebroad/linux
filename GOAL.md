@@ -12,8 +12,10 @@ suppressing inconsistency warnings as the fix.
   The current kernel path appears to request rescans correctly: aggregate
   qgroup counters do not reveal extent overlap between the source and a
   snapshot-only parent. Evaluate whether a different qgroup layout can retain
-  useful cleanup semantics, or whether Btrfs/Snapper needs a principled change
-  to represent the needed accounting.
+  useful cleanup semantics. Test any derived metric against shared extents
+  held outside the snapshot set; a source-inclusive qgroup avoids rescans but
+  its exclusive count includes live source data. If no exact layout/metric
+  works, determine what principled Btrfs/Snapper accounting change is needed.
 - Implement the smallest correct fix at the responsible layer (Btrfs
   accounting, Snapper integration, or host configuration). Preserve
   meaningful referenced/exclusive counts and quota enforcement; do not assign

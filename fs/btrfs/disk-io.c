@@ -1955,6 +1955,8 @@ static int btrfs_init_workqueues(struct btrfs_fs_info *fs_info)
 	u32 max_active = fs_info->thread_pool_size;
 	unsigned int flags = WQ_MEM_RECLAIM | WQ_FREEZABLE | WQ_UNBOUND;
 	unsigned int ordered_flags = WQ_MEM_RECLAIM | WQ_FREEZABLE;
+	/* Do not make suspend wait for a long-running qgroup rescan to drain. */
+	unsigned int qgroup_flags = WQ_MEM_RECLAIM;
 
 	fs_info->workers =
 		btrfs_alloc_workqueue(fs_info, "worker", flags, max_active, 16);
@@ -1989,7 +1991,7 @@ static int btrfs_init_workqueues(struct btrfs_fs_info *fs_info)
 				      max_active, 0);
 	fs_info->qgroup_rescan_workers =
 		btrfs_alloc_ordered_workqueue(fs_info, "qgroup-rescan",
-					      ordered_flags);
+					      qgroup_flags);
 	fs_info->discard_ctl.discard_workers =
 		alloc_ordered_workqueue("btrfs-discard", WQ_FREEZABLE);
 

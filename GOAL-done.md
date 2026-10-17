@@ -326,3 +326,27 @@ broader filesystem coverage and host rollout remain open.
   `btrfs quota rescan -s /mnt/kingston` reported no operation in progress,
   while qgroup show still warned that data was inconsistent. Broader layout
   testing and deliberate rollout remain open.
+
+## Orphan-tracker and varied-extent verification (2026-10-17)
+
+- A second QEMU run seeded an empty level-2 qgroup `2/0`, modeling interruption
+  after tracker creation but before either member assignment. The patched
+  Snapper left that orphan empty, allocated `2/1` for the root source and
+  snapshot group, and `2/2` for home. Tracker setup completed one scan per
+  config; subsequent snapshots and cleanup caused no additional scan or
+  inconsistency. A final full rescan changed no counters. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106orphan.current.log`.
+- That run used a Zstd-compressed Btrfs mount, incompressible and zero-filled
+  files, outside snapshots sharing source extents, partial overwrites,
+  truncation, temporary-file creation/deletion, three hourly snapshot rounds,
+  and timeline cleanup. It passed the full-rescan comparison. This expands
+  coverage but does not cover every Btrfs layout or failure boundary.
+- Upstream search found no existing PR for the tracking-parent fix. Snapper
+  issue creation is restricted. Existing issue
+  [#703](https://github.com/openSUSE/snapper/issues/703) describes qgroup
+  rescan lockups while enabling quota, but it does not report the reproduced
+  source-without-parent inheritance case or propose tracking-parent setup.
+  Upstream Snapper master does not contain `prepareQGroupTracking()`; the
+  user's fork master already has the forward-port commit `1a643d69`. Evidence
+  supports preparing a Snapper PR for review; it does not support a kernel bug
+  report. No upstream message has been sent.

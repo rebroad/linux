@@ -57,8 +57,9 @@ This file records verified findings that inform the active tasks in
   path is safe only for restricted cases where ownership can be derived from
   existing counters. This evidence currently points to an expected limitation
   of full qgroups, rather than a kernel accounting bug.
-- The Snapper source checkout is at tag `v0.10.6`, matching the installed
-  version recorded during this investigation. `Snapper::queryQuotaData()` calls
+- At the time of the initial investigation, the Snapper source checkout was at
+  tag `v0.10.6`, matching the installed version then recorded.
+  `Snapper::queryQuotaData()` calls
   `quota_rescan()` and waits for it before reading the configured qgroup's
   `exclusive` count. The cleanup code calls this query when `SPACE_LIMIT` is
   enabled. Therefore the timeline wrapper's explicit rescan block is not the
@@ -110,6 +111,35 @@ This file records verified findings that inform the active tasks in
   parent avoids rescans only in the special case where no extent referenced by
   that parent is also referenced outside it. That condition cannot be assumed
   for the live filesystem.
+
+## Tracking-parent prototype (2026-10-17)
+
+- Kernel source is on `codex/qgroup-root-cause-7.1.13`. Commit `3e4d0853dc36`
+  adds a level-2 tracking-parent fast path; `6bdac37f7104` updates its exclusive
+  counter rule. For the snapshot-only parent, the fast path takes referenced
+  bytes from the tracker and retains the parent's existing exclusive count,
+  adding only one nodesize for the new snapshot root. This avoids deriving the
+  parent's exclusive count from tracker and source totals, which failed when
+  the source and existing snapshots already shared extents.
+- Snapper commit `1a643d69` creates the tracking parent before a
+  cleanup-enabled snapshot when both the live source and configured
+  snapshot-only QGROUP are unparented. It recognizes a complete tracker only
+  when its exact direct members are the source and snapshot parent. Parent
+  lookup filters Btrfs's reciprocal relation records by qgroup level.
+- A QEMU integration run used the Debian `7.1.13+deb13-amd64` kernel image,
+  the custom Btrfs module with matching vermagic, and the Snapper `0.13.2`
+  build. It seeded two existing snapshot qgroups, included a separate outside
+  snapshot sharing source extents, ran tracker migration, made three further
+  Snapper snapshots, deleted one snapshot, and compared all qgroup counters
+  before and after an explicit full rescan. The test passed with no
+  `qgroup marked inconsistent` warning after tracker setup, and the full scan
+  changed no counters. The tested serial log is
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper7.log`.
+- This is a tested prototype, not yet the deployed host fix. The host's
+  installed Snapper is `0.10.6`; the current source checkout is master
+  `0.13.2`. The automatic timeline-retention fixture did not match its expected
+  selection and remains unverified. A separate explicit snapshot deletion
+  passed.
 
 ## Temporary host containment (2026-10-17)
 

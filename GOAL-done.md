@@ -787,8 +787,9 @@ broader filesystem coverage and host rollout remain open.
 
 - A read-only check found sustained I/O and memory pressure (`io` PSI some/full
   10.52%/8.44% over 10 seconds; `memory` PSI some/full 7.37%/6.52%). No tasks
-  were in D state during this sample. The current Kingston filesystem had no
-  exclusive operation, and its per-filesystem qgroup-rescan worker was idle.
+  were in D state during this sample. `btrfs quota rescan -s` reported no
+  active scan on Kingston; its per-filesystem qgroup-rescan worker was idle.
+  The current filesystem had no exclusive operation.
 - Kernel logs show that a Btrfs filesystem on a USB-attached `/dev/sda1` was
   mounted on 14 October. On 16 October at 13:56, the USB device disconnected;
   the kernel reported device loss, an aborted transaction, and a forced
@@ -805,3 +806,10 @@ broader filesystem coverage and host rollout remain open.
   scan was active during this sample. It does not yet show which kernel path
   increments the detached device's error count or prove that it caused the
   earlier application stalls.
+- In the exact `7.1.13` source, `btrfs_log_dev_io_error()` increments the read
+  error counter when a failed, non-read-ahead read BIO completes. The growing
+  counter therefore reflects failed read I/O, rather than repeated reads of a
+  stored statistic. A process-FD scan found no open file on device `8:1`, and
+  the Kingston scrub-status query reported no scrub statistics and a zero rate.
+  The source of these failed reads remains unknown and needs tracing during
+  activity.

@@ -433,12 +433,11 @@ broader filesystem coverage and host rollout remain open.
   `codex/qgroup-root-cause-0.10.6`. These branches are not installed on the
   host and have not been submitted as upstream PRs.
 - This finding supersedes the earlier “no kernel patch/report” assessment:
-  it does not establish a correctness bug, but it provides reproducible
-  evidence that a kernel fast path is needed to preserve the existing
-  snapshot-only quota group without repeated rescans for the proven
-  hierarchy. The strict topology checks keep unknown layouts on the existing
-  rescan path. The patch includes the full-quota guard and ancestor updates
-  required by existing upstream quick-inherit fixes.
+  it does not establish a correctness bug. The kernel candidate is a proposed
+  fast path to avoid the stock kernel's conservative snapshot-triggered scan
+  for the proven hierarchy. The strict topology checks keep unknown layouts
+  on the existing rescan path. The patch includes the full-quota guard and
+  ancestor updates required by existing upstream quick-inherit fixes.
 - An RFC with the candidate diff and test evidence was emailed to
   `linux-btrfs@vger.kernel.org` on 2026-10-17 (subject: `[RFC] btrfs:
   quick-inherit snapshot-only qgroups through a shared tracker`), with Chris
@@ -446,3 +445,14 @@ broader filesystem coverage and host rollout remain open.
   link is not available yet. The patch applies cleanly to upstream `v7.3-rc7`,
   but has not been built or QEMU-tested there. Explicit quota-limit
   enforcement coverage remains open before a formal patch submission.
+- Follow-up evidence found that Snapper's `calculateUsedSpace()` and Debian
+  0.10.6's `queryQuotaData()` could each request a full rescan during clean
+  quota queries. Switching these callers to the status-aware helper stopped
+  rescans from used-space listing and quota-aware timeline cleanup in QEMU.
+  The 0.10.6 quota-limit test with the candidate kernel module deleted
+  eligible snapshots, reduced exclusive usage, started no scan during
+  cleanup, and retained identical counters after an explicit full rescan.
+  This removes avoidable Snapper-triggered scans but leaves the stock kernel's
+  snapshot-inheritance fallback unchanged. A mailing-list follow-up on
+  2026-10-17 clarified that the kernel proposal is an optional rescan-avoidance
+  optimization, not a repair for demonstrated counter corruption.

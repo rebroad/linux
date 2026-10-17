@@ -656,10 +656,10 @@ broader filesystem coverage and host rollout remain open.
   `codex/upstream-qgroup-tracking-clean`, autosquashed the fixup into its
   target, and verified its tree is identical to the original branch. The
   replacement draft [PR #1201](https://github.com/openSUSE/snapper/pull/1201)
-  contains four logical commits; #1200 is closed with a redirect comment.
+  contained four logical commits; #1200 was closed with a redirect comment.
 - All checks on #1200 passed for Debian, Fedora, Leap, Ubuntu, Tumbleweed (GCC
-  and Clang), and codespell. Checks are rerunning on #1201; no review decision
-  or maintainer review was recorded at the last check.
+  and Clang), and codespell. The same checks passed on #1201 before its closure;
+  no maintainer review was recorded on either draft.
 
 ## Later-kernel source check and RFC correction (2026-10-17)
 
@@ -731,12 +731,13 @@ broader filesystem coverage and host rollout remain open.
   declarations and closing braces use four spaces, while function bodies use
   tabs. Commit `5a71933a` changed the new method's outer lines to tabs and made
   them inconsistent with that local pattern.
-- Restored the surrounding method style in commit `04a36b55` and pushed it to
-  the PR branch. `git diff --check` passes and the method now matches adjacent
-  definitions. The PR retains both the mistaken style commit and the correcting
-  commit in its history; no history rewrite was done. PR #1201 remains an open
-  draft without a maintainer review decision. Checks for head `04a36b55` were
-  queued at the last check.
+- Restored the surrounding method style in commit `04a36b55`; `git diff --check`
+  passed and the method matched adjacent definitions. That exposed the PR's
+  history still contained the mistaken style commit. To avoid a force-push, a
+  clean branch was created by replaying the four substantive commits; its tree
+  matches the corrected tree exactly. Opened draft [PR #1202](https://github.com/openSUSE/snapper/pull/1202)
+  and closed #1201 with a superseding link. At the last check #1202 CI was
+  running and no maintainer review was recorded.
 
 ## Host containment status check (2026-10-17 19:53 local)
 

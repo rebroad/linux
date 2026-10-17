@@ -7,13 +7,15 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 ## Remaining work
 
-1. **Prepare an upstream Snapper contribution for review.** The tracking-parent
-   fix and race retry pass the current QEMU cases. Snapper issue creation is
-   restricted; existing issue #703 reports qgroup-rescan lockups but does not
-   describe this reproduced missing-tracker cause. Prepare a focused PR draft
-   against upstream Snapper, including the QEMU evidence, for review before
-   publishing. Do not file a kernel bug report unless further tests show the
-   kernel still rescans or miscounts with the tracking hierarchy in place.
+1. **Get review of the prepared upstream Snapper contribution.** A focused
+   two-commit branch is based on the freshly fetched upstream tip, and its PR
+   description with QEMU evidence is at
+   `/var/tmp/snapper-qgroup-upstream-pr.md`. The branch is local because the
+   attempt to push it to the GitHub fork was rejected by automatic review.
+   Obtain authorization for that external publication before pushing or
+   opening an upstream PR. Do not file a kernel bug report unless further
+   tests show the kernel still rescans or miscounts with the tracking hierarchy
+   in place.
 2. **Keep the host rollout gated.** The `v0.10.6` Snapper backport is built
    and QEMU-tested, but the host still runs Debian Snapper `0.10.6-1.2`, which
    predates the tracking-parent fix. Neither the backport nor custom Btrfs

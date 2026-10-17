@@ -350,3 +350,25 @@ broader filesystem coverage and host rollout remain open.
   user's fork master already has the forward-port commit `1a643d69`. Evidence
   supports preparing a Snapper PR for review; it does not support a kernel bug
   report. No upstream message has been sent.
+
+## Prepared Snapper upstream review branch (2026-10-17)
+
+- Refreshed `upstream/master` from openSUSE/Snapper; the current upstream tip
+  was `5a2dd6a8` (2026-10-16). Created local branch
+  `codex/upstream-qgroup-tracking` directly on that base, containing only the
+  three qgroup commits: `9a0c80e6` skips clean quota rescans, `1cda3253`
+  prepares and recovers the shared tracking parent, and `66bde616` retries
+  concurrent tracker-ID collisions. The orphan-tracker recovery is folded into
+  the parent commit.
+- Built the current branch and reran three QEMU scenarios against the exact
+  built binaries: two-config hourly snapshots and cleanup, empty orphan-tracker
+  recovery with varied extents, and eight concurrent first snapshots. All
+  reported `PASS`; final full rescans preserved qgroup counters. The concurrent
+  case verified four independent tracker parents and no tracker-setup rescans.
+- `git diff --check upstream/master...HEAD` passed. The branch is clean and
+  excludes the unrelated Debian-detection commit from the fork's master.
+- Draft PR description and the recorded QEMU coverage are in
+  `/var/tmp/snapper-qgroup-upstream-pr.md`. Pushing the branch to the fork was
+  rejected by automatic review because it would publish repository contents
+  externally. No push or upstream PR has been made; the branch and draft remain
+  local pending review authorization.

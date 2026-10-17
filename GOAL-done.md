@@ -456,3 +456,28 @@ broader filesystem coverage and host rollout remain open.
   snapshot-inheritance fallback unchanged. A mailing-list follow-up on
   2026-10-17 clarified that the kernel proposal is an optional rescan-avoidance
   optimization, not a repair for demonstrated counter corruption.
+- Rebuilt the upstream-based Snapper 0.13.2 branch with the clean-query
+  follow-up and ran the same quota-aware QEMU workload against both the
+  candidate and stock Debian 7.1.13 Btrfs modules. With the candidate module,
+  tracker setup completed its two expected scans; three subsequent hourly
+  root/home snapshot rounds started no scans and did not mark qgroups
+  inconsistent. Used-space listing and `SPACE_LIMIT` cleanup passed, reducing
+  each config from four snapshots to one and exclusive usage from 6,750,208
+  bytes to 16,384 bytes. An explicit full rescan left all qgroup counters
+  unchanged. Log: `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper_master_quota.retry.log`.
+- In the stock-module control, I explicitly completed a rescan after tracker
+  setup before measuring the hourly rounds. Each of the next three root/home
+  rounds emitted two `qgroup inherit needs a rescan` warnings and completed
+  two scans, one for each snapshot. The clean Snapper quota queries and cleanup
+  then caused no further scans; cleanup and the full-rescan counter comparison
+  passed. This isolates the repeated scans to the stock kernel's conservative
+  snapshot-inheritance fallback for this hierarchy. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper_master_stockdiag.log`.
+- The same Snapper query-path follow-up was rebuilt and QEMU-tested on
+  0.10.6 earlier in this investigation. The current uncommitted changes are
+  the clean-path `sync()` preservation and `calculateUsedSpace()` helper call
+  on the upstream branch, plus `queryQuotaData()` helper use on the 0.10.6
+  branch; both branches still need these follow-ups committed and pushed.
+- A second mailing-list follow-up was sent on 2026-10-17 with the paired
+  stock/candidate result, the exact per-round warning and scan counts, and the
+  remaining upstream-build/review limitation.

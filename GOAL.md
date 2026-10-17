@@ -9,17 +9,22 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 1. **Complete the paired upstream contributions.** Snapper changes for
    upstream `master` and Debian Snapper `0.10.6` stop clean quota queries from
-   starting unnecessary rescans. They do not alter the stock kernel's
+   starting unnecessary rescans. The latest query-path follow-up is
+   QEMU-tested on both Snapper lines and is pending commit/push. It does not
+   alter the stock kernel's
    snapshot-inheritance decision: the reproduced snapshot-only tracker layout
    still takes its conservative rescan fallback on Debian's kernel. No qgroup
    counter corruption has been demonstrated; a full rescan agrees with the
-   incrementally maintained counters. The kernel quick-inherit change is
-   therefore an optional, narrowly scoped optimization for avoiding that
-   snapshot-triggered scan, not a correctness fix required to repair bad
-   accounting. The RFC has been updated with this distinction. Before
-   proposing it formally, finish quota-limit coverage and build/test against
-   current upstream; retain the exact topology guards and fallback for all
-   other layouts.
+   incrementally maintained counters. A same-Snapper QEMU comparison now
+   shows that the exact stock-kernel fallback triggers one rescan per snapshot
+   in the tested root/home hourly workload, while the candidate kernel
+   completes those rounds without additional scans and passes quota cleanup.
+   The kernel quick-inherit change is therefore a narrowly scoped optimization
+   for avoiding those snapshot-triggered scans, not a correctness fix required
+   to repair bad accounting. The RFC has been updated with the differential
+   result. Before proposing a formal patch, build/test against current upstream
+   and complete kernel review; retain the exact topology guards and fallback
+   for all other layouts.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

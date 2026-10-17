@@ -82,12 +82,15 @@ their cause, not by hiding inconsistency or weakening accounting.
    directory enumeration by a long-lived Codex app-server thread. A lingering
    working-directory reference pins that old filesystem despite no mountinfo
    entry for it; querying its scrub state returns `EIO`, and no qgroup rescan
-   was active there. Correct the earlier invalid checks that matched the
+   was active there. A live follow-up still finds an app-server and its child
+   pinned by their cwd on that detached filesystem; the app-server is
+   reparented to PID 1. Correct the earlier invalid checks that matched the
    underlying block-device number instead of Btrfs's anonymous filesystem
-   device number. Establish why the process retains that reference and whether
-   it explains any reported application stalls. Keep this investigation
-   separate from the Snapper qgroup trigger; neither trace timing nor an
-   inconsistency warning proves the rescan caused the system-wide stall.
+   device number. Establish why the orphaned service retains that reference
+   and whether it explains any reported application stalls. Keep this
+   investigation separate from the Snapper qgroup trigger; neither trace
+   timing nor an inconsistency warning proves the rescan caused the
+   system-wide stall.
 6. **Preserve temporary host containment.** Confirm the timeline wrapper's
    explicit rescan commands remain disabled while snapshots continue. Monitor
    separately for scans started through Snapper quota-query or kernel

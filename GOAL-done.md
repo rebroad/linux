@@ -840,3 +840,18 @@ broader filesystem coverage and host rollout remain open.
 - Tracefs was returned to its original state after capture: no probe or events
   enabled, tracing disabled for the active tracer, and `current_tracer=nop`.
   No filesystem repair or process termination was performed.
+
+## Detached-filesystem reference recheck (2026-10-17)
+
+- A read-only process scan still finds two processes whose cwd references have
+  anonymous device `0:204`, the detached Btrfs instance: a long-lived Codex
+  app-server and its code-mode child. Neither process mount namespace lists
+  that device. The app-server has been reparented to PID 1; both processes
+  started before the USB device disconnected. No process was signaled or
+  restarted.
+- This confirms the stale working-directory reference persists and provides
+  a likely explanation for the traced caller continuing to enumerate that
+  directory after device loss. It does not establish that these errors caused
+  the earlier system-wide stalls or qgroup inconsistency. Safely resolving
+  the stale process state and correlating it with a reproduced user-visible
+  stall remain open.

@@ -623,6 +623,17 @@ broader filesystem coverage and host rollout remain open.
   reports inconsistent data, so its counters are not treated as authoritative.
   Automated wrapper rescans remain disabled while the timeline snapshots run.
 
+## Host containment recheck (2026-10-17)
+
+- Read-only elevated checks confirmed `snapper-timeline.timer` and
+  `snapper-cleanup.timer` are active, the wrapper's Kingston rescan commands
+  remain commented out, and no qgroup rescan is in progress.
+- The effective root/home configs remain `QGROUP=1/100` and `QGROUP=1/101`,
+  `SPACE_LIMIT=""`, and `FREE_LIMIT="0.2"`. The host still runs
+  `7.1.13+deb13-amd64` with Snapper `0.10.6-1.2`; APT currently offers
+  kernel meta-package `7.2.6-1~bpo13+1`. The tested release and the current APT
+  candidate are therefore distinct rollout inputs.
+
 ## Later-kernel source check and RFC correction (2026-10-17)
 
 - Compared the candidate's shared-tracker fast path with current upstream

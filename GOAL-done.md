@@ -634,6 +634,28 @@ broader filesystem coverage and host rollout remain open.
   kernel meta-package `7.2.6-1~bpo13+1`. The tested release and the current APT
   candidate are therefore distinct rollout inputs.
 
+## Upstream patch and existing Snapper report review (2026-10-17)
+
+- Submitted the narrowed kernel change as a formal `[PATCH]` to
+  `linux-btrfs`, following the RFC and completed exact-release quota and
+  counter checks. The message explains that the stock unparented-source
+  fallback is expected and that the proposed path is limited to the paired
+  two-member tracker topology. No maintainer response is present in the thread
+  yet.
+- Checked the patch against current upstream `master`; `fs/btrfs/qgroup.c` is
+  unchanged from the compiled `v7.3-rc7` source in the relevant file. The
+  candidate module was not runtime-tested on that newer kernel.
+- Reviewed existing Snapper PRs. [PR #633](https://github.com/openSUSE/snapper/pull/633)
+  already removes redundant rescans when several configs share one Btrfs
+  filesystem, but current upstream still calls `quota_rescan()` directly in
+  both `calculateUsedSpace()` and `queryQuotaData()`. That behavior is distinct
+  from the status-aware helper in our Snapper branch. PRs #819 and #821 address
+  waiting for rescans and snapperd responsiveness; neither changes the
+  snapshot inheritance topology or explains the hourly inconsistency warning.
+- The Snapper branch contains five commits, compares cleanly against current
+  upstream `master`; draft upstream PR [#1200](https://github.com/openSUSE/snapper/pull/1200)
+  is open for review, paired with the kernel change.
+
 ## Later-kernel source check and RFC correction (2026-10-17)
 
 - Compared the candidate's shared-tracker fast path with current upstream

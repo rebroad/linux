@@ -27,9 +27,15 @@ their cause, not by hiding inconsistency or weakening accounting.
    source and configured snapshot qgroup without a shared level-2 parent. The
    kernel's no-parent rescan fallback is expected for that baseline, so the
    kernel change alone will not avoid its scans. The no-rescan candidate is a
-   paired Snapper/kernel path. The RFC and differential results have been
-   sent to `linux-btrfs`; finish kernel review and any requested exact-release
-   checks before proposing a formal patch.
+   paired Snapper/kernel path. The RFC, differential results, correction, and
+   formal kernel patch have been sent to `linux-btrfs`. No maintainer response
+   is recorded yet; continue with review feedback and requested checks. The
+   narrowed patch was checked against current upstream source and compiled
+   against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
+   `7.1.13+deb13-amd64` release. The Snapper companion branch is pushed to the
+   fork and is available as draft upstream PR
+   [#1200](https://github.com/openSUSE/snapper/pull/1200); keep it paired with
+   the kernel change through review.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

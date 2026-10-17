@@ -242,6 +242,27 @@ broader filesystem coverage and host rollout remain open.
 - This validates sequential independent configs like the timeline wrapper;
   simultaneous tracker creation remains untested.
 
+## Full qgroup-counter comparison after timeline cleanup (2026-10-17)
+
+- Repeated the two-config Snapper 0.10.6 workload with the candidate Btrfs
+  module built for the running `7.1.13+deb13-amd64` kernel. After tracker
+  setup, three hourly rounds and quota-aware timeline cleanup completed with
+  no new scan and no `qgroup marked inconsistent` warning.
+- The earlier `btrfs qgroup show` comparison checked only referenced and
+  exclusive values. This run also parsed the quota tree with
+  `btrfs inspect-internal dump-tree -t 8` and compared all four stored counters
+  (`referenced`, `referenced_compressed`, `exclusive`, and
+  `exclusive_compressed`) for all 13 qgroups before and after a full rescan.
+  Every value matched. In this fixture each compressed-counter value happened
+  to equal its corresponding uncompressed counter; the comparison still
+  checked both fields independently.
+- The run reported `SNAPPER-QUOTA: PASS`. Its exact init script, initrd,
+  filesystem image, and serial log are under
+  `/var/tmp/qgroup-root-cause-7.1.13/`; the log is
+  `serial_snapper0106_quota_4counters.log`. This verifies the candidate paired
+  path and this specific fixture only; upstream review, broader layout
+  coverage, and durable host deployment remain open.
+
 ## Temporary host containment (2026-10-17)
 
 - `snapper-cleanup.timer` is enabled and active; the cleanup service was

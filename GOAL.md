@@ -7,29 +7,25 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 ## Remaining work
 
-1. **Complete the paired upstream contributions.** Snapper changes for
-   upstream `master` and Debian Snapper `0.10.6` stop clean quota queries from
-   starting unnecessary rescans. The latest query-path follow-up is
-   committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested on both
-   Snapper lines. It does not alter the stock kernel's snapshot-inheritance
-   decision: the reproduced snapshot-only tracker layout
-   still takes its conservative rescan fallback on Debian's kernel. No qgroup
-   counter corruption has been demonstrated; a full rescan agrees with the
-   incrementally maintained counters. A same-Snapper QEMU comparison now
-   shows that the exact stock-kernel fallback triggers one rescan per snapshot
-   in the tested root/home hourly workload, while the candidate kernel
-   completes those rounds without additional scans and passes quota cleanup.
-   The kernel quick-inherit change is therefore a narrowly scoped optimization
-   for avoiding those snapshot-triggered scans, not a correctness fix required
-   to repair bad accounting. The RFC has been updated with the differential
-   result. The candidate preserves the prior exclusivity guard for the
-   existing same-parent fast path; only the exact two-child tracker hierarchy
-   receives the new optimization. A forward-port to upstream v7.3-rc7 now
-   compiles and links the Btrfs module, but the isolated build used
-   `KBUILD_MODPOST_WARN=1` without `vmlinux` or `Module.symvers`, producing
-   unresolved-symbol warnings; it is not suitable for runtime testing. Finish
-   a full upstream build and runtime check, check the current stable line, and
-   complete kernel review before proposing a formal patch.
+1. **Complete the paired upstream contributions.** Keep the investigation and
+   acceptance tests pinned to the in-use `7.1.13+deb13-amd64` kernel. The
+   stock-module and candidate-module QEMU comparisons, including hourly
+   Snapper 0.10.6 and quota cleanup, use that exact release. Do not treat a
+   newer kernel build as a root-cause or acceptance gate; cross-version builds
+   are a separate upstream compatibility check after the exact-kernel work is
+   complete. Snapper changes for upstream `master` and Debian Snapper `0.10.6`
+   stop clean quota queries from starting unnecessary rescans. The query-path
+   follow-up is committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested
+   on both Snapper lines. No qgroup counter corruption has been demonstrated;
+   a full rescan agrees with incrementally maintained counters. On the stock
+   kernel, the reproduced snapshot-only tracker layout takes the conservative
+   rescan fallback; the exact two-member tracker optimization avoids those
+   snapshot-triggered scans while preserving the existing same-parent
+   exclusivity guard and passing quota cleanup. The kernel change is an
+   optimization for this proven topology, not a repair for demonstrated bad
+   accounting. The RFC and differential results have been sent to
+   `linux-btrfs`; finish kernel review and any requested exact-release checks
+   before proposing a formal patch.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks
@@ -42,9 +38,10 @@ their cause, not by hiding inconsistency or weakening accounting.
    with complete trackers. The current Debian Snapper 0.10.6 build has now
    also passed a fresh-filesystem QEMU run that repairs an interrupted
    config-only tracker, completes successive hourly snapshots and timeline
-   cleanup, and preserves counters across a full rescan. Extend quota-limit
-   checks on that exact candidate and any additional Btrfs layouts needed to
-   support the paired patch.
+   cleanup, and preserves counters across a full rescan. The exact-current
+   Debian Snapper quota-limit test passed with the 7.1.13 candidate module.
+   Extend coverage only for additional Btrfs layouts needed to support the
+   paired patch, using the same kernel release.
 4. **Investigate reported stalls independently.** Capture task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning

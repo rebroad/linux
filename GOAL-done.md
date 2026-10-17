@@ -585,3 +585,19 @@ broader filesystem coverage and host rollout remain open.
   It distinguishes that behavior from the candidate Snapper setup, which
   creates a shared tracker so the narrowed kernel optimization can apply.
   Log: `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106_old.log`.
+
+## Active Kingston Snapper hierarchy check (2026-10-17)
+
+- The timeline wrapper runs Kingston configs with `snapper --root
+  /mnt/kingston/@`. Reading the host's `/etc/snapper/configs` alone gives a
+  different config context and initially made the active values look
+  inconsistent. The effective Kingston configs are root `QGROUP=1/100` and
+  home `QGROUP=1/101`.
+- On `/mnt/kingston`, the live source qgroups `0/256` (`@`) and `0/257`
+  (`@home`) have no parents. The `.snapshots` containers `0/258` and `0/259`
+  are parented by `1/100` and `1/101`, respectively; the latest root and home
+  snapshots have the same corresponding parents. No shared tracking parent
+  connects either source qgroup to its Snapper snapshot qgroup.
+- `btrfs quota rescan -s` reported no scan in progress. `qgroup show` still
+  reports inconsistent data, so its counters are not treated as authoritative.
+  Automated wrapper rescans remain disabled while the timeline snapshots run.

@@ -53,7 +53,12 @@ their cause, not by hiding inconsistency or weakening accounting.
    versioned `linux-modules-*` package, and the matching `linux-image-*`
    package requires that exact version. APT metadata and the Debian-source
    rebuild/repository findings are recorded in `GOAL-done.md`; the paired
-   package and update workflow remains to be selected and verified.
+   package and update workflow remains to be selected and verified. An
+   external module build against the exact running kernel headers succeeded,
+   making an APT-packaged DKMS module a competing option. Secure Boot is
+   enabled, module signatures are enforced, and the probe module was
+   unsigned; test signing, enrollment, initramfs selection, and upgrade
+   behavior before choosing DKMS.
    Before considering the host rollout complete, exercise the relevant APT
    upgrade/reinstall path and verify the running kernel, loaded module, and
    Snapper package contain the intended fix afterward.

@@ -701,11 +701,28 @@ broader filesystem coverage and host rollout remain open.
   backports. `apt-ftparchive`, `dpkg-scanpackages`, and `gpg` are available.
   Debian's Kernel Handbook documents rebuilding official kernel packages
   from the Debian `linux` source package and testing patches with its
-  `debian/bin/test-patches` helper. This makes a Debian-source rebuild plus a
-  signed local APT repository the leading candidate, subject to verifying
-  package names, Secure Boot signing, metapackage tracking, and the update
-  automation before choosing it. No local repository or package has been
+  `debian/bin/test-patches` helper. A Debian-source rebuild plus a signed
+  local APT repository is one candidate; no repository or package has been
   created.
+- A build-only external-module probe compiled the patched `fs/btrfs` against
+  the installed `/lib/modules/7.1.13+deb13-amd64/build` headers using Kbuild's
+  external-module mode and a separate output directory. It produced
+  `btrfs.ko` with matching `7.1.13+deb13-amd64` vermagic and no modpost
+  errors. The output remains in the external build tree and was not installed.
+- Read-only checks report Secure Boot enabled and
+  `/sys/module/module/parameters/sig_enforce` set to `Y`. The external probe
+  is unsigned; the existing Debian Btrfs module is signed with its build-time
+  key. `mokutil --test-key` reports that the available user MOK certificate
+  is not enrolled. Therefore a DKMS package must prove signing with an
+  enrolled key, priority over the in-tree Btrfs module, and inclusion in the
+  boot initramfs, as well as successful autoinstall on kernel upgrade. DKMS
+  is available in Debian but is not installed on the host. No host module or
+  package was changed.
+- The official DKMS framework supports `AUTOINSTALL` and MOK-based module
+  signing; Debian documents Secure Boot enrollment and module signing in its
+  [Secure Boot guide](https://wiki.debian.org/SecureBoot). These documented
+  mechanisms do not establish that the host's candidate module will load or
+  survive an APT kernel upgrade; those checks remain open.
 
 ## Snapper PR formatting audit (2026-10-17)
 

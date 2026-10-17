@@ -652,11 +652,14 @@ broader filesystem coverage and host rollout remain open.
   from the status-aware helper in our Snapper branch. PRs #819 and #821 address
   waiting for rescans and snapperd responsiveness; neither changes the
   snapshot inheritance topology or explains the hourly inconsistency warning.
-- The Snapper branch contains five commits, compares cleanly against current
-  upstream `master`; draft upstream PR [#1200](https://github.com/openSUSE/snapper/pull/1200)
-  is open for review, paired with the kernel change.
-- PR checks passed for Debian, Fedora, Leap, Ubuntu, Tumbleweed (GCC and Clang),
-  and codespell. No review decision or maintainer review was recorded.
+- Draft PR #1200 initially contained a `fixup!` commit. Created branch
+  `codex/upstream-qgroup-tracking-clean`, autosquashed the fixup into its
+  target, and verified its tree is identical to the original branch. The
+  replacement draft [PR #1201](https://github.com/openSUSE/snapper/pull/1201)
+  contains four logical commits; #1200 is closed with a redirect comment.
+- All checks on #1200 passed for Debian, Fedora, Leap, Ubuntu, Tumbleweed (GCC
+  and Clang), and codespell. Checks are rerunning on #1201; no review decision
+  or maintainer review was recorded at the last check.
 
 ## Later-kernel source check and RFC correction (2026-10-17)
 

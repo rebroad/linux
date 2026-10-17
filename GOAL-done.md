@@ -172,6 +172,39 @@ broader filesystem coverage and host rollout remain open.
   rescans and quota-aware cleanup remain contained on the host pending broader
   tests and a deliberate rollout.
 
+## Tracker interruption recovery and master forward port (2026-10-17)
+
+- Snapper now recognizes a narrowly defined partial tracker: exactly one of
+  the live source or configured snapshot QGROUP has a level-2 parent, and that
+  parent's only member is the expected qgroup. It adds the missing relation
+  and calls `quota_rescan_if_needed()`. Ambiguous or multiply-parented layouts
+  remain untouched. The existing complete-tracker fast path remains unchanged.
+- The 0.10.6 branch backports the existing status-aware rescan helper from
+  master. This matters because Btrfs may already have started or completed a
+  rescan after a qgroup relation changes; Snapper waits for a running scan or
+  starts one only if qgroup status still says it is needed. It does not start
+  another scan after a clean automatic rescan.
+- Both the fresh-tracker and one-sided-partial-tracker cases passed the same
+  QEMU timeline workload on `7.1.13+deb13-amd64`, for Snapper `0.10.6` and
+  master `0.13.2`. Each run created multiple successive-hour snapshots,
+  applied timeline cleanup, then compared qgroup counters before and after a
+  full rescan. All four runs reported `SNAPPER-0106-INTEGRATION: PASS`; none
+  logged `qgroup marked inconsistent`. After tracker setup, the hourly
+  snapshots and cleanup started no additional scans. The serial logs are
+  `serial_snapper0106.log`, `serial_snapper0106fresh.log`,
+  `serial_snapper_master_recovery.log`, and
+  `serial_snapper_master_fresh.log` under
+  `/var/tmp/qgroup-root-cause-7.1.13/`.
+- The backport fixup is `53aef9df` on
+  `codex/qgroup-root-cause-0.10.6`. The forward-port fixup is `0972b9de` on
+  `codex/qgroup-tracker-recovery`. Both branches are pushed. The master
+  checkout's unrelated untracked config files remain untouched.
+- The tests cover interruption after one of the two tracker relations is
+  written. They do not identify an empty level-2 qgroup left by interruption
+  immediately after qgroup creation; safely distinguishing such an orphan
+  from a deliberately empty qgroup remains open, along with concurrent
+  tracker creation and compressed extents.
+
 ## Temporary host containment (2026-10-17)
 
 - `snapper-cleanup.timer` is enabled and active; the cleanup service was

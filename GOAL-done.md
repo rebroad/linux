@@ -375,7 +375,8 @@ broader filesystem coverage and host rollout remain open.
   `/var/tmp/snapper-qgroup-upstream-pr.md`. Pushing the branch to the fork was
   rejected by automatic review because it would publish repository contents
   externally. No push or upstream PR has been made; the branch and draft remain
-  local pending review authorization.
+  local pending review authorization at that point. This was superseded after
+  the user authorized publication: the Snapper branches were pushed later.
 
 ## Host containment recheck (2026-10-17)
 
@@ -389,3 +390,59 @@ broader filesystem coverage and host rollout remain open.
 - `btrfs quota rescan -s /mnt/kingston` reports no rescan operation in
   progress. Keep `SPACE_LIMIT` empty until patched Snapper is deliberately
   deployed and verified.
+
+## Kernel control and tracker-recovery verification (2026-10-17)
+
+- The reproduced cause is the qgroup topology at snapshot time. Snapper's
+  snapshot-only level-1 QGROUP does not include the live source subvolume. With
+  no common level-2 parent, the stock kernel's quick-inherit check correctly
+  declines to derive the new exclusive counters and marks qgroups inconsistent
+  for a full rescan. This is conservative behavior, not evidence of corrupt
+  counters or a kernel accounting bug.
+- Snapper now prepares a level-2 tracker containing only the live source
+  qgroup and the snapshot-only QGROUP. A narrow Btrfs quick-inherit extension
+  can derive counters for precisely that two-member hierarchy; broader or
+  ambiguous hierarchies still use the existing rescan fallback. The current
+  kernel candidate is `6bdac37f` (`fix(qgroup): preserve snapshot-only
+  exclusivity`) on top of `3e4d0853`.
+- A stock-module control used the same Debian `7.1.13+deb13-amd64` kernel
+  image and Snapper 0.10.6 candidate, but omitted the patched Btrfs module.
+  With the one-sided tracker fixture, the stock module logged `qgroup inherit
+  needs a rescan` and completed exactly one recovery scan. With the patched
+  module, Snapper repaired the tracker and created the snapshot without a new
+  scan or inconsistency. This isolates the kernel fast-path limitation from
+  Snapper's hierarchy repair.
+- Both Snapper lines were tested against the patched module: upstream-based
+  Snapper 0.13.2 and the host-version 0.10.6 backport. Source-only and
+  complete-tracker recovery passed on both. The complete-tracker case first
+  created an untracked snapshot to set the inconsistency flag; Snapper then
+  ran exactly one rescan before continuing.
+- The latest 0.13.2 two-config workload passed repeated hourly snapshots and
+  timeline cleanup. The 0.10.6 workload also passed with compressed data,
+  outside shared snapshots, tracker migration, repeated snapshots, and
+  timeline cleanup. In both, later hourly operations started no scans, and a
+  full-rescan counter comparison remained unchanged. Logs:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_candidate_multi_latest.log`,
+  `serial_candidate_source_only.log`, `serial_candidate_complete_tracker.log`,
+  `serial_candidate_0106_multi_latest.log`,
+  `serial_candidate_0106_source_only.log`,
+  `serial_candidate_0106_complete_tracker.log`, and
+  `serial_candidate_0106_stock.log`.
+- Snapper recovery commits are pushed to the user's fork:
+  `b65c6ab4` on `codex/upstream-qgroup-tracking` and `39664071` on
+  `codex/qgroup-root-cause-0.10.6`. These branches are not installed on the
+  host and have not been submitted as upstream PRs.
+- This finding supersedes the earlier “no kernel patch/report” assessment:
+  it does not establish a correctness bug, but it provides reproducible
+  evidence that a kernel fast path is needed to preserve the existing
+  snapshot-only quota group without repeated rescans for the proven
+  hierarchy. The strict topology checks keep unknown layouts on the existing
+  rescan path. The patch includes the full-quota guard and ancestor updates
+  required by existing upstream quick-inherit fixes.
+- An RFC with the candidate diff and test evidence was emailed to
+  `linux-btrfs@vger.kernel.org` on 2026-10-17 (subject: `[RFC] btrfs:
+  quick-inherit snapshot-only qgroups through a shared tracker`), with Chris
+  Mason and David Sterba copied. Gmail confirms it is sent; a lore archive
+  link is not available yet. The patch applies cleanly to upstream `v7.3-rc7`,
+  but has not been built or QEMU-tested there. Explicit quota-limit
+  enforcement coverage remains open before a formal patch submission.

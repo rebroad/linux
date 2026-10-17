@@ -7,40 +7,43 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 ## Remaining work
 
-1. **Get review of the prepared upstream Snapper contribution.** A focused
-   three-commit branch is based on the freshly fetched upstream tip, and its PR
-   description with QEMU evidence is at
-   `/var/tmp/snapper-qgroup-upstream-pr.md`. The branch is local because the
-   attempt to push it to the GitHub fork was rejected by automatic review.
-   Obtain authorization for that external publication before pushing or
-   opening an upstream PR. Do not file a kernel bug report unless further
-   tests show the kernel still rescans or miscounts with the tracking hierarchy
-   in place.
-2. **Keep the host rollout gated.** The `v0.10.6` Snapper backport is built
-   and QEMU-tested, but the host still runs Debian Snapper `0.10.6-1.2`, which
-   predates the tracking-parent fix. Neither the backport nor custom Btrfs
-   module is installed. Keep the timeline wrapper's explicit rescan block
-   disabled until broader tests and deliberate rollout are complete.
-3. **Extend workload coverage.** Current QEMU cases cover Zstd-compressed and
-   incompressible data, outside shared snapshots, partial overwrites,
+1. **Complete the paired upstream contributions.** Snapper branches for
+   upstream `master` and Debian Snapper `0.10.6` are pushed to the fork and
+   QEMU-tested. The stock Debian Btrfs module still requests a rescan with the
+   tracker hierarchy, so the kernel quick-inherit extension is needed to avoid
+   repeated rescans while preserving Snapper's snapshot-only quota group. The
+   stock behavior is a conservative fallback, not a demonstrated accounting
+   bug. An RFC and candidate diff have been sent to `linux-btrfs`; complete
+   quota-limit coverage and build/test the patch against current upstream
+   before sending a formal patch revision.
+2. **Keep the host rollout gated.** The host still runs Debian Snapper
+   `0.10.6-1.2` and its stock kernel module. Do not install either candidate
+   until the paired changes have review and the full accounting/quota checks
+   pass. Keep the timeline wrapper's explicit rescan block disabled and
+   `SPACE_LIMIT` empty during investigation.
+3. **Finish accounting and recovery coverage.** QEMU now covers compressed
+   and incompressible data, externally shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
-   allocation, an empty orphan tracker, and recovery of a one-sided tracker.
-   Check additional Btrfs layouts and recovery boundaries before host rollout.
-4. **Investigate reported stalls independently.** Capture useful task stacks,
+   allocation, orphan and one-sided tracker recovery, and interrupted scans
+   with complete trackers. Extend quota-limit checks and any additional Btrfs
+   layouts needed to support the paired patch.
+4. **Investigate reported stalls independently.** Capture task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning
    alone.
 5. **Preserve temporary host containment.** Confirm the wrapper still skips
    automatic rescans while snapshots continue. Restore the original
-   `SPACE_LIMIT="0.5"` settings only after the patched Snapper is deliberately
-   deployed and its initialization scan and cleanup behavior are verified.
+   `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
+   deployed and their initialization scan, quota accounting, and cleanup
+   behavior are verified.
 
 ## Acceptance
 
 Repeated Snapper-style snapshots and cleanup, including externally shared
-extents, keep qgroup data consistent without unnecessary full rescans; the
-accounting still supports correct snapshot cleanup and quota enforcement. Any
-remaining limitation or unverified stall hypothesis is documented explicitly.
+extents, keep qgroup data consistent without unnecessary full rescans on the
+supported kernel path; reference and exclusive counters match a full rescan,
+and quota limits retain their existing snapshot-only scope. Any remaining
+limitation or unverified stall hypothesis is documented explicitly.
 
 ## Completed evidence
 

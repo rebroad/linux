@@ -35,7 +35,18 @@ their cause, not by hiding inconsistency or weakening accounting.
    until the paired changes have review and the full accounting/quota checks
    pass. Keep the timeline wrapper's explicit rescan block disabled and
    `SPACE_LIMIT` empty during investigation.
-3. **Finish accounting and recovery coverage.** QEMU now covers compressed
+3. **Make the fix durable across APT upgrades.** Choose and document a
+   maintainable, APT-managed deployment for the paired kernel and Snapper
+   changes. It must ensure that a kernel upgrade/reinstall does not silently
+   replace the fixed kernel with an unmodified one, and that Snapper package
+   upgrades/reinstalls retain the fix. Prefer reviewed Debian/upstream
+   packages when available; if the host needs locally maintained packages,
+   define how they are built, installed, and kept current. Do not depend on a
+   manually copied kernel module or silently hold back security updates.
+   Before considering the host rollout complete, exercise the relevant APT
+   upgrade/reinstall path and verify the running kernel, loaded module, and
+   Snapper package contain the intended fix afterward.
+4. **Finish accounting and recovery coverage.** QEMU now covers compressed
    and incompressible data, externally shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
    allocation, orphan and one-sided tracker recovery, and interrupted scans
@@ -47,11 +58,11 @@ their cause, not by hiding inconsistency or weakening accounting.
    `7.1.13+deb13-amd64` candidate module, matching the running kernel.
    Extend coverage only for additional Btrfs layouts needed to support the
    paired patch, using the same kernel release.
-4. **Investigate reported stalls independently.** Capture task stacks,
+5. **Investigate reported stalls independently.** Capture task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning
    alone.
-5. **Preserve temporary host containment.** Confirm the wrapper still skips
+6. **Preserve temporary host containment.** Confirm the wrapper still skips
    automatic rescans while snapshots continue. Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup
@@ -62,8 +73,11 @@ their cause, not by hiding inconsistency or weakening accounting.
 Repeated Snapper-style snapshots and cleanup, including externally shared
 extents, keep qgroup data consistent without unnecessary full rescans on the
 supported kernel path; reference and exclusive counters match a full rescan,
-and quota limits retain their existing snapshot-only scope. Any remaining
-limitation or unverified stall hypothesis is documented explicitly.
+and quota limits retain their existing snapshot-only scope. The fix remains
+installed and active after kernel and Snapper APT upgrade/reinstall operations,
+with the running kernel, loaded module, and installed Snapper package verified.
+Any remaining limitation or unverified stall hypothesis is documented
+explicitly.
 
 ## Completed evidence
 

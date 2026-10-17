@@ -3320,9 +3320,12 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	if (tracker == parent) {
 		/*
 		 * The parent already contains the source.  The snapshot only adds
-		 * its new root node to the parent, even when some source extents
-		 * are also referenced outside the parent.
+		 * its new root node to the parent. Keep the existing exclusivity
+		 * check for this case; the tracking-parent optimization below is
+		 * separate and does not change this path.
 		 */
+		if (parent->excl != parent->rfer)
+			return 1;
 		qgroup_iterator_add(&qgroup_list, parent);
 	} else {
 		/*

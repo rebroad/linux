@@ -723,6 +723,15 @@ broader filesystem coverage and host rollout remain open.
   [Secure Boot guide](https://wiki.debian.org/SecureBoot). These documented
   mechanisms do not establish that the host's candidate module will load or
   survive an APT kernel upgrade; those checks remain open.
+- Inspected the extracted Debian DKMS 3.2.2 scripts and the installed kernel
+  package hooks. `/etc/kernel/postinst.d/dkms` execs
+  `dkms_autoinstaller`; DKMS returns failure when a module build fails, and
+  the installed `linux-image` postinst calls `linux-run-hooks`, which runs
+  hooks with `--exit-on-error`. This means an incompatible DKMS build can fail
+  kernel image configuration and hold up an APT kernel upgrade. A DKMS design
+  must be tested for this failure path and must not leave the machine on an
+  unpatched kernel while security updates are delayed. No host packages or
+  kernel state were changed during this inspection.
 
 ## Snapper PR formatting audit (2026-10-17)
 

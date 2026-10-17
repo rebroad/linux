@@ -59,7 +59,9 @@ their cause, not by hiding inconsistency or weakening accounting.
    making an APT-packaged DKMS module a competing option. Secure Boot is
    enabled, module signatures are enforced, and the probe module was
    unsigned; test signing, enrollment, initramfs selection, and upgrade
-   behavior before choosing DKMS.
+   behavior before choosing DKMS. Debian's kernel hook chain propagates DKMS
+   build failures from image post-install, so prove an unsupported future
+   kernel cannot leave APT upgrades failing or boot an unpatched Btrfs module.
    Before considering the host rollout complete, exercise the relevant APT
    upgrade/reinstall path and verify the running kernel, loaded module, and
    Snapper package contain the intended fix afterward.

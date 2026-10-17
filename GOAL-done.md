@@ -571,3 +571,17 @@ broader filesystem coverage and host rollout remain open.
   This confirms the candidate was not installed or loaded on the host.
 - The linux-btrfs RFC thread currently contains our sent messages only; no
   maintainer reply was present in Gmail when checked.
+
+## Stock Snapper baseline reproduction on the in-use kernel (2026-10-17)
+
+- A QEMU run of the no-tracker Snapper baseline booted the exact
+  `7.1.13+deb13-amd64` kernel release. The root and home test configs used
+  snapshot qgroups `1/0` and `1/1`; no level-2 tracking qgroup was present.
+- After setup, the test advanced through three hourly snapshot rounds. Each
+  round logged `qgroup marked inconsistent, qgroup inherit needs a rescan`;
+  each was followed by `qgroup scan completed`. The harness ended with
+  `SNAPPER-OLD: PASS (inconsistency warnings=3; no tracking qgroup)`.
+- This reproduces the live baseline topology and the stock kernel fallback.
+  It distinguishes that behavior from the candidate Snapper setup, which
+  creates a shared tracker so the narrowed kernel optimization can apply.
+  Log: `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106_old.log`.

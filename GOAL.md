@@ -39,6 +39,10 @@ suppressing inconsistency warnings as the fix.
   that the wrapper change disables every rescan source. This is temporary
   operational containment; Snapper snapshots remain enabled unless a safe
   reproduction shows otherwise.
+- Restore the original `SPACE_LIMIT="0.5"` settings only after the accounting
+  fix is verified and automated rescans are safe again. Until then, preserve
+  the original values in the evidence log so quota-based cleanup can be
+  reinstated deliberately.
 
 ## Reference
 

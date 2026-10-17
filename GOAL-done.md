@@ -101,6 +101,24 @@ This file records verified findings that inform the active tasks in
   with subvolumes outside the cleanup set, because such extents can make this
   difference overstate bytes exclusively attributable to the snapshots.
 
+## Temporary host containment (2026-10-17)
+
+- `snapper-cleanup.timer` is enabled and active; the cleanup service was
+  inactive at inspection. The system and Kingston `root`/`home` configs all
+  had `SPACE_LIMIT="0.5"`, which lets quota-aware cleanup call Snapper's
+  rescan-and-wait query. To keep that path from starting new scans during this
+  investigation, `SPACE_LIMIT` is temporarily empty in all four configs.
+- Snapshot creation, `QGROUP`, `FREE_LIMIT="0.2"`, and timeline cleanup remain
+  configured. Quota-based space cleanup is paused. Restore `SPACE_LIMIT="0.5"`
+  in these four files after the accounting fix is verified:
+  `/etc/snapper/configs/{root,home}` and
+  `/mnt/kingston/@/etc/snapper/configs/{root,home}`.
+- Kingston already had a rescan running before the config changes. Its status
+  remained `rescan operation running` afterward; this containment does not
+  cancel or interrupt an in-flight scan. A kernel stack showed the
+  `btrfs-qgroup-rescan` worker at 08:52, but the available journal excerpt did
+  not establish which command started that scan.
+
 ## Earlier containment and suspend work
 
 - Automated qgroup rescans were disabled in the host timeline wrapper to limit

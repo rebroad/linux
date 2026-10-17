@@ -622,3 +622,15 @@ broader filesystem coverage and host rollout remain open.
 - `btrfs quota rescan -s` reported no scan in progress. `qgroup show` still
   reports inconsistent data, so its counters are not treated as authoritative.
   Automated wrapper rescans remain disabled while the timeline snapshots run.
+
+## Later-kernel source check and RFC correction (2026-10-17)
+
+- Compared the candidate's shared-tracker fast path with current upstream
+  `master` and Linux 7.2 `fs/btrfs/qgroup.c`. Both retain the no-parent
+  rescan fallback; neither contains the proposed exact two-member tracker
+  derivation. The RFC therefore does not describe behavior already fixed in
+  those later sources. This was a source review only, not a runtime test.
+- Sent a concise correction in the existing RFC thread: stock Snapper has no
+  shared tracker, the paired Snapper change creates it, the stock fallback is
+  expected for the baseline topology, and no counter corruption has been
+  demonstrated. The correction also records the later-source comparison.

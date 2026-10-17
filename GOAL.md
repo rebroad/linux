@@ -23,9 +23,14 @@ their cause, not by hiding inconsistency or weakening accounting.
    snapshot-triggered scans while preserving the existing same-parent
    exclusivity guard and passing quota cleanup. The kernel change is an
    optimization for this proven topology, not a repair for demonstrated bad
-   accounting. The RFC and differential results have been sent to
-   `linux-btrfs`; finish kernel review and any requested exact-release checks
-   before proposing a formal patch.
+   accounting. The tracker is created only by the candidate Snapper
+   `prepareQGroupTracking()` change; the stock Snapper baseline leaves the
+   source and configured snapshot qgroup without a shared level-2 parent. The
+   kernel's no-parent rescan fallback is expected for that baseline, so the
+   kernel change alone will not avoid its scans. The no-rescan candidate is a
+   paired Snapper/kernel path. The RFC and differential results have been
+   sent to `linux-btrfs`; finish kernel review and any requested exact-release
+   checks before proposing a formal patch.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

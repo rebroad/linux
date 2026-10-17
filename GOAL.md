@@ -9,23 +9,27 @@ limited to a configurable local-time window and at most one per filesystem in
 any rolling 24-hour period, including across multiple Snapper configurations
 and repeated triggers. The host preference is 05:00-21:00 local time; all
 Snapper configurations sharing a filesystem must use the same window. A rate
-limit must never report stale counters as consistent.
+limit must never report stale counters as consistent. When a rescan is
+deferred, Snapper must still return last-known quota values with an explicit
+stale status; `snapper list` should display them with a warning, and
+quota-based cleanup must wait until the counters are consistent.
 
 ## Remaining work
 
 1. **Complete the paired upstream contributions.** Develop and validate the
-   Snapper fix on the latest upstream release line, currently v0.13.2; the
-   source checkout is 50 commits beyond that tag. Debian Snapper `0.10.6`
-   describes the host's installed baseline only and is not the primary
-   development or acceptance target. The durable host fix must move the host
-   to the fixed latest Snapper release line. The host currently runs kernel
+   Snapper fix against the latest revision in the official upstream repository
+   (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
+   new work. Do not use a distribution package source or older downstream
+   branch as the development base. The durable host fix must install the
+   modified Snapper built from that latest upstream baseline. The host
+   currently runs kernel
    release `7.1.13+deb13-amd64`; use that exact release for all remaining
    kernel investigation and acceptance testing. The stock-module and
    candidate-module QEMU comparisons use that release. Testing other kernel
    versions is outside this goal. The latest-line Snapper changes stop clean
    quota queries from starting unnecessary rescans. The query-path
    follow-up is committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested
-   on both Snapper lines. No qgroup counter corruption has been demonstrated;
+   on the recorded Snapper baselines. No qgroup counter corruption has been demonstrated;
    a full rescan agrees with incrementally maintained counters. On the stock
    kernel, the reproduced snapshot-only tracker layout takes the conservative
    rescan fallback; the exact two-member tracker optimization avoids those
@@ -52,13 +56,11 @@ limit must never report stale counters as consistent.
    review. Add a documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
    configure every host Snapper config sharing Kingston to `05:00-21:00`
    local time, while retaining the per-filesystem rolling 24-hour cap.
-2. **Keep the host rollout gated.** The host still runs Debian Snapper
-   `0.10.6-1.2` and its stock kernel module. Do not install either candidate
-   until the latest-line Snapper change and, if required, its paired kernel
-   change have review and the full accounting/quota checks pass. Plan and
-   verify the host's move from Debian's older Snapper package to the fixed
-   latest release line as part of deployment; do not treat a 0.10.6 backport
-   as the primary fix. Keep the timeline wrapper's explicit rescan block
+2. **Deploy the locally built Snapper.** The host must run the Snapper build
+   produced from the latest upstream baseline, including the reviewed qgroup
+   fix. Keep deployment gated until the Snapper change and, if required, its
+   paired kernel change have review and the full accounting/quota checks pass.
+   Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
 3. **Make the fix durable across APT upgrades.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
@@ -92,16 +94,14 @@ limit must never report stale counters as consistent.
    and incompressible data, externally shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
    allocation, orphan and one-sided tracker recovery, and interrupted scans
-   with complete trackers. Snapper 0.13.2 has passed the recorded
-   fresh-filesystem QEMU runs; keep the latest-line build as the primary
-   acceptance target. Debian Snapper 0.10.6 QEMU results remain baseline
-   evidence for the currently installed host package, not the target version.
+   with complete trackers. The latest-upstream Snapper build is the primary
+   acceptance target. Results from older Snapper builds remain historical
+   baseline evidence only.
    The latest-line build must repair an interrupted config-only tracker,
    complete successive hourly snapshots and timeline cleanup, preserve
    counters across a full rescan, and pass quota-limit cleanup with the
-   `7.1.13+deb13-amd64` candidate module. The existing Debian Snapper 0.10.6
-   quota-limit result is baseline evidence only; repeat acceptance on the
-   latest Snapper line. Extend coverage only for additional Btrfs layouts
+   `7.1.13+deb13-amd64` candidate module. Repeat quota-limit acceptance on
+   the latest-upstream Snapper build. Extend coverage only for additional Btrfs layouts
    needed to support the paired patch, using the same kernel release.
 5. **Investigate reported stalls independently.** A bounded read-error trace
    captured failed metadata reads from a detached-USB Btrfs instance during
@@ -135,9 +135,11 @@ full rescan, and quota limits retain their existing snapshot-only scope.
 Unnecessary rescans do not recur, and any automatic full rescans that remain
 necessary start only inside the configured local-time window and no more than
 once per filesystem in any rolling 24-hour period across all Snapper
-processes and configurations. The host's configured preference is 05:00-21:00
-local time for every Snapper configuration sharing the filesystem; the
-timeline wrapper's separate explicit rescan commands remain disabled.
+processes and configurations. If a rescan is deferred, users can still see the
+last-known quota numbers and their stale status; quota-based deletion waits
+until the numbers are current. The host's configured preference is
+05:00-21:00 local time for every Snapper configuration sharing the filesystem;
+the timeline wrapper's separate explicit rescan commands remain disabled.
 Prefer a Snapper-only fix. If the kernel/module must change, it is automatically
 reapplied and active after every kernel APT upgrade/reinstall, without blocking
 security updates; the installed Snapper fix also survives its APT

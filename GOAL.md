@@ -8,7 +8,7 @@ their cause, not by hiding inconsistency or weakening accounting.
 ## Remaining work
 
 1. **Get review of the prepared upstream Snapper contribution.** A focused
-   two-commit branch is based on the freshly fetched upstream tip, and its PR
+   three-commit branch is based on the freshly fetched upstream tip, and its PR
    description with QEMU evidence is at
    `/var/tmp/snapper-qgroup-upstream-pr.md`. The branch is local because the
    attempt to push it to the GitHub fork was rejected by automatic review.
@@ -24,8 +24,8 @@ their cause, not by hiding inconsistency or weakening accounting.
 3. **Extend workload coverage.** Current QEMU cases cover Zstd-compressed and
    incompressible data, outside shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
-   allocation, and an empty orphan tracker. Check additional Btrfs layouts and
-   recovery boundaries before host rollout.
+   allocation, an empty orphan tracker, and recovery of a one-sided tracker.
+   Check additional Btrfs layouts and recovery boundaries before host rollout.
 4. **Investigate reported stalls independently.** Capture useful task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning

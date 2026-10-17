@@ -360,11 +360,15 @@ broader filesystem coverage and host rollout remain open.
   prepares and recovers the shared tracking parent, and `66bde616` retries
   concurrent tracker-ID collisions. The orphan-tracker recovery is folded into
   the parent commit.
-- Built the current branch and reran three QEMU scenarios against the exact
+- Built the current branch and reran four QEMU scenarios against the exact
   built binaries: two-config hourly snapshots and cleanup, empty orphan-tracker
-  recovery with varied extents, and eight concurrent first snapshots. All
-  reported `PASS`; final full rescans preserved qgroup counters. The concurrent
-  case verified four independent tracker parents and no tracker-setup rescans.
+  recovery with varied extents, one-sided tracker recovery, and eight concurrent
+  first snapshots. All reported `PASS`; final full rescans preserved qgroup
+  counters. The concurrent case verified four independent tracker parents and
+  no tracker-setup rescans.
+- These candidate runs used a purpose-built minimal initramfs (BusyBox and
+  Debian Btrfs tools), booting Debian's `7.1.13+deb13-amd64` kernel; this is
+  not a full Debian guest installation. The Snapper binary was version 0.13.2.
 - `git diff --check upstream/master...HEAD` passed. The branch is clean and
   excludes the unrelated Debian-detection commit from the fork's master.
 - Draft PR description and the recorded QEMU coverage are in
@@ -372,3 +376,16 @@ broader filesystem coverage and host rollout remain open.
   rejected by automatic review because it would publish repository contents
   externally. No push or upstream PR has been made; the branch and draft remain
   local pending review authorization.
+
+## Host containment recheck (2026-10-17)
+
+- The live timeline wrapper still creates Snapper timeline snapshots, while
+  its Kingston qgroup rescan block remains commented out. Both
+  `snapper-timeline.timer` and `snapper-cleanup.timer` are enabled and active.
+- `SPACE_LIMIT` is currently empty in all four system and Kingston root/home
+  configs, so the cleanup timer's quota-based space-limit query is not active;
+  `FREE_LIMIT="0.2"` remains configured. Snapper `QGROUP` values are
+  `1/100` for both system configs, and `1/100` / `1/101` for Kingston root/home.
+- `btrfs quota rescan -s /mnt/kingston` reports no rescan operation in
+  progress. Keep `SPACE_LIMIT` empty until patched Snapper is deliberately
+  deployed and verified.

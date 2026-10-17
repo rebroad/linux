@@ -72,13 +72,24 @@ inconsistency warning as a fix.
   and `1/101` (home). Kernel logs report `qgroup inherit needs a rescan` at
   times that coincide with timeline service runs.
 - Live qgroup output maps the source subvolumes to `0/256` (`@`) and `0/257`
-  (`@home`), both with no parent qgroup. The snapshot destination subvolumes
-  are `0/258` and `0/259`, with parents `1/100` and `1/101` respectively.
-  Snapper's snapshot implementation passes the configured QGROUP as the
-  inheritance parent. Linux `v7.1.13` has a quick-inherit check that explicitly
-  requires a full rescan when the source has no parent qgroup. This strongly
-  identifies the trigger; a controlled reproduction and accounting comparison
-  are still required before selecting a fix.
+  (`@home`), both with no parent qgroup. The `.snapshots` subvolumes are
+  `0/258` and `0/259`, related to `1/100` and `1/101`. Snapper passes the
+  configured QGROUP as the new snapshot's inheritance parent. Linux
+  `v7.1.13` returns “rescan required” when that source has no parent qgroup.
+- A controlled reproduction using the installed Debian `7.1.13` kernel confirms
+  the sequence: create a snapshot with `-i 1/100` from an unparented source,
+  and qgroups become inconsistent immediately; `btrfs quota rescan -s` reports
+  no running scan while `qgroup show` reports inconsistent data. After a full
+  rescan, assigning the live source subvolume to `1/100` makes a subsequent
+  inherited snapshot avoid a new rescan.
+- That assignment is not yet an acceptable fix. In the reproduction, the
+  snapshot-only `1/100` qgroup measured 25,182,208 referenced bytes and 16,384
+  exclusive bytes after rescan. Adding the live source changed it to 25,198,592
+  referenced and exclusive bytes. Snapper `v0.10.6`, the installed version,
+  uses the high-level qgroup's exclusive count as its snapshot-space usage, so
+  including the live source would make Snapper count live data as snapshot
+  usage. The expected accounting tradeoff must be resolved before choosing a
+  fix.
 - The exact running kernel is Linux `7.1.13+deb13-amd64`, package
   `7.1.13-1~bpo13+1`. Active work is in this `~/src/linux` checkout on branch
   `codex/qgroup-root-cause-7.1.13`, based on upstream `v7.1.13`. Debian's source
@@ -87,9 +98,11 @@ inconsistency warning as a fix.
   `fs/btrfs/qgroup.c` matches between the upstream tag and Debian's orig source
   archive (`bf44fc4f...e923d227`). Thus the qgroup code under investigation
   matches the running Debian kernel. The prior 7.2.6 worktree is not active.
-- A prior QEMU fixture contains a long snapshot loop, but its captured serial
-  log ends during snapshot creation and does not prove a completed reproduction
-  or suspend/resume behavior. Rework it into a small conclusive reproduction.
+- The earlier 7.2.6 QEMU fixture remains inconclusive and is not being used.
+  A separate bounded QEMU reproduction now runs the installed 7.1.13 kernel and
+  confirms the snapshot inheritance trigger and the accounting impact of
+  assigning the live source to the parent. Repeated real Snapper cleanup and
+  retention behavior still need verification before selecting a fix.
 - The earlier suspendability patch and unsent upstream draft are not the active
   objective. Preserve them as historical work unless root-cause findings show
   they are needed for the final fix.

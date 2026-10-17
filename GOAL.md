@@ -7,13 +7,12 @@ their cause, not by hiding inconsistency or weakening accounting.
 
 ## Remaining work
 
-1. **Complete the paired upstream contributions.** Keep the investigation and
-   acceptance tests pinned to the in-use `7.1.13+deb13-amd64` kernel. The
-   stock-module and candidate-module QEMU comparisons, including hourly
-   Snapper 0.10.6 and quota cleanup, use that exact release. Do not treat a
-   newer kernel build as a root-cause or acceptance gate; cross-version builds
-   are a separate upstream compatibility check after the exact-kernel work is
-   complete. Snapper changes for upstream `master` and Debian Snapper `0.10.6`
+1. **Complete the paired upstream contributions.** The host currently runs
+   kernel release `7.1.13+deb13-amd64`; use that exact release for all
+   remaining investigation and acceptance testing. The stock-module and
+   candidate-module QEMU comparisons, including hourly Snapper 0.10.6 and
+   quota cleanup, use that release. Testing other kernel versions is outside
+   this goal. Snapper changes for upstream `master` and Debian Snapper `0.10.6`
    stop clean quota queries from starting unnecessary rescans. The query-path
    follow-up is committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested
    on both Snapper lines. No qgroup counter corruption has been demonstrated;

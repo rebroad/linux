@@ -687,6 +687,16 @@ broader filesystem coverage and host rollout remain open.
   the standard metapackage free to install a newer unmodified kernel on a
   later upgrade. The durable plan must cover that dependency path as well as
   the Snapper package.
+- `dpkg-query -L linux-modules-7.1.13+deb13-amd64` locates the active-release
+  Btrfs module at
+  `/usr/lib/modules/7.1.13+deb13-amd64/kernel/fs/btrfs/btrfs.ko.xz`. The
+  installed `linux-image-7.1.13+deb13-amd64` package requires the matching
+  `linux-modules-7.1.13+deb13-amd64` package at exactly the same version.
+  That module package is built from Debian source package `linux`; the
+  image-package metadata comes from `linux-signed-amd64`. Therefore the local
+  deployment has to replace or rebuild the matching modules package and keep
+  the image/metapackage dependency chain tracking the patched modules on each
+  kernel update.
 - Debian source indices are enabled for trixie, updates, security, and
   backports. `apt-ftparchive`, `dpkg-scanpackages`, and `gpg` are available.
   Debian's Kernel Handbook documents rebuilding official kernel packages

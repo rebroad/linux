@@ -7,12 +7,15 @@ suppressing inconsistency warnings as the fix.
 
 ## Work remaining
 
-- Resolve why Snapper's configured snapshot qgroup inheritance (`1/100` for
-  `root`, `1/101` for `home`) requests a rescan when the source subvolumes have
-  no parent qgroup. Compare the no-inheritance behavior with the configured
-  snapshot-space accounting and cleanup requirements.
-- Select and implement the smallest correct fix at the responsible layer
-  (Btrfs accounting, Snapper integration, or host configuration). Preserve
+- Design an accounting and cleanup model that preserves the intended measure
+  of retained snapshot space without rescanning after each hourly snapshot.
+  The current kernel path appears to request rescans correctly: aggregate
+  qgroup counters do not reveal extent overlap between the source and a
+  snapshot-only parent. Evaluate whether a different qgroup layout can retain
+  useful cleanup semantics, or whether Btrfs/Snapper needs a principled change
+  to represent the needed accounting.
+- Implement the smallest correct fix at the responsible layer (Btrfs
+  accounting, Snapper integration, or host configuration). Preserve
   meaningful referenced/exclusive counts and quota enforcement; do not assign
   live source data to a snapshot-only qgroup unless the resulting Snapper
   accounting is corrected and verified.
@@ -28,9 +31,12 @@ suppressing inconsistency warnings as the fix.
 - Check for an existing upstream report if evidence points to a Btrfs bug. If
   none exists, prepare a focused report and patch for the correct venue; share
   the concrete draft for review before sending it.
-- Keep the host's automated qgroup rescans disabled while the investigation
-  continues. This is temporary operational containment; Snapper snapshots
-  remain enabled unless a safe reproduction shows otherwise.
+- Keep the host timeline wrapper's explicit qgroup rescans disabled while the
+  investigation continues. Snapper's own space-aware cleanup also requests and
+  waits for rescans, so verify the effective host behavior and avoid claiming
+  that the wrapper change disables every rescan source. This is temporary
+  operational containment; Snapper snapshots remain enabled unless a safe
+  reproduction shows otherwise.
 
 ## Reference
 

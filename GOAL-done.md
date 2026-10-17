@@ -43,6 +43,37 @@ This file records verified findings that inform the active tasks in
   count for snapshot-space usage, so this assignment changes the metric and is
   not an established fix.
 
+## Why the rescan is requested, and Snapper's role
+
+- In `v7.1.13`, `qgroup_snapshot_quick_inherit()` declines its fast path when
+  the source qgroup has no parent. This is necessary for the current
+  snapshot-only parent: aggregate referenced/exclusive counters cannot reveal
+  which extents in the source overlap extents already referenced by snapshots
+  in that parent. Assuming no overlap or subtracting source exclusives would
+  produce incorrect parent counts.
+- The official Btrfs qgroup documentation describes the same limit: exclusive
+  and referenced byte counters do not encode extent-sharing relationships;
+  changing qgroup membership can therefore require a full rescan. The fast
+  path is safe only for restricted cases where ownership can be derived from
+  existing counters. This evidence currently points to an expected limitation
+  of full qgroups, rather than a kernel accounting bug.
+- The Snapper source checkout is at tag `v0.10.6`, matching the installed
+  version recorded during this investigation. `Snapper::queryQuotaData()` calls
+  `quota_rescan()` and waits for it before reading the configured qgroup's
+  `exclusive` count. The cleanup code calls this query when `SPACE_LIMIT` is
+  enabled. Therefore the timeline wrapper's explicit rescan block is not the
+  only possible rescan source; space-aware Snapper cleanup independently
+  requests a scan.
+- The external-root timeline wrapper uses `snapper create --cleanup-algorithm
+  timeline`. In the inspected Snapper source, this sets the snapshot's cleanup
+  metadata and passes `QGROUP` to the snapshot ioctl. Creation itself does not
+  run the cleanup algorithm. The wrapper's own later rescan block was a
+  separate path. The daily `snapper-cleanup` service is another path to
+  space-aware qgroup queries.
+- The current evidence explains why the inconsistency flag is set and why a
+  scan can later start, but it does not establish an acceptable replacement
+  accounting model. No kernel or Snapper code fix has been selected.
+
 ## Earlier containment and suspend work
 
 - Automated qgroup rescans were disabled in the host timeline wrapper to limit

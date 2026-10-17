@@ -556,3 +556,18 @@ broader filesystem coverage and host rollout remain open.
   a temporary copy of the tagged qgroup.c. A mailing-list follow-up reported
   the forward-port and its build limitation. Full upstream build/runtime
   validation and review remain open.
+
+## Live host containment and module check (2026-10-17)
+
+- The running kernel is `7.1.13+deb13-amd64`; the installed Snapper package is
+  `0.10.6-1.2`. Both `snapper-timeline.timer` and `snapper-cleanup.timer` are
+  active. The timeline wrapper's Kingston rescan block remains commented out.
+- The root and home configs both retain their expected `QGROUP` values and
+  have `SPACE_LIMIT=""` (`FREE_LIMIT="0.2"`). An elevated
+  `btrfs quota rescan -s /mnt/kingston` reports no rescan in progress.
+- Btrfs is loaded. Its live GNU build ID (`059c7530edfb1e54ce3b71e44d1f4aa3a4216e17`)
+  matches the module file under `/lib/modules/7.1.13+deb13-amd64/`; the
+  candidate module's build ID is `a576b936e832707466d80fb883f405ed4a8f4d13`.
+  This confirms the candidate was not installed or loaded on the host.
+- The linux-btrfs RFC thread currently contains our sent messages only; no
+  maintainer reply was present in Gmail when checked.

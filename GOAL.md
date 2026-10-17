@@ -105,11 +105,14 @@ rate limit must never report stale counters as consistent.
    timing nor an inconsistency warning proves the rescan caused the
    system-wide stall.
 6. **Preserve temporary host containment.** Confirm the timeline wrapper's
-   explicit rescan commands remain disabled while snapshots continue. Monitor
-   separately for scans started through Snapper quota-query or kernel
-   snapshot-inheritance paths. Restore the original `SPACE_LIMIT="0.5"`
-   settings only after both changes are deliberately deployed and their
-   initialization scan, quota accounting, and cleanup behavior are verified.
+   explicit `btrfs quota rescan` commands remain disabled while snapshots
+   continue. This wrapper is one rescan initiator; Snapper's quota-query code
+   can independently start a rescan when it finds inconsistent qgroups.
+   Btrfs snapshot inheritance can mark qgroups inconsistent, but does not
+   itself start a rescan. Keep those state changes distinct when tracing
+   future scans. Restore the original `SPACE_LIMIT="0.5"` settings only after
+   both changes are deliberately deployed and their initialization scan,
+   quota accounting, and cleanup behavior are verified.
 
 ## Acceptance
 

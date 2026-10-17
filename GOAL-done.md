@@ -655,6 +655,8 @@ broader filesystem coverage and host rollout remain open.
 - The Snapper branch contains five commits, compares cleanly against current
   upstream `master`; draft upstream PR [#1200](https://github.com/openSUSE/snapper/pull/1200)
   is open for review, paired with the kernel change.
+- PR checks passed for Debian, Fedora, Leap, Ubuntu, Tumbleweed (GCC and Clang),
+  and codespell. No review decision or maintainer review was recorded.
 
 ## Later-kernel source check and RFC correction (2026-10-17)
 
@@ -663,7 +665,9 @@ broader filesystem coverage and host rollout remain open.
   rescan fallback; neither contains the proposed exact two-member tracker
   derivation. The RFC therefore does not describe behavior already fixed in
   those later sources. This was a source review only, not a runtime test.
-- Sent a concise correction in the existing RFC thread: stock Snapper has no
-  shared tracker, the paired Snapper change creates it, the stock fallback is
-  expected for the baseline topology, and no counter corruption has been
-  demonstrated. The correction also records the later-source comparison.
+- The attempted RFC correction was rejected by the linux-btrfs list manager
+  because Gmail sent an HTML MIME part. The formal `[PATCH]` itself was sent
+  separately as `text/plain` and describes the tracker as part of the paired
+  Snapper proposal, not the stock hierarchy. A brief plain-text correction
+  clarifying the stock hierarchy was then sent as a reply to the patch; its
+  delivery had not been rejected when last checked.

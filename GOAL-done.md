@@ -734,3 +734,14 @@ broader filesystem coverage and host rollout remain open.
 - All seven PR checks passed on head `5a71933a`. PR #1201 remains an open draft
   without a maintainer review decision; keep it paired with the kernel patch
   until review.
+
+## Host containment status check (2026-10-17 19:53 local)
+
+- `snapper-timeline.timer` and `snapper-cleanup.timer` report active, and the
+  wrapper's explicit `btrfs quota rescan` commands remain commented out.
+- Direct elevated shell execution still cannot query
+  `btrfs quota rescan -s /mnt/kingston` (`Operation not permitted`) or read the
+  Kingston Snapper configs. The process listing contained no task named
+  `btrfs-qgroup-rescan`, and Btrfs `exclusive_operation` reported `none`; these
+  are suggestive only and do not replace the rescan-status ioctl. Current
+  scan state and effective quota limits therefore remain unverified.

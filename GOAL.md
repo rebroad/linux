@@ -21,8 +21,10 @@ quota-based cleanup must wait until the counters are consistent.
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
    branch as the development base. The durable host fix must install the
-   modified Snapper built from that latest upstream baseline. The host
-   currently runs kernel
+   modified Snapper built from that latest upstream baseline, replacing the
+   currently installed Snapper package. The intended host runtime is our
+   locally built and maintained Snapper, not a distribution-provided Snapper
+   binary. The host currently runs kernel
    release `7.1.13+deb13-amd64`; use that exact release for all remaining
    kernel investigation and acceptance testing. The stock-module and
    candidate-module QEMU comparisons use that release. Testing other kernel
@@ -56,9 +58,10 @@ quota-based cleanup must wait until the counters are consistent.
    review. Add a documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
    configure every host Snapper config sharing Kingston to `05:00-21:00`
    local time, while retaining the per-filesystem rolling 24-hour cap.
-2. **Deploy the locally built Snapper.** The host must run the Snapper build
-   produced from the latest upstream baseline, including the reviewed qgroup
-   fix. Keep deployment gated until the Snapper change and, if required, its
+2. **Deploy the locally built Snapper.** Replace the host's currently
+   installed Snapper with our locally built Snapper produced from the latest
+   upstream baseline, including the reviewed qgroup fix. Keep deployment
+   gated until the Snapper change and, if required, its
    paired kernel change have review and the full accounting/quota checks pass.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.

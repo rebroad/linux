@@ -855,3 +855,26 @@ broader filesystem coverage and host rollout remain open.
   the earlier system-wide stalls or qgroup inconsistency. Safely resolving
   the stale process state and correlating it with a reproduced user-visible
   stall remain open.
+
+## Deferred-rescan quota reporting (2026-10-18)
+
+- The latest-upstream Snapper build was tested in QEMU with the exact in-use
+  `7.1.13+deb13-amd64` kernel and its stock Btrfs module. The guest configured
+  `QGROUP_RESCAN_WINDOW=05:00-21:00`, completed quota setup at 06:00, then
+  created snapshots during the following day's 01:00-03:00 hours. The stock
+  module marked qgroups inconsistent, and the rate/window policy deferred a
+  new scan.
+- `snapper list --columns number,used-space` still printed numeric last-known
+  used-space values (`16.00 KiB` in this fixture) and the stale-data warning.
+  With `SPACE_LIMIT` set, `snapper cleanup timeline` reported that quota
+  cleanup was deferred because counters were stale, and the snapshot count
+  remained unchanged. No additional rescan completed. The guest reported
+  `STALE-QUOTA: PASS`.
+- The QEMU serial log is
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_deferred_quota.log`; its temporary
+  init script and 768 MiB test image are in the same directory. This verifies
+  the direct-library `snapper list` and cleanup paths with deferred accounting;
+  the additive D-Bus status methods are compile- and CI-validated but were not
+  exercised through a live daemon in this fixture.
+- On PR #1203 at head `bfdccd03`, all GitHub checks passed, including the GCC
+  and Clang test jobs and Codespell.

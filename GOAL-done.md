@@ -726,22 +726,22 @@ broader filesystem coverage and host rollout remain open.
 
 ## Snapper PR formatting audit (2026-10-17)
 
-- The initial audit incorrectly treated `.editorconfig`'s tab setting as the
-  only style evidence. In surrounding `Btrfs.cc` methods, namespace-level
-  declarations and closing braces use four spaces, while function bodies use
-  tabs. Commit `5a71933a` changed the new method's outer lines to tabs and made
-  them inconsistent with that local pattern.
-- Restored the surrounding method style in commit `04a36b55`; `git diff --check`
-  passed and the method matched adjacent definitions. That exposed the PR's
-  history still contained the mistaken style commit. To avoid a force-push, a
-  clean branch was created by replaying the four substantive commits; its tree
-  matches the corrected tree exactly. Opened draft [PR #1202](https://github.com/openSUSE/snapper/pull/1202)
-  and closed #1201 with a superseding link. On #1202, Debian, Fedora, Leap,
-  Ubuntu, and codespell passed. Both Tumbleweed compiler jobs stopped during
-  dependency installation because the repository metadata selected conflicting
-  `libeconf0` versions; neither reached checkout or compilation. A rerun request
-  was denied because this account lacks repository admin rights. No maintainer
-  review was recorded.
+- The initial audit missed the explicit `.editorconfig` rule requiring tabs in
+  `.cc` and `.h` files. Existing older namespace-level declarations use spaces,
+  but that local pattern does not override the repository rule. Commit
+  `5a71933a` had changed the new method's outer lines to tabs; the subsequent
+  `04a36b55` correction reverted them to spaces and was wrong under the rule.
+- Rebuilt the PR branch from upstream master with four substantive commits and
+  tabs in the method declaration, braces, and all other added C++ indentation.
+  The new branch's tree matches the tab-formatted source tree; an added-line
+  check found no C++ lines beginning with spaces, and `git diff --check` passes.
+  Draft [PR #1203](https://github.com/openSUSE/snapper/pull/1203) supersedes
+  closed drafts #1201 and #1202. Codespell passed; both Tumbleweed compiler
+  jobs again stopped at dependency installation because `libmount-devel`
+  requires `libeconf0=0.8.5` while the configured repositories select 0.8.6.
+  Neither job reached checkout or compilation. The remaining distro checks were
+  pending at the last check. GitHub does not permit rerunning these jobs without
+  repository admin rights. No maintainer review was recorded.
 
 ## Host containment status check (2026-10-17 19:53 local)
 

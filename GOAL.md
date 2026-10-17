@@ -33,9 +33,10 @@ their cause, not by hiding inconsistency or weakening accounting.
    narrowed patch was checked against current upstream source and compiled
    against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's
-   `codex/upstream-qgroup-tracking-clean-pr2` branch as clean-history draft
-   upstream PR [#1202](https://github.com/openSUSE/snapper/pull/1202), replacing
-   closed draft #1201; keep it paired with the kernel change through review.
+   `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history draft
+   upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing
+   closed drafts #1201 and #1202; keep it paired with the kernel change through
+   review.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

@@ -3277,8 +3277,7 @@ static int qgroup_auto_inherit(struct btrfs_fs_info *fs_info,
  * Return >0 if a quick inherit is not possible, and a full rescan is needed.
  */
 static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
-					 u64 srcid, u64 parentid,
-					 u64 src_excl, u64 src_excl_cmpr)
+					 u64 srcid, u64 parentid)
 {
 	struct btrfs_qgroup *src;
 	struct btrfs_qgroup *parent;
@@ -3350,15 +3349,20 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 				return 1;
 		}
 		if (nr_members != 2 || !tracker_has_src || !tracker_has_parent ||
-		    src_excl > tracker->excl ||
-		    src_excl_cmpr > tracker->excl_cmpr)
+		    tracker->rfer > U64_MAX - nodesize ||
+		    tracker->rfer_cmpr > U64_MAX - nodesize ||
+		    parent->excl > U64_MAX - nodesize ||
+		    parent->excl_cmpr > U64_MAX - nodesize)
 			return 1;
 
-		new_excl = tracker->excl - src_excl + nodesize;
-		new_excl_cmpr = tracker->excl_cmpr - src_excl_cmpr + nodesize;
-		if (new_excl > tracker->rfer ||
-		    new_excl_cmpr > tracker->rfer_cmpr)
-			return 1;
+		/*
+		 * The source remains outside the snapshot-only parent after the
+		 * snapshot is created.  Its data is therefore not exclusive to the
+		 * snapshot parent, including extents already shared with snapshots.
+		 * Keep the existing exclusive count and add only the new root node.
+		 */
+		new_excl = parent->excl + nodesize;
+		new_excl_cmpr = parent->excl_cmpr + nodesize;
 		parent->rfer = tracker->rfer;
 		parent->rfer_cmpr = tracker->rfer_cmpr;
 		parent->excl = new_excl;
@@ -3405,8 +3409,6 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 	bool need_rescan = false;
 	u32 level_size = 0;
 	u64 nums;
-	u64 src_excl = 0;
-	u64 src_excl_cmpr = 0;
 
 	if (!btrfs_qgroup_enabled(fs_info))
 		return 0;
@@ -3537,8 +3539,6 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 		level_size = fs_info->nodesize;
 		dstgroup->rfer = srcgroup->rfer;
 		dstgroup->rfer_cmpr = srcgroup->rfer_cmpr;
-		src_excl = srcgroup->excl;
-		src_excl_cmpr = srcgroup->excl_cmpr;
 		dstgroup->excl = level_size;
 		dstgroup->excl_cmpr = level_size;
 		srcgroup->excl = level_size;
@@ -3576,8 +3576,7 @@ int btrfs_qgroup_inherit(struct btrfs_trans_handle *trans, u64 srcid,
 		}
 		if (srcid) {
 			/* Check if we can do a quick inherit. */
-			ret = qgroup_snapshot_quick_inherit(fs_info, srcid, *i_qgroups,
-							    src_excl, src_excl_cmpr);
+			ret = qgroup_snapshot_quick_inherit(fs_info, srcid, *i_qgroups);
 			if (ret < 0)
 				goto unlock;
 			if (ret > 0)

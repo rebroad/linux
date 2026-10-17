@@ -49,6 +49,11 @@ their cause, not by hiding inconsistency or weakening accounting.
    packages when available; if the host needs locally maintained packages,
    define how they are built, installed, and kept current. Do not depend on a
    manually copied kernel module or silently hold back security updates.
+   A standalone locally built image is insufficient: the installed
+   `linux-image-amd64` metapackage follows a versioned image package. APT
+   metadata and the preliminary Debian-source rebuild/repository findings are
+   recorded in `GOAL-done.md`; the paired package and update workflow remains
+   to be selected and verified.
    Before considering the host rollout complete, exercise the relevant APT
    upgrade/reinstall path and verify the running kernel, loaded module, and
    Snapper package contain the intended fix afterward.

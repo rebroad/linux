@@ -674,3 +674,25 @@ broader filesystem coverage and host rollout remain open.
   Snapper proposal, not the stock hierarchy. A brief plain-text correction
   clarifying the stock hierarchy was then sent as a reply to the patch; its
   delivery had not been rejected when last checked.
+
+## APT deployment reconnaissance (2026-10-17)
+
+- Read-only package queries show the host running kernel package
+  `linux-image-7.1.13+deb13-amd64` version `7.1.13-1~bpo13+1`, with
+  `linux-image-amd64` installed at that version and APT offering
+  `7.2.6-1~bpo13+1`. Snapper is Debian `0.10.6-1.2`. These are package-index
+  observations; no package was installed or changed.
+- The current `linux-image-amd64` package depends on an exact-versioned
+  kernel image package. Installing only a custom kernel package would leave
+  the standard metapackage free to install a newer unmodified kernel on a
+  later upgrade. The durable plan must cover that dependency path as well as
+  the Snapper package.
+- Debian source indices are enabled for trixie, updates, security, and
+  backports. `apt-ftparchive`, `dpkg-scanpackages`, and `gpg` are available.
+  Debian's Kernel Handbook documents rebuilding official kernel packages
+  from the Debian `linux` source package and testing patches with its
+  `debian/bin/test-patches` helper. This makes a Debian-source rebuild plus a
+  signed local APT repository the leading candidate, subject to verifying
+  package names, Secure Boot signing, metapackage tracking, and the update
+  automation before choosing it. No local repository or package has been
+  created.

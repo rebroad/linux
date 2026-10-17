@@ -536,3 +536,23 @@ broader filesystem coverage and host rollout remain open.
   `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106_current_narrow.log`.
 - A fifth mailing-list follow-up reported this result. The RFC remains under
   discussion; the upstream-version build and review remain open.
+
+## Upstream v7.3-rc7 build check (2026-10-17)
+
+- The Debian-based diff did not apply verbatim to v7.3-rc7 because upstream
+  already has the simplified two-argument quick-inherit helper. I forward-
+  ported only the helper logic, preserving the existing same-parent
+  exclusivity guard. The resulting qgroup.c patch applies to the v7.3-rc7
+  source and compiles.
+- Kbuild produced `btrfs.ko` in
+  `/var/tmp/linux.build/out-v7.3-rc7/fs/btrfs/` with vermagic
+  `7.3.0-rc7-dirty SMP preempt mod_unload`. Because this isolated output tree
+  lacks `vmlinux` and `Module.symvers`, `KBUILD_MODPOST_WARN=1` was required;
+  modpost warned about 636 unresolved kernel symbols and skipped BTF. This is
+  compile/link compatibility evidence only. The resulting module was not
+  loaded or runtime-tested on v7.3-rc7.
+- The current v7.3-rc7 diff is
+  `/var/tmp/qgroup-narrow-v7.3-rc7-port.patch`; it was checked and applied to
+  a temporary copy of the tagged qgroup.c. A mailing-list follow-up reported
+  the forward-port and its build limitation. Full upstream build/runtime
+  validation and review remain open.

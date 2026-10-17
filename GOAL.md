@@ -24,8 +24,12 @@ their cause, not by hiding inconsistency or weakening accounting.
    to repair bad accounting. The RFC has been updated with the differential
    result. The candidate preserves the prior exclusivity guard for the
    existing same-parent fast path; only the exact two-child tracker hierarchy
-   receives the new optimization. Before proposing a formal patch, build/test
-   against current upstream and complete kernel review.
+   receives the new optimization. A forward-port to upstream v7.3-rc7 now
+   compiles and links the Btrfs module, but the isolated build used
+   `KBUILD_MODPOST_WARN=1` without `vmlinux` or `Module.symvers`, producing
+   unresolved-symbol warnings; it is not suitable for runtime testing. Finish
+   a full upstream build and runtime check, check the current stable line, and
+   complete kernel review before proposing a formal patch.
 2. **Keep the host rollout gated.** The host still runs Debian Snapper
    `0.10.6-1.2` and its stock kernel module. Do not install either candidate
    until the paired changes have review and the full accounting/quota checks

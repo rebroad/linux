@@ -762,3 +762,23 @@ broader filesystem coverage and host rollout remain open.
   `btrfs-qgroup-rescan`, and Btrfs `exclusive_operation` reported `none`; these
   are suggestive only and do not replace the rescan-status ioctl. Current
   scan state and effective quota limits therefore remain unverified.
+
+## Live Kingston qgroup status (2026-10-17 20:21 local)
+
+- The running kernel is `7.1.13+deb13-amd64`; both Snapper timeline and cleanup
+  timers are active. The timeline wrapper's explicit Kingston rescan block is
+  still commented out. `btrfs quota rescan -s /mnt/kingston` reports
+  `no rescan operation in progress`, while `btrfs qgroup show -re` warns that
+  qgroup data is inconsistent. `exclusive_operation` reports `none`.
+- Kingston's active configs are under
+  `/mnt/kingston/@/etc/snapper/configs`: root uses `QGROUP=1/100`, home uses
+  `QGROUP=1/101`, both have `SPACE_LIMIT=""` and `FREE_LIMIT="0.2"`. The
+  host-system configs under `/etc/snapper/configs` both say `1/100`; those are
+  a different config context and should not be used to infer Kingston's
+  settings.
+- A live `btrfs qgroup show -p /mnt/kingston` reports no parent for source
+  qgroups `0/256` (`@`) and `0/257` (`@home`). Snapshot-container qgroups
+  `0/258` and `0/259` are parented by `1/100` and `1/101`, respectively. This
+  matches the previously reproduced no-shared-parent topology that takes the
+  stock kernel's conservative rescan fallback. It does not show that the qgroup
+  counters are corrupt; the warning remains until a scan reconciles them.

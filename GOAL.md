@@ -35,8 +35,12 @@ their cause, not by hiding inconsistency or weakening accounting.
    and incompressible data, externally shared snapshots, partial overwrites,
    truncation, create/delete churn, timeline cleanup, concurrent tracker
    allocation, orphan and one-sided tracker recovery, and interrupted scans
-   with complete trackers. Extend quota-limit checks and any additional Btrfs
-   layouts needed to support the paired patch.
+   with complete trackers. The current Debian Snapper 0.10.6 build has now
+   also passed a fresh-filesystem QEMU run that repairs an interrupted
+   config-only tracker, completes successive hourly snapshots and timeline
+   cleanup, and preserves counters across a full rescan. Extend quota-limit
+   checks on that exact candidate and any additional Btrfs layouts needed to
+   support the paired patch.
 4. **Investigate reported stalls independently.** Capture task stacks,
    transaction state, and storage/I/O evidence during an incident. Do not infer
    that rescans caused the stalls from timing or an inconsistency warning

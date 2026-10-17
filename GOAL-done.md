@@ -520,3 +520,19 @@ broader filesystem coverage and host rollout remain open.
 - A fourth mailing-list follow-up described the preserved guard, the narrowed
   topology, both real-hour Snapper results, and the boundary test. The RFC is
   still awaiting upstream review; the v7.3-rc7 build/test remains open.
+
+## Exact-current Debian Snapper recovery test (2026-10-17)
+
+- Rebuilt the QEMU overlay from the current Debian Snapper 0.10.6 build and
+  the narrowed kernel module for `7.1.13+deb13-amd64`. The guest Snapper
+  executable and library matched the current build outputs; the module package
+  matched `btrfs-narrow-deb13.ko.xz` (SHA-256
+  `de0ef9b7a9b0b0ee609fbbae2e234ba940bfcb70f94d4fc903bc48b370059b96`).
+- On a fresh Btrfs filesystem, the workload prepared an interrupted tracker
+  with only the configured snapshot qgroup attached. The next snapshot
+  repaired it and completed the required scan. Successive hourly snapshots
+  and timeline cleanup caused no new qgroup inconsistency warnings or scans.
+  A full rescan after cleanup left counters unchanged. The test passed:
+  `/var/tmp/qgroup-root-cause-7.1.13/serial_snapper0106_current_narrow.log`.
+- A fifth mailing-list follow-up reported this result. The RFC remains under
+  discussion; the upstream-version build and review remain open.

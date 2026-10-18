@@ -2841,17 +2841,24 @@ specified in `GOAL.md`.
   generated payload independently totals 4 MiB per source: a 2 MiB `stable`
   file plus two 1 MiB `change-*` files, so the reported 4,243,456-byte
   referenced total is the 4 MiB payload plus 49,152 bytes of filesystem
-  metadata. The exact metadata extent total has not yet been independently
-  reconciled against the Btrfs extent/tree data.
+  metadata. Independently inspected the persisted candidate p8 filesystem
+  image with `btrfs inspect-internal dump-tree`: its qgroup tree lists
+  `0/258`, `0/260`, and `0/262` as the members of `1/100`; the extent tree
+  identifies one unique 16 KiB metadata block (`refs 1`) for each of those
+  roots, at bytenrs 32243712, 31047680, and 31965184 respectively. Their sum
+  is exactly 49,152 bytes, matching `1/100`'s exclusive counter. The image is
+  `/var/tmp/linux.build/qgroup-host-topology-20261018/fs-p8-candidate-726.img`
+  (SHA-256 `7ca2ebbc9a677d13c87c7b0e3ba1b937c699ac1b6c63b269557a3733026c9f77`).
+  This reconciles the tested image's metadata counter; it is not a substitute
+  for repeated-cycle or live-host verification.
   The final source's comparison logs are
   `/var/tmp/linux.build/qgroup-id-trace/removal-current-patch/candidate-final.serial.log`
   and `candidate-final-home-root.serial.log` in the same directory.
 - This demonstrates rescan avoidance for the tested hierarchy while
   preserving explicit fallback cases. It does not establish incorrect stock
   counters: the stock path still completes rescans. Longer repeated cycles
-  and independent metadata extent reconciliation remain before deciding
-  whether the optimization is safe to retain. The separate qgroup deletion
-  regression still needs durable coverage.
+  remain before deciding whether the optimization is safe to retain. The
+  separate qgroup deletion regression still needs durable coverage.
 
 ## Trace the stock snapshot-rescan cycle (2026-10-19)
 

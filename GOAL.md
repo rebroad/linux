@@ -97,11 +97,13 @@ quota-based cleanup must wait until the counters are consistent.
    package requires that exact version. APT metadata and the Debian-source
    rebuild/repository findings are recorded in `GOAL-done.md`; the paired
    package and update workflow remains to be selected and verified. An
-   external module build against the exact running kernel headers succeeded,
-   making an APT-packaged DKMS module a competing option. Secure Boot is
-   enabled, module signatures are enforced, and the probe module was
-   unsigned; test signing, enrollment, initramfs selection, and upgrade
-   behavior before choosing DKMS. Debian's kernel hook chain propagates DKMS
+   isolated Debian DKMS build against the exact running kernel headers
+   succeeded, was signed with a temporary test key, and resolved ahead of the
+   packaged module in a synthetic module tree. This advances an APT-packaged
+   DKMS module as a deployment candidate, but does not verify host deployment.
+   Secure Boot is enabled and module signatures are enforced. Verify signing
+   with an enrolled host key, initramfs selection, and APT upgrade behavior
+   before choosing DKMS. Debian's kernel hook chain propagates DKMS
    build failures from image post-install, so prove an unsupported future
    kernel cannot leave APT upgrades failing or boot an unpatched Btrfs module.
    Before considering the host rollout complete, exercise the relevant APT

@@ -1427,3 +1427,33 @@ specified in `GOAL.md`.
   not enrolled. This confirms the stock baseline and that DKMS is not yet a
   ready deployment path; it does not verify candidate-module signing,
   enrollment, initramfs selection, or upgrade behavior.
+
+## Exact-release isolated DKMS build and signing (2026-10-18)
+
+- Used Debian DKMS 3.2.2 extracted under the Linux sibling build tree and a
+  source copy from the current kernel checkout. The isolated `dkms.conf`
+  builds `btrfs` for `7.1.13+deb13-amd64`, enables DKMS autoinstall, and places
+  the module under `updates/dkms`. The actual DKMS build completed against
+  `/lib/modules/7.1.13+deb13-amd64/build`; `/usr/sbin/modinfo` reports matching
+  `7.1.13+deb13-amd64` vermagic. Build log:
+  `linux.build/dkms-isolated/dkms-tree/btrfs/7.1.13-candidate/7.1.13+deb13-amd64/x86_64/log/make.log`.
+- Rebuilt and signed the module using the Debian `sign-file` tool and a
+  disposable key/certificate generated under `linux.build/dkms-isolated`.
+  `modinfo` reports signer `Isolated DKMS test only`. The private key and
+  certificate were removed after signing; the signed artifact was installed
+  into the isolated DKMS install tree. A synthetic test module tree containing
+  both this candidate and a copy of the packaged Btrfs module was indexed with
+  `depmod`; it warned that the synthetic tree lacked `modules.order`,
+  `modules.builtin`, and `modules.builtin.modinfo`. `modprobe --show-depends`
+  selected `updates/dkms/btrfs.ko` ahead of `kernel/fs/btrfs/btrfs.ko.xz`.
+  This tests module path selection, not full initramfs or boot precedence.
+- The test did not load the candidate or change host module files, initramfs,
+  DKMS registration, or enrolled keys. To exercise DKMS's install-file logic
+  without root access, the extracted DKMS script was copied into the build
+  tree and only its `check_root` guard was bypassed; source, DKMS state, and
+  install roots were redirected into that isolated tree. The kernel headers
+  and `sign-file` tool were read from the host. Thus this verifies compilation,
+  test-key signing, install placement, and module path selection,
+  but not installation under the real root-owned tree, trust of a host-enrolled
+  key, initramfs behavior, or APT kernel-upgrade behavior. DKMS remains a
+  candidate path, not a verified durable host deployment.

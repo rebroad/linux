@@ -2724,20 +2724,13 @@ specified in `GOAL.md`.
   shows the first full scan restores the expected empty-group totals; the
   warning is specific to the redundant second scan and did not leave the
   measured counters stale.
-- Source inspection narrows this warning to the transaction-commit path:
-  `btrfs_run_qgroups()` writes each dirty qgroup's info item, and
-  `update_qgroup_info_item()` returns `-ENOENT` when the qgroup info key is
-  absent. A diagnostic build that prints the ID identified the missing item
-  as qgroup `0/260` on both filesystems. In the guest's qgroup tree, `0/260`
-  is the first root snapshot subvolume, which timeline cleanup removed before
-  the redundant second full rescan. A follow-up diagnostic logged qgroup
-  object allocation and the failed update pointer; the failure uses the
-  original allocation pointer. It did not log the final qgroup-removal path,
-  but that alone does not prove removal was never attempted because
-  `btrfs_remove_qgroup()` has early exits. The remaining kernel investigation
-  is to trace entry and return paths for dropped-subvolume cleanup and every
-  early exit from qgroup removal, then establish how this deleted snapshot's
-  in-memory qgroup remains dirty while its info item is absent.
+- Source inspection identified the failing item as qgroup `0/260`, the first
+  root snapshot subvolume removed by timeline cleanup. The transaction-commit
+  warning occurs when `btrfs_run_qgroups()` tries to update a dirty in-memory
+  qgroup whose info item is absent. The subsequent diagnostic trace found why
+  the stale object survives, and a disposable-build behavior test removed the
+  warning; see “Trace qgroup removal after snapshot cleanup” below. A
+  production kernel patch and exact-source validation remain outstanding.
 - `~/bin/snapper-exponential-retention` was not used in this QEMU workload;
   Snapper's built-in timeline cleanup and synchronous deletes reproduced the
   warning without it. The script itself deletes snapshots with Snapper and
@@ -2755,6 +2748,50 @@ specified in `GOAL.md`.
   systemd, so Snapper's attempt to enable the timeline timer was not part of
   this direct snapshot/cleanup harness. QEMU used TCG; this is not a live-host
   cleanup acceptance run.
+
+## Trace qgroup removal after snapshot cleanup (2026-10-18)
+
+- A diagnostic build from the exact `7.2.6+deb13-amd64` source reproduced the
+  second-rescan `-ENOENT` on both independent filesystems. The failing object
+  was qgroup `0/260`, the first root snapshot. The trace now identifies the
+  cause: `btrfs_qgroup_cleanup_dropped_subvolume()` calls
+  `btrfs_remove_qgroup()`, which deletes the qgroup info item and starts
+  removing its relation to `1/100`. Relation removal successfully deletes
+  both on-disk relation items and removes the in-memory relation, but
+  `quick_update_accounting()` returns `1` because the parent counters need a
+  full rescan (`qgroup->excl != qgroup->rfer`). That path has already marked
+  qgroups inconsistent. `btrfs_remove_qgroup()` treats this positive
+  “rescan required” result like an error and exits before removing/freeing the
+  deleted snapshot's in-memory qgroup. A later rescan visits that stale object
+  and tries to update its deleted info item, producing `-ENOENT`.
+- A diagnostic-only change treated that positive result as nonfatal during
+  qgroup teardown, while leaving the inconsistency flag set. In the same
+  four-collective QEMU cleanup workload, removal completed for `0/260` on both
+  filesystems; the two final full rescans completed without the qgroup-info
+  `-ENOENT` warning, reported no scan in progress, and `btrfs qgroup show`
+  showed the empty snapshot groups at the expected 16 KiB `.snapshots`
+  directory totals. The stock control emitted the `-ENOENT` warning on both
+  filesystems. This validates the cause and a candidate behavior for this
+  deletion warning, but the change is still only in the disposable diagnostic
+  build and is not yet a reviewed kernel patch.
+- This change did not reduce the six automatic scans from snapshot creation
+  or the eight ordinary `qgroup inherit needs a rescan` warnings. Those are a
+  separate fallback path and still require investigation against the
+  accounting requirements. The cleanup trace establishes a Btrfs teardown
+  bug, not that the deletion warning caused the hourly rescan frequency.
+- At the investigation time, the current `torvalds/linux` master tip still
+  had the unconditional `if (ret) goto out` after `__del_qgroup_relation()`
+  in [`fs/btrfs/qgroup.c`](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/fs/btrfs/qgroup.c?id=f909e534f5e34feb2ea2701d54df63e21aa506fc).
+  The reproduced path is therefore not already fixed in that upstream tip.
+  Diagnostic source, module, serial logs, and test image artifacts are in
+  `/var/tmp/linux.build/qgroup-id-trace/`; the stock trace is
+  `removal-trace2.serial.log` and the candidate behavior run is
+  `removal-fix2.serial.log`. The candidate diagnostic build confirms the
+  expected fallback result is handled without an early exit only after the
+  relation is verified absent from the in-memory parent list. Both QEMU runs
+  used TCG and disposable filesystems; this is not yet production-kernel
+  validation. Scan counts remain six automatic snapshot-creation scans in the
+  workload, so the ordinary fallback issue is still open.
 
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 

@@ -102,14 +102,21 @@ quota-based cleanup must wait until the counters are consistent.
    groups showed only the 16 KiB `.snapshots` directory, while the source
    groups showed their measured source data. Still verify nonempty exclusive
    counters against independently derived expectations and confirm that later
-   snapshots preserve them. Continue diagnosing why a second full rescan after
-   the first had cleared inconsistency logged `qgroup info item update error
-   -2` on the stock module. The missing item is qgroup `0/260`, the first root
-   snapshot subvolume removed during timeline cleanup; determine which
-   dropped-subvolume/qgroup-removal path leaves its in-memory object dirty
-   after the item is deleted. The retention script was not needed to reproduce
-   the warning, though its snapshot deletions may exercise the same lifecycle.
-   Record each case and its limits in `GOAL-done.md`.
+   snapshots preserve them. The second-rescan `qgroup info item update error
+   -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
+   accounting inconsistent and returns a positive “rescan required” result,
+   which causes `btrfs_remove_qgroup()` to exit after deleting the info item
+   but before freeing the in-memory qgroup. A diagnostic-only change that
+   continues teardown when the relation was removed passed the exact-release
+   QEMU reproducer, with no later `-ENOENT` warning and consistent final
+   counters. Implement and review a narrow fix against the in-use kernel
+   source, preserving the positive fallback semantics and guarding against
+   retrying an undeleted relation; then repeat the matched stock/candidate
+   cleanup workload. Keep this deletion bug separate from the six ordinary
+   snapshot-creation fallback scans, which remain unresolved. The retention
+   script was not needed to reproduce the warning, though its snapshot
+   deletions may exercise the same lifecycle. Record results and limits in
+   `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository

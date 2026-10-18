@@ -134,21 +134,7 @@ quota-based cleanup must wait until the counters are consistent.
    and results are recorded in `GOAL-done.md`. Extend coverage only for
    additional Btrfs layouts needed to support the paired patch, using the
    same kernel release.
-5. **Investigate reported stalls independently.** A bounded read-error trace
-   captured failed metadata reads from a detached-USB Btrfs instance during
-   directory enumeration by a long-lived Codex app-server thread. A lingering
-   working-directory reference pins that old filesystem despite no mountinfo
-   entry for it; querying its scrub state returns `EIO`, and no qgroup rescan
-   was active there. The app-server and its code-mode child still have cwd
-   references on the detached filesystem; the orphaned app-server is adopted
-   by PID 1, while both processes remain in the active X11 `session-5.scope`.
-   This explains how the cwd references can outlive the original launcher.
-   Determine whether there is a safe way to release them without ending the
-   active user session, and whether the detached-device read errors explain
-   any reported application stalls. Keep this investigation separate from the
-   Snapper qgroup trigger; neither trace timing nor an inconsistency warning
-   proves the rescan caused the system-wide stall.
-6. **Preserve temporary host containment.** Confirm the timeline wrapper's
+5. **Preserve temporary host containment.** Confirm the timeline wrapper's
    explicit `btrfs quota rescan` commands remain disabled while snapshots
    continue. This wrapper is one rescan initiator; Snapper's quota-query code
    can independently start a rescan when it finds inconsistent qgroups.
@@ -175,8 +161,7 @@ Prefer a Snapper-only fix. If the kernel/module must change, it is automatically
 reapplied and active after every kernel APT upgrade/reinstall, without blocking
 security updates; the installed Snapper fix also survives its APT
 upgrade/reinstall. Verify the running kernel, loaded module, Snapper package,
-and rescan rate. Any remaining limitation or unverified stall hypothesis is
-documented explicitly.
+and rescan rate.
 
 ## Completed evidence
 

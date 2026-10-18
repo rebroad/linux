@@ -1047,8 +1047,45 @@ broader filesystem coverage and host rollout remain open.
   `DEB_BUILD_OPTIONS=nocheck` because the separate zypp-plugin suite needs
   Ruby and ruby-dbus, which are absent. Upstream PR CI remains green. The
   host installation path is still gated on review and accounting acceptance.
-- This proves that a quota-enabled local Debian package can be produced and
-  selected by APT simulation; it does not yet provide a source-controlled,
-  repeatable build/update recipe or prove behavior after installing it. Add
-  that recipe to the Snapper source checkout, include and verify its test
-  dependencies, and exercise package upgrade/reinstall before host rollout.
+- This initial package experiment proved that a quota-enabled local package
+  could be produced and selected by APT simulation. Its outstanding recipe
+  work was completed in the follow-up section below. Installation and
+  post-install runtime behavior remain unverified.
+
+## Repeatable latest-upstream local package recipe (2026-10-18)
+
+- Added `scripts/build-local-debian-package.sh` to the Snapper fork branch
+  `codex/local-debian-package-builder`, commit `518bf605c7fc1652b3fd472b98044232ba73d483`.
+  The branch is based on the current upstream master ancestor and is pushed
+  separately from upstream PR #1203; no additional PR was opened.
+- The recipe checks that the committed source contains the live official
+  upstream `master` tip, copies source with `cpto` into a fresh directory under
+  `/mnt/kingston/builds/rebroad/src/snapper.build/`, regenerates Autotools
+  files there, and creates the Debian source package. It unpacks the generated
+  source and Debian overlay into the build sibling, removes the packaging
+  option that disables Btrfs quota, and creates a local `+local1` package
+  version. Source checkout files remain source-only; no generated build
+  outputs are written there.
+- The final run built packages as `0.13.2-1+local1`. The extracted CLI reports
+  Snapper 0.13.2, libsnapper 8.2.0, and
+  `btrfs,no-bcachefs,lvm,no-ext4,xattrs,no-rollback,btrfs-quota,no-selinux`.
+  Package files are under
+  `/mnt/kingston/builds/rebroad/src/snapper.build/local-package-builds/0.13.2-518bf605c7fc-20261018T030940Z/`.
+  SHA-256: `snapper_0.13.2-1+local1_amd64.deb` is
+  `0d2e4a8b47e1986c70941cd94c1fa33fb4e6b9a1ae1ed97d377a350f138bb38d`;
+  `libsnapper_0.13.2-1+local1_amd64.deb` is
+  `272c085640c48bcee3b9693f1649c71680cf21cc8c5d0f9e2ea4d1465474f8d8`.
+- The test run passed the main 20-test suite, including `qgroup1` and
+  `qgroup-rescan-limiter`, and all other runnable tests: 30 passed, 2
+  skipped, 0 failed. The skips were the Ruby D-Bus-backed mock and the
+  shellcheck check because those optional tools are not installed. Tests run
+  outside fakeroot in a private D-Bus session; package assembly disables the
+  duplicate fakeroot test run.
+- `apt-get -s` planned to upgrade the currently installed Snapper package to
+  the local build, install its matching libraries and companion packages,
+  remove no packages, and leave four unrelated packages not upgraded. The
+  old `libsnapper7t64` is marked eligible for a later autoremove. The
+  simulation did not install anything. The host remains on its prior runtime;
+  the intended final runtime remains our locally built Snapper based on latest
+  upstream. Deployment is still gated on upstream review and full accounting
+  acceptance.

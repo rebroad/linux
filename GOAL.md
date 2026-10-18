@@ -78,15 +78,13 @@ quota-based cleanup must wait until the counters are consistent.
    Keep deployment
    gated until the Snapper change and, if required, its
    paired kernel change have review and the full accounting/quota checks pass.
-   Build and maintain a repeatable local Debian package from the Snapper
-   checkout based on latest upstream. The repository's Debian packaging
-   disables Btrfs quota support, so the local package build must override that
-   option. Build with quota enabled, verify that feature in the resulting
-   binary, and test the package through an APT simulation. Keep the build
-   recipe and its packaging changes in the Snapper source checkout; put
-   generated package and build files in its sibling build tree. See
-   `GOAL-done.md` for the first uninstalled package build and remaining
-   recipe work.
+   Rebuild from the latest reviewed Snapper source with the committed local
+   Debian package recipe, verify quota support in the binary, and repeat the
+   APT simulation before deployment. The recipe is
+   `scripts/build-local-debian-package.sh` on the Snapper fork's
+   `codex/local-debian-package-builder` branch; it is separate from upstream
+   PR #1203. It keeps generated files in the Snapper sibling build tree. The
+   successful uninstalled build and test evidence are in `GOAL-done.md`.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
 3. **Make the fix durable across APT upgrades.** Prefer a Snapper-only

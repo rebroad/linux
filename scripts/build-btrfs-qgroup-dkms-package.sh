@@ -194,8 +194,15 @@ done
 sort -o "$source_fingerprints" "$source_fingerprints"
 source_hash=$(sha256sum "$source_fingerprints" | cut -c1-8)
 
-dkms_version="${kernel_base}+rebroad1.g${source_commit:0:12}.m${mapping_hash}.s${source_hash}"
+package_release=$(date -u +%Y%m%d.%H%M%S)
+dkms_version="${kernel_base}+rebroad1.${package_release}.g${source_commit:0:12}.m${mapping_hash}.s${source_hash}"
 package_version=$dkms_version
+installed_version=$(dpkg-query -W -f='${Version}' btrfs-qgroup-dkms 2>/dev/null || true)
+if [[ -n $installed_version ]] &&
+	! dpkg --compare-versions "$package_version" gt "$installed_version"; then
+	echo "Error: package version $package_version is not newer than installed $installed_version" >&2
+	exit 1
+fi
 package_root="$work_root/package-root"
 package_name="btrfs-qgroup-dkms_${package_version}_all.deb"
 template_root="$source_root/packaging/btrfs-qgroup-dkms"

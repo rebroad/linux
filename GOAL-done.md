@@ -2372,3 +2372,31 @@ specified in `GOAL.md`.
   QEMU results only. The test rules out shared IDs as the sole cause, but does
   not rule out a distinct Snapper-only layout or establish that the kernel
   change is necessary.
+
+## Snapper post-create QGROUP assignment alternative (2026-10-18)
+
+- Tested a Snapper-only alternative on the exact stock kernel/module and
+  Snapper 0.13.2 build recorded above: temporarily clear each config's
+  `QGROUP`, create the snapshot without Btrfs qgroup inheritance, then assign
+  the new subvolume into its configured level-1 QGROUP with
+  `btrfs qgroup assign --no-rescan`. Restore the config QGROUP afterward. The
+  test used four distinct groups and ran two root/home snapshot rounds on both
+  filesystems.
+- The assignment command returned successfully and no full rescan completed
+  during the rounds. However, each assignment printed `quotas may be
+  inconsistent, rescan needed`; `btrfs qgroup show` then reported inconsistent
+  data. Before the final full rescan, the four groups returned stale values
+  (referenced, exclusive bytes): root `(0, 2,228,224)`, home
+  `(0, 1,114,112)`, Kingston-root `(0, 3,342,336)`, and Kingston-home
+  `(0, 1,081,344)`. The full rescan
+  changed them respectively to `6,586,368/2,260,992`,
+  `4,358,144/1,146,880`, `8,814,592/3,375,104`, and
+  `4,292,608/1,114,112`. Thus deferring qgroup assignment until after
+  snapshot creation still makes accounting stale until a rescan and does not
+  meet the accurate-counter requirement.
+- The guest's `qgroup marked inconsistent` kernel warning count remained zero;
+  the evidence for inconsistency is the qgroup inconsistency status reported
+  by Btrfs and the stale values that changed after the full rescan. The scan
+  count stayed at four during the snapshot rounds and increased only for the
+  final per-filesystem rescans. Serial log, init script, and images are in
+  `linux.build/qgroup-postassign-stock-20261018/`.

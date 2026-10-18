@@ -110,7 +110,7 @@ quota-based cleanup must wait until the counters are consistent.
    successful uninstalled build and test evidence are in `GOAL-done.md`.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
-3. **Make the fix durable across APT upgrades — 55% done.** Prefer a Snapper-only
+3. **Make the fix durable across APT upgrades — 65% done.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
@@ -133,29 +133,24 @@ quota-based cleanup must wait until the counters are consistent.
    succeeded and resolved ahead of the packaged module in a synthetic module
    tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
    exact-kernel QEMU testing with Secure Boot and signature enforcement
-   enabled. DKMS is now installed, and local DKMS package source has been
-   added but is not yet reviewed or built. This does not prove that the package
-   builds, registers, signs, and installs correctly in the host module tree and
-   initramfs. Debian's kernel hook chain propagates DKMS build failures from
-   image post-install, so validate an upgrade path that neither leaves APT
+   enabled. The reviewed local DKMS package recipe is committed, built, and
+   installed; its exact-kernel module is selected by `modprobe`, signed by the
+   enrolled key, and present in the refreshed initramfs. Package removal and
+   reinstall also verified restoration and reselection of the stock module.
+   This does not prove behavior after booting the installed module or a future
+   kernel APT upgrade. Debian's kernel hook chain propagates DKMS build failures
+   from image post-install, so validate an upgrade path that neither leaves APT
    failing nor permits booting an unpatched Btrfs module when a future kernel
    build is unsupported.
 
    **Next steps for safe local production use:**
-   - Review the DKMS package source and its install, signing, initramfs, and
-     removal hooks; build the package and inspect its contents before installing
-     it. Keep generated package/build files in the Linux sibling build tree.
-   - Install the candidate package without unloading the currently running
-     Btrfs module. Verify DKMS registration and build status for the exact
-     running kernel, the selected module path and hash, its Secure Boot
-     signature, and the initramfs copy. Confirm the stock packaged module
-     remains available as the rollback version.
-   - Exercise package removal and reinstall, confirming rollback restores the
-     stock module and initramfs. Do not reboot until the rollback path and the
-     next boot's module selection are verified.
-   - After that review, activate the candidate at a planned reboot and verify
-     the running kernel, loaded module version/signature, and Btrfs qgroup
-     behavior on the host. Keep a tested route back to the stock module.
+   - Completed: review and build the DKMS package recipe; install without
+     unloading the running Btrfs module; verify exact-kernel DKMS status,
+     module selection, signature, initramfs copy, and stock-module rollback.
+     Evidence and hashes are in `GOAL-done.md`.
+   - After review, activate the candidate at a planned reboot and verify the
+     running kernel, loaded module version/signature, and Btrfs qgroup behavior
+     on the host. Keep a tested route back to the stock module.
    - Simulate and perform the relevant kernel APT upgrade/reinstall path.
      Verify DKMS rebuild and signing for the new kernel, initramfs selection,
      and booted module; also prove a failed/unsupported build cannot silently

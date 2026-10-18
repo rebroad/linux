@@ -1890,3 +1890,33 @@ specified in `GOAL.md`.
   This proves Secure Boot trust and signature enforcement in QEMU for this
   exact kernel and artifact; host installation, rollback, and APT-upgrade
   behavior remain unverified.
+
+## Host DKMS package install and rollback verification (2026-10-18)
+
+- Added and committed a local DKMS package recipe for the paired Btrfs change.
+  The package was built from committed source revision
+  [`2c0473752cda`](https://github.com/rebroad/linux/commit/2c0473752cdad7484c90b9265f46cb54ded98b2e)
+  against the exact in-use Debian kernel release, `7.1.13+deb13-amd64`.
+  Generated package and DKMS build artifacts remain in the Linux sibling build
+  tree.
+- An isolated DKMS build of the package completed and produced a module signed
+  by `Rebroad's module signing key`. Its `sig_key` is
+  `79:BC:F6:D4:0C:64:F7:5A:78:CB:ED:BE:1F:4C:E8:1A:53:22:DE:29` (the enrolled MOK
+  fingerprint was checked against the enrolled-key list).
+- Installed the package using `sudo dpkg -i` without unloading the currently
+  running Btrfs module or rebooting. `dkms status` reports the candidate
+  installed for `7.1.13+deb13-amd64`; `modprobe --show-depends btrfs` selects
+  `/lib/modules/7.1.13+deb13-amd64/updates/dkms/btrfs.ko.xz`. Its signer and
+  key ID match the enrolled key.
+- The refreshed initramfs contains the candidate at
+  `usr/lib/modules/7.1.13+deb13-amd64/updates/dkms/btrfs.ko.xz`. Extracting
+  that entry confirmed its SHA-256 matches the installed compressed module:
+  `fbba2737463a52be6c2dd02afc5c762617fb4f4b7e3d7e5a9df177147767d6ef`.
+- Exercised package removal and reinstall with `sudo`. Removal restored the
+  stock module and refreshed initramfs images for both installed kernel
+  versions; reinstall selected the signed candidate again. The current host
+  package is `7.1.13+rebroad1.g2c0473752cda`.
+- This verifies package install/rollback and next-load module selection, not
+  live use: the currently loaded module remains the stock module until reboot.
+  A planned boot, host qgroup workload, and a real or safe simulated kernel
+  APT upgrade/reinstall path remain outstanding. No reboot was performed.

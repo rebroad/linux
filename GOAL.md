@@ -40,10 +40,9 @@ and waits; the new snapshot then sets the flag again. The four-snapshot-per-
 filesystem workload's six stock scans match three scans per filesystem after
 the first snapshot. This is established for that fixture; verify it against
 the remaining live and longer-cycle cases before treating every observed host
-rescan as explained. Eight-round QEMU cycles now confirm the same scan and
-counter behavior over longer snapshot sequences in both operation orders;
-cleanup/deletion and live-host cases remain. See `GOAL-done.md` for the source
-and log evidence.
+rescan as explained. Eight-round QEMU snapshot and cleanup/deletion cycles
+now confirm the scan and counter behavior with stock and candidate modules;
+live-host cases remain. See `GOAL-done.md` for the source and log evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -106,8 +105,10 @@ quota-based cleanup must wait until the counters are consistent.
    source-data/counter reconciliation now pass in both operation orders with
    the candidate; matched stock runs show that the last snapshot's collective
    remains short until a full rescan, and the shortfall moves with snapshot
-   order. Cleanup/deletion cycles and live-host validation still need deeper
-   testing. With the candidate module,
+   order. Eight-round timeline cleanup and synchronous deletion pass in both
+   snapshot orders with the candidate and the qgroup-removal-only baseline.
+   Live-host validation and durable deletion regression coverage remain. With
+   the candidate module,
    a forced full rescan immediately after snapshots left nonempty qgroup
    counters unchanged in both root-first and home-first order: each snapshot
    group reported 4,243,456 referenced and 49,152 exclusive bytes. The
@@ -116,9 +117,10 @@ quota-based cleanup must wait until the counters are consistent.
    snapshots. The eight-round test now confirms the same relationship with
    ten MiB of payload and nine unique metadata blocks per snapshot collective;
    the independent extent-tree reconciliation is recorded in `GOAL-done.md`.
-   Exercise cleanup/deletion across repeated cycles and validate the same
-   accounting against live-host operations. The short stock/candidate and
-   extended paired results and their limits are recorded there.
+   Exercise the configured hold/window gates during repeated cycles and
+   validate the same accounting against live-host operations. The short
+   stock/candidate and extended paired results and their limits are recorded
+   there.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is
@@ -140,7 +142,10 @@ quota-based cleanup must wait until the counters are consistent.
    groups showed their measured source data. The candidate's nonempty
    snapshot-group counters matched a forced full rescan in both operation
    orders, and the eight-round repeated-cycle checks now also match in both
-   orders. Continue the cleanup/deletion cycles and live-host reconciliation.
+   orders. The repeated eight-round timeline cleanup and synchronous deletion
+   passed with the candidate and baseline modules, without additional scans or
+   stale-qgroup errors; see `GOAL-done.md`. Complete the durable deletion
+   regression review and live-host reconciliation.
    The second-rescan `qgroup info item update error
    -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
    accounting inconsistent and returns a positive “rescan required” result,

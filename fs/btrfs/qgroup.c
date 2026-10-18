@@ -3323,7 +3323,7 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		/*
 		 * The parent already contains the source.  The snapshot only adds
 		 * its new root node to the parent. Keep the existing exclusivity
-		 * check for this case; the tracking-parent optimization below is
+		 * check for this case; the shared-parent optimization below is
 		 * separate and does not change this path.
 		 */
 		if (parent->excl != parent->rfer)

@@ -991,3 +991,23 @@ broader filesystem coverage and host rollout remain open.
 - A concise revised hierarchy explanation and mailing-list response are
   prepared locally. Human review and DCO sign-off remain before any further
   reply is submitted.
+
+## Host runtime and module deployment audit (2026-10-18)
+
+- A read-only host check confirmed the running kernel is
+  `7.1.13+deb13-amd64`, and `/proc/modules` reports Btrfs loaded. The module
+  file in that kernel's module tree has SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`, matching
+  the stock-module QEMU control. Its vermagic matches the running kernel.
+  Secure Boot is enabled. This establishes the current stock baseline; it
+  does not show that the candidate module is installed or loaded.
+- The active `snapper` command is `/usr/bin/snapper`, version `0.10.6`, from
+  Debian package `0.10.6-1.2`. This is the current-state baseline only. The
+  intended final host runtime remains our locally built and maintained
+  Snapper based on latest upstream; deploying that build is still gated on
+  review and acceptance.
+- `dkms` is in dpkg's `rc` state (removed, with residual configuration), so
+  DKMS is not currently installed or available as a deployment mechanism.
+  `kmod` and `mokutil` are installed. A persistent kernel-module deployment
+  method, including Secure Boot signing and upgrade behavior, remains to be
+  selected and verified.

@@ -915,6 +915,9 @@ broader filesystem coverage and host rollout remain open.
   email patch applies cleanly there and `checkpatch.pl --strict --no-tree
   --no-signoff` reports zero findings. Its commit text includes the qgroup
   topology, exact-kernel QEMU fallback results, and `Assisted-by` disclosure.
+  The reviewable email file is
+  `/var/tmp/qgroup-review-different-parent/revised-for-next.email.patch`
+  (SHA-256 `ba296c63714f5dc36dc9045ebf37541e544ad074cf2d3b8060529c78de43f22d`).
   No `Signed-off-by` trailer was added; the user's DCO sign-off for this exact
   replacement patch is still required before submission.
 

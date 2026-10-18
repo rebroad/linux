@@ -1167,3 +1167,19 @@ specified in `GOAL.md`.
   the conservative rescan fallback for the reproduced snapshot-only layout,
   and that the companion kernel optimization has been tested but is not yet
   submitted. PR head and source code were unchanged.
+
+## Live host deployment recheck (2026-10-18)
+
+- At 05:57 BST, the running kernel was still `7.1.13+deb13-amd64`, and the
+  installed Snapper package was still Debian `0.10.6-1.2`. The local package
+  build has not been deployed.
+- `dpkg-query -W` prints DKMS version `3.2.2-1~deb13u1` even though the package
+  is removed. `dpkg -s dkms` reports `deinstall ok config-files`, and
+  `/usr/sbin/dkms` and `/usr/lib/dkms/dkms_autoinstaller` are absent. Treat
+  DKMS as unavailable; the version-only query is not installation evidence.
+- Secure Boot remains enabled, and `mokutil --test-key /var/lib/dkms/mok.pub`
+  reports the certificate is not enrolled. A noninteractive `sudo -n id`
+  requires a password, so the escalated shell did not grant root access.
+- `snapper-timeline-sleep.service` is not installed. The Snapper timeline
+  timer remains enabled and active. No host package, module, unit, or timer
+  configuration was changed by this check.

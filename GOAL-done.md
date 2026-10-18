@@ -1028,11 +1028,11 @@ broader filesystem coverage and host rollout remain open.
   ancestor. Generated an upstream source package from the external build
   sibling and prepared its Debian packaging in an isolated copy under
   `/mnt/kingston/builds/rebroad/src/snapper.build/`.
-- The repository's Debian rules disable Btrfs quota. In addition, the Debian
-  install manifests expect old cron, documentation, and PAM module paths.
-  The local package copy enabled quota and aligned those manifests with the
-  paths produced by the current Debian configure options. No Snapper source
-  files were changed, and the host was not modified.
+- The repository's Debian rules disable Btrfs quota. The local package copy
+  enabled quota while retaining the repository's Debian configure options;
+  with those options, the existing Debian install manifests match the staged
+  file paths. No Snapper source files were changed, and the host was not
+  modified.
 - Built local packages as version `0.13.2-1+rebroad1`. The extracted
   `snapper --version` reports `btrfs-quota` enabled, with Btrfs support and
   the repository's Debian-selected feature set. `apt-get -s install` plans

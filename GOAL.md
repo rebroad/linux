@@ -145,12 +145,14 @@ quota-based cleanup must wait until the counters are consistent.
    path because `/var/tmp` resolves inside Kingston and is unmounted by
    `force-unmount-kingston.sh`; the suspend command now fails closed if it
    cannot write the hold. The sleep/resume guard is pushed to the home
-   repository branch `codex/snapper-timeline-sleep-guard` at `fa151915`. The
-   system unit executes a root-owned helper under `/usr/local/libexec`, and
-   its installer installs and enables the unit. Seven isolated helper and
-   installer tests pass. It is not installed or enabled on the host. Install
-   it with the built Snapper configuration, then verify post-resume ordering
-   and prove no catch-up invocation starts a fresh scan. Restore the original
+   repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
+   system unit executes a root-owned helper under `/usr/local/libexec`; that
+   helper delegates hold-file writes to `rebroad` and retains root only for
+   timer control. Its installer installs and enables the unit. Seven isolated
+   helper and installer tests pass. It is not installed or enabled on the
+   host. Install it with the built Snapper configuration, then verify
+   post-resume ordering and prove no catch-up invocation starts a fresh scan.
+   Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup
    behavior are verified.

@@ -1634,8 +1634,11 @@ specified in `GOAL.md`.
 - The system unit previously executed `/home/rebroad/bin/snapper-timeline-sleep`
   as root. It now executes `/usr/local/libexec/snapper-timeline-sleep`;
   `bin/install-snapper-timeline-sleep` installs the helper and system unit as
-  root-owned files, reloads systemd, and enables the sleep hook. The unit
-  requires the mount containing the hold-file directory.
+  root-owned files, reloads systemd, and enables the sleep hook. The root-owned
+  helper delegates marker creation and refresh to `rebroad` via `runuser`, so
+  it does not write into the user's state directory as root; it retains root
+  only for system timer control. The unit requires the mount containing the
+  hold-file directory.
 - Added `bin/test_snapper_timeline_sleep.py` coverage for marker creation,
   preserving a future marker, renewing an expired marker, inactive timers,
   fail-closed pre-sleep and resume paths, and installer destinations. All seven
@@ -1645,10 +1648,10 @@ specified in `GOAL.md`.
   and a sandbox permission error opening the unrelated
   `/etc/systemd/system/memory_guardian.service`.
 - Committed and pushed to `rebroad/home-rebroad` branch
-  `codex/snapper-timeline-sleep-guard` as `fa151915`, a normal fast-forward
-  from the verified remote tip `50e72c5f`. The host service remains uninstalled
-  and unenabled; verify its live ordering and prove no resume catch-up starts a
-  scan after the reviewed Snapper build is deployed.
+  `codex/snapper-timeline-sleep-guard` as `17d09379`, a normal fast-forward
+  after `fa151915`. The host service remains uninstalled and unenabled; verify
+  its live ordering and prove no resume catch-up starts a scan after the
+  reviewed Snapper build is deployed.
 - Refreshed upstream PR #1203 on 2026-10-18. It remains open at head
   `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, based on
   `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; all seven CI checks pass and it

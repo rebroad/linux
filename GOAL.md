@@ -70,9 +70,12 @@ quota-based cleanup must wait until the counters are consistent.
    documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
    configure every host Snapper config sharing Kingston to `05:00-21:00`
    local time, while retaining the per-filesystem rolling 24-hour cap.
-2. **Deploy the locally built Snapper.** Replace the host's currently
-   installed Snapper with our locally built Snapper produced from the latest
-   upstream baseline, including the reviewed qgroup fix. Keep deployment
+2. **Deploy and maintain our latest-upstream Snapper build.** Replace the
+   host's currently installed Snapper with our locally built Snapper from the
+   latest upstream baseline, including the reviewed qgroup fix. Debian
+   packaging is only the installation format for our build; it does not make
+   the distribution-provided Snapper the target or a runtime dependency.
+   Keep deployment
    gated until the Snapper change and, if required, its
    paired kernel change have review and the full accounting/quota checks pass.
    Build and maintain a repeatable local Debian package from the Snapper

@@ -66,7 +66,14 @@ quota-based cleanup must wait until the counters are consistent.
    earlier formal patch did not apply to current `for-next`. It explained
    that a positive return selects the rescan fallback for different parents
    and reported the exact-release different/multiple-parent QEMU checks. The
-   replacement kernel patch applies to the live Btrfs `for-next`
+   maintainer then said this still did not explain the original user
+   situation. A concise reply in the existing thread now explains the hourly
+   `root`/`home` workload, explicit `QGROUP` opt-in, stock versus paired
+   qgroup layouts, and the QEMU result of six stock-module scans versus none
+   after tracker setup with the candidate module. It clarifies that counters
+   match a full rescan, the patch is a scan-avoidance optimization, and no
+   replacement patch was attached. The replacement kernel patch applies to
+   the live Btrfs `for-next`
    (`2789b2c034d7c0c8687355921a38c5ac41a565fa`) and passes `patch --dry-run`
    and `checkpatch.pl --strict` with no style findings. It has not been
    resubmitted; obtain the user's DCO sign-off for this exact patch before

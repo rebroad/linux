@@ -1310,3 +1310,24 @@ specified in `GOAL.md`.
   proposed optimization is required to fix accounting corruption; prior QEMU
   evidence only shows the exact Snapper hierarchy avoids the repeated
   inconsistency fallback with the candidate module.
+
+## linux-btrfs use-case clarification (2026-10-18)
+
+- A maintainer's reply to the earlier patch thread said the previous response
+  still did not describe the original situation and required reading the
+  Snapper code to understand the proposed hierarchy.
+- Replied in the existing thread with the concrete user-facing problem:
+  hourly Snapper timeline runs for `root` and `home` repeatedly start qgroup
+  rescans. The configs explicitly opt into `QGROUP=1/100` and `QGROUP=1/101`;
+  the live source qgroups `0/256` and `0/257` have no parent. The reply showed
+  both the current inherited-snapshot layout and the paired Snapper candidate's
+  two-child shared-parent layout.
+- Reported the differential QEMU evidence: after tracker setup, three hourly
+  root/home rounds on the stock 7.1.13 module produced six inconsistency
+  warnings and scans; the candidate module started no additional scans for the
+  same rounds. A later full rescan left counters unchanged in both cases.
+  Clarified that no accounting corruption or unrelated filesystem stall has
+  been demonstrated, that the kernel change is a rescan-avoidance optimization,
+  and that it does not cancel an already-running scan.
+- No replacement patch was attached. The replacement remains gated on the
+  user's DCO sign-off, and the Snapper PR remains open for upstream review.

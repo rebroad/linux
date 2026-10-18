@@ -1183,3 +1183,22 @@ specified in `GOAL.md`.
 - `snapper-timeline-sleep.service` is not installed. The Snapper timeline
   timer remains enabled and active. No host package, module, unit, or timer
   configuration was changed by this check.
+- From 00:00 through the 06:00 run, the timeline timer completed seven runs, each
+  reporting the host configs `home` and `root`; the 06:00 run finished at
+  06:00:06 BST. The kernel journal query for `qgroup|quota rescan` returned no
+  entries in that interval, and the visible qgroup-rescan kworkers were idle.
+  This is not proof that qgroups were consistent: unprivileged
+  `btrfs quota rescan -s` and `btrfs qgroup show` both fail with
+  `Operation not permitted`.
+- The installed module file
+  `/lib/modules/7.1.13+deb13-amd64/kernel/fs/btrfs/btrfs.ko.xz` has SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`, matching
+  the previously recorded stock-module baseline. `/proc/modules` shows Btrfs
+  loaded; the `modinfo` utility is unavailable in this shell.
+- The live timeline wrapper matches its source copy, and its explicit rescan
+  block remains commented out. The Kingston `@/etc/snapper/configs/root` and
+  `home` files exist but are unreadable here. The wrapper suppresses output
+  and errors from those external-root Snapper calls, so the host's visible
+  `home`/`root` journal messages do not establish that Kingston snapshots
+  succeeded. Current Kingston snapshot and qgroup state still requires a
+  privileged read.

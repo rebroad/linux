@@ -1486,3 +1486,16 @@ specified in `GOAL.md`.
   but not installation under the real root-owned tree, trust of a host-enrolled
   key, initramfs behavior, or APT kernel-upgrade behavior. DKMS remains a
   candidate path, not a verified durable host deployment.
+
+## Btrfs qgroup selftest coverage audit (2026-10-18)
+
+- Inspected `fs/btrfs/tests/qgroup-tests.c` in the in-use `v7.1.13` checkout
+  and the fetched Btrfs `for-next` tree at
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`. Both exercise extent-reference
+  accounting, but neither calls the snapshot quick-inherit path or covers the
+  proposed shared-parent topology. Existing topology checks are exact-kernel
+  QEMU integration tests recorded above, not an in-tree regression test.
+- No test code was added in this audit. Before kernel-patch resubmission,
+  decide whether the QEMU cases are sufficient for upstream review or add a
+  maintainable regression test for the shared-parent success case and the
+  differing/multiple-parent fallback cases.

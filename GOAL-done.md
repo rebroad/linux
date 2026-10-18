@@ -1291,3 +1291,22 @@ specified in `GOAL.md`.
   installed on the host, and actual post-resume/catch-up ordering remains
   unverified. Host rollout stays gated on upstream review and system-level
   accounting and resume checks.
+
+## Later-kernel qgroup fix recheck (2026-10-18)
+
+- Fetched the current official kernel.org refs: Linux mainline
+  `32c52ec87d6245ee2d12ed5dd509e40062939b50`, Btrfs maintainer `for-next`
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`, stable `linux-7.1.y`
+  `81d3924095fd017e473332a9b6dd6dd0e3d9a59b`, and stable `linux-7.2.y`
+  `a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea` (Linux 7.2.11).
+- In all four `fs/btrfs/qgroup.c` files, quick qgroup inheritance still
+  returns to the full-rescan path when the source has a different parent
+  (`list->group->qgroupid != parentid`), and the existing same-parent
+  exclusivity guard (`parent->excl != parent->rfer`) remains. None contains
+  the proposed exact shared-parent optimization. The change is not already
+  present in these later upstream or stable refs.
+- The replacement patch remains local and still requires the user's DCO
+  sign-off before submission. The source check does not establish that the
+  proposed optimization is required to fix accounting corruption; prior QEMU
+  evidence only shows the exact Snapper hierarchy avoids the repeated
+  inconsistency fallback with the candidate module.

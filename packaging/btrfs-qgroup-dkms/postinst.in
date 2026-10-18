@@ -19,9 +19,30 @@ case "${1:-}" in
             echo "Error: module-signing certificate is not enrolled" >&2
             exit 1
         fi
-        dkms install -m "$module" -v "$version" -k "$(uname -r)"
-        depmod -a "$(uname -r)"
-        update-initramfs -u -k "$(uname -r)"
+        for module_dir in /lib/modules/*; do
+            test -d "$module_dir" || continue
+            kernel=${module_dir##*/}
+            if test ! -f "$module_dir/build/Makefile"; then
+                echo "Error: headers are missing for installed kernel $kernel" >&2
+                exit 1
+            fi
+            dkms build -m "$module" -v "$version" -k "$kernel"
+        done
+        for module_dir in /lib/modules/*; do
+            test -d "$module_dir" || continue
+            kernel=${module_dir##*/}
+            dkms install -m "$module" -v "$version" -k "$kernel"
+            depmod -a "$kernel"
+        done
+        for module_dir in /lib/modules/*; do
+            test -d "$module_dir" || continue
+            kernel=${module_dir##*/}
+            if test -e "/boot/initrd.img-$kernel"; then
+                update-initramfs -u -k "$kernel"
+            else
+                update-initramfs -c -k "$kernel"
+            fi
+        done
         ;;
 esac
 

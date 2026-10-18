@@ -134,9 +134,13 @@ quota-based cleanup must wait until the counters are consistent.
    tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
    exact-kernel QEMU testing with Secure Boot and signature enforcement
    enabled. The reviewed local DKMS package recipe is committed, built, and
-   installed; its exact-kernel module is selected by `modprobe`, signed by the
-   enrolled key, and present in the refreshed initramfs. Package removal and
-   reinstall also verified restoration and reselection of the stock module.
+   installed for the running kernel; its module is selected by `modprobe`,
+   signed by the enrolled key, and present in that kernel's refreshed initramfs.
+   Package removal and reinstall verified restoration and reselection of the
+   stock module. The host also has kernel `7.1.8+deb13-amd64` installed, but the
+   candidate is not yet installed for that kernel. Revise and validate package
+   installation so it builds and signs the module for every installed kernel
+   version with matching headers, and refreshes every corresponding initramfs.
    This does not prove behavior after booting the installed module or a future
    kernel APT upgrade. Debian's kernel hook chain propagates DKMS build failures
    from image post-install, so validate an upgrade path that neither leaves APT
@@ -144,10 +148,14 @@ quota-based cleanup must wait until the counters are consistent.
    build is unsupported.
 
    **Next steps for safe local production use:**
-   - Completed: review and build the DKMS package recipe; install without
-     unloading the running Btrfs module; verify exact-kernel DKMS status,
-     module selection, signature, initramfs copy, and stock-module rollback.
-     Evidence and hashes are in `GOAL-done.md`.
+   - Completed for the running kernel: review and build the DKMS package recipe;
+     install without unloading the running Btrfs module; verify exact-kernel
+     DKMS status, module selection, signature, initramfs copy, and stock-module
+     rollback. Evidence and hashes are in `GOAL-done.md`.
+   - Extend package installation and verify signed module selection plus
+     initramfs inclusion for every kernel version installed on the host,
+     including the retained fallback kernel. Fail clearly if a bootable kernel
+     lacks matching headers or cannot build the patched module.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.

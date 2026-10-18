@@ -1691,3 +1691,29 @@ specified in `GOAL.md`.
 - The managed shell could not connect to the system D-Bus, so this check did
   not establish the live timer or sleep-unit state. Do not treat timer status
   as refreshed by this observation.
+
+## Shared-parent tracker-union regression (2026-10-18)
+
+- Strengthened the in-tree shared-parent sanity fixture so the source has
+  `4 * nodesize` referenced bytes, the existing snapshot parent has
+  `2 * nodesize`, and their common tracker has `6 * nodesize`. The assertions
+  now prove the new snapshot parent takes the union count from the tracker,
+  which differs from either child, rather than accidentally matching the
+  source count. Compressed counters remain covered.
+- Synced the source change into the external Linux build tree with `cpto` and
+  built the test-enabled Btrfs module against the installed
+  `7.1.13+deb13-amd64` headers and `Module.symvers`. The module vermagic is the
+  exact in-use release; module SHA-256:
+  `56dbd77ce6dde35053bbffb5f35e105f0ba2b9445918eb8970fa3ec14ffc82bf`.
+- Booted that module in QEMU with the exact Debian kernel image and 4 GiB guest
+  memory. Both shared-parent and fallback tests ran at all five nodesizes
+  (4-64 KiB), ending in `QGROUP-SANITY: PASS`. Serial log:
+  `/var/tmp/qgroup-root-cause-7.1.13/shared-parent-union-20261018/qemu-4g.log`,
+  SHA-256 `8111b36fceecdfbc928e0428a067c533cb70b65bc37d4d04fbca134e7a7bfab1`.
+- Regenerated the mail patch against Btrfs `for-next`
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`. Its SHA-256 is
+  `0673884246f1448c0d730533367aafa65bebee79db4162fde9f7c94e291b8f8f`.
+  A zero-fuzz dry run succeeds; `checkpatch.pl --strict --no-tree
+  --no-signoff` reports zero errors and warnings. Standard strict checkpatch
+  reports only the missing `Signed-off-by` trailer. The patch remains unsigned
+  and unsubmitted pending the user's DCO sign-off for this exact revision.

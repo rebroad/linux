@@ -67,7 +67,7 @@ quota-based cleanup must wait until the counters are consistent.
    the user's DCO sign-off for this exact patch before adding that trailer or
    sending it. The mail-formatted draft against this `for-next` base is
    `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`
-   (SHA-256 `b3175a799058e29ee377566ce1c733af32083232ddf0d4456529a4e31e284390`);
+   (SHA-256 `0673884246f1448c0d730533367aafa65bebee79db4162fde9f7c94e291b8f8f`);
    it intentionally has no sign-off trailer.
 2. **Deploy and maintain our latest-upstream Snapper build.** Install our
    locally built Snapper from the latest upstream baseline, including the

@@ -856,6 +856,22 @@ broader filesystem coverage and host rollout remain open.
   the stale process state and correlating it with a reproduced user-visible
   stall remain open.
 
+## Detached-filesystem process lifetime check (2026-10-18)
+
+- A fresh host-side `/proc` scan found PID 2921656 (`codex-0.162.0-a`) and its
+  child PID 2922998 (`codex-code-mode`) still using cwd on anonymous Btrfs
+  device `0:204`, at `/@home/rebroad/src/codex`. The app-server is orphaned
+  under PID 1; both processes remain in `/user.slice/user-1000.slice/session-5.scope`.
+- `session-5.scope` is still active. Its X11 session leader, PID 51374
+  (`lightdm`), and the session started on 2026-10-14, while the two Codex
+  processes started on 2026-10-15. This explains why the processes and their
+  cwd references can outlive the process that originally launched them: the
+  login session scope remains active after the app-server becomes orphaned.
+  Neither process was signaled or restarted, and the session was left active.
+- This establishes a plausible lifetime mechanism for the stale references.
+  It still does not prove that the old-filesystem read errors caused the
+  reported system-wide stalls or qgroup inconsistency.
+
 ## Deferred-rescan quota reporting (2026-10-18)
 
 - The latest-upstream Snapper build was tested in QEMU with the exact in-use

@@ -129,15 +129,15 @@ quota-based cleanup must wait until the counters are consistent.
    directory enumeration by a long-lived Codex app-server thread. A lingering
    working-directory reference pins that old filesystem despite no mountinfo
    entry for it; querying its scrub state returns `EIO`, and no qgroup rescan
-   was active there. A live follow-up still finds an app-server and its child
-   pinned by their cwd on that detached filesystem; the app-server is
-   reparented to PID 1. Correct the earlier invalid checks that matched the
-   underlying block-device number instead of Btrfs's anonymous filesystem
-   device number. Establish why the orphaned service retains that reference
-   and whether it explains any reported application stalls. Keep this
-   investigation separate from the Snapper qgroup trigger; neither trace
-   timing nor an inconsistency warning proves the rescan caused the
-   system-wide stall.
+   was active there. The app-server and its code-mode child still have cwd
+   references on the detached filesystem; the orphaned app-server is adopted
+   by PID 1, while both processes remain in the active X11 `session-5.scope`.
+   This explains how the cwd references can outlive the original launcher.
+   Determine whether there is a safe way to release them without ending the
+   active user session, and whether the detached-device read errors explain
+   any reported application stalls. Keep this investigation separate from the
+   Snapper qgroup trigger; neither trace timing nor an inconsistency warning
+   proves the rescan caused the system-wide stall.
 6. **Preserve temporary host containment.** Confirm the timeline wrapper's
    explicit `btrfs quota rescan` commands remain disabled while snapshots
    continue. This wrapper is one rescan initiator; Snapper's quota-query code

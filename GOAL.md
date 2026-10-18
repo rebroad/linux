@@ -26,12 +26,11 @@ quota-based cleanup must wait until the counters are consistent.
    Snapper fix against the latest revision in the official upstream repository
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
-   branch as the development base. The durable host fix must install the
-   modified Snapper built from that latest upstream baseline, replacing the
-   currently installed Snapper package. The distribution-installed Snapper is
-   only the current-state baseline for diagnosis and migration; it is not the
-   intended or acceptable final host runtime. The host must run our locally
-   built and maintained Snapper based on the latest upstream source. The host
+   branch as the development base. The host's active Snapper must be our
+   locally built and maintained version based on that latest upstream source,
+   with the reviewed fix. Install and verify that build as the host runtime;
+   the distribution-installed binary is only a diagnostic and migration
+   baseline, never the target runtime. The host
    currently runs kernel
    release `7.1.13+deb13-amd64`; use that exact release for all remaining
    kernel investigation and acceptance testing. The stock-module and
@@ -92,11 +91,11 @@ quota-based cleanup must wait until the counters are consistent.
    `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting on every host Snapper config
    sharing Kingston as `05:00-21:00` local time, while retaining the
    per-filesystem rolling 24-hour cap.
-2. **Deploy and maintain our latest-upstream Snapper build.** Replace the
-   host's currently installed Snapper with our locally built Snapper from the
-   latest upstream baseline, including the reviewed qgroup fix. Debian
-   packaging is only the installation format for our build; it does not make
-   the distribution-provided Snapper the target or a runtime dependency.
+2. **Deploy and maintain our latest-upstream Snapper build.** Install our
+   locally built Snapper from the latest upstream baseline, including the
+   reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging
+   is only the installation format for our build; the distribution-provided
+   Snapper is not the target runtime or a runtime dependency.
    Keep deployment
    gated until the Snapper change and, if required, its
    paired kernel change have review and the full accounting/quota checks pass.

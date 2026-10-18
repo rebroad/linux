@@ -1363,6 +1363,11 @@ specified in `GOAL.md`.
   and that it does not cancel an already-running scan.
 - No replacement patch was attached. The replacement remains gated on the
   user's DCO sign-off, and the Snapper PR remains open for upstream review.
+- A prior correction sent on 2026-10-17 was rejected by the vger list manager
+  because Gmail included an HTML MIME part. A later 2026-10-18 reply used only
+  `text/plain` and clarified the original use case; Gmail has no later list
+  rejection or maintainer reply as of this check. Do not treat the earlier
+  rejected correction as delivered.
 
 ## Twenty-four hourly Snapper rounds on the candidate module (2026-10-18)
 

@@ -26,83 +26,38 @@ quota-based cleanup must wait until the counters are consistent.
    Snapper fix against the latest revision in the official upstream repository
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
-   branch as the development base. The host's active Snapper must be our
-   locally built and maintained version based on that latest upstream source,
-   with the reviewed fix. Install and verify that build as the host runtime;
-   the distribution-installed binary is only a diagnostic and migration
-   baseline, never the target runtime. The host
-   currently runs kernel
-   release `7.1.13+deb13-amd64`; use that exact release for all remaining
-   kernel investigation and acceptance testing. The stock-module and
-   candidate-module QEMU comparisons use that release. Testing other kernel
-   versions is outside this goal. The latest-line Snapper changes stop clean
-   quota queries from starting unnecessary rescans. The query-path
-   follow-up is committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested
-   on the recorded Snapper baselines. No qgroup counter corruption has been demonstrated;
-   a full rescan agrees with incrementally maintained counters. On the stock
-   kernel, the reproduced snapshot-only qgroup layout takes the conservative
-   rescan fallback; the exact two-member shared-parent optimization avoids those
-   snapshot-triggered scans while preserving the existing same-parent
-   exclusivity guard and passing quota cleanup. The kernel change is an
-   optimization for this proven topology, not a repair for demonstrated bad
-   accounting. The shared parent is created only by the candidate Snapper
-   `prepareQGroupTracking()` change. A fresh stock-module run of current PR
-   #1203 showed the tracking setup and first hourly snapshot still mark qgroups
-   inconsistent. Snapper's limiter then enforces the scan ceiling, returns
-   last-known values as stale, and defers quota cleanup; this contains the
-   repeated scans but does not keep qgroups consistent. The same latest-line
-   Snapper workload with the candidate kernel module completed 24 consecutive
-   hourly rounds spanning midnight without another inconsistency warning and
-   passed quota cleanup. The one observed warning occurred during tracker
-   setup before those rounds. The Snapper-only PR
-   therefore does not meet the consistency requirement; continue with the
-   paired kernel change unless a Snapper-only hierarchy can be shown to keep
-   the counters accurate while preserving snapshot-only quota scope. The RFC,
-   differential results, correction, and
-   formal kernel patch have been sent to `linux-btrfs`. Maintainer feedback
-   arrived on 2026-10-18: clarify the qgroup layouts and opt-in policy, avoid
-   unsupported tracker terminology, disclose AI assistance, and test the
-   different-parent fallback. The fallback passes QEMU checks on the exact
-   in-use kernel. A plain-text reply sent on 2026-10-18 acknowledged that the
-   earlier formal patch did not apply to current `for-next`. It explained
-   that a positive return selects the rescan fallback for different parents
-   and reported the exact-release different/multiple-parent QEMU checks. The
-   maintainer then said this still did not explain the original user
-   situation. A concise reply in the existing thread now explains the hourly
-   `root`/`home` workload, explicit `QGROUP` opt-in, stock versus paired
-   qgroup layouts, and the QEMU result of six stock-module scans versus none
-   after tracker setup with the candidate module. It clarifies that counters
-   match a full rescan, the patch is a scan-avoidance optimization, and no
-   replacement patch was attached. The replacement kernel patch applies to
-   the live Btrfs `for-next`
-   (`2789b2c034d7c0c8687355921a38c5ac41a565fa`) and passes `patch --dry-run`
-   and `checkpatch.pl --strict` with no style findings. It has not been
-   resubmitted; obtain the user's DCO sign-off for this exact patch before
-   adding its `Signed-off-by` trailer or sending it.
-   Kernel build and runtime acceptance remain on the exact in-use
-   `7.1.13+deb13-amd64` release. The Snapper companion is upstream PR
-   [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed
-   drafts #1201 and #1202. At the latest check (2026-10-18), its base matched
-   the official upstream tip and no review decision was recorded. After a
-   formatting-only amendment, PR #1203 is at
-   `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0`, still based on upstream `master`
-   at `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; Codespell and five of its
-   six build/test checks passed. Tumbleweed Clang failed before compilation
-   because zypper timed out fetching repository metadata and could not find
-   the `clang` package; GitHub refused a rerun because this account lacks
-   repository-admin rights. A local Clang 19.1.7 build compiled the Snapper
-   library and passed all seven `qgroup-rescan-limiter` test cases; this
-   narrows the remaining CI uncertainty to that failed CI job, but does not
-   turn its status green. The amendment changes indentation only. Its current
-   head also adds
-   `QGROUP_RESCAN_HOLD_FILE`, which lets Snapper defer a fresh automatic scan
-   while the configured absolute-path marker contains a future epoch
-   deadline. All configs sharing a filesystem must use the same marker path;
-   this hold does not cancel a scan that is already running. Keep PR #1203
-   paired with the kernel change through review. Configure the documented
-   `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting on every host Snapper config
-   sharing Kingston as `05:00-21:00` local time, while retaining the
-   per-filesystem rolling 24-hour cap.
+   branch as the development base. The host's required Snapper runtime is our
+   locally built and maintained version from latest upstream with the reviewed
+   fix; install and verify that build after the review and acceptance gates.
+   Use only the exact in-use kernel release `7.1.13+deb13-amd64` for remaining
+   kernel investigation and acceptance testing.
+
+   The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
+   currently at `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0` against upstream
+   `master` `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. It has no review
+   decision. Codespell and five of six CI build/test checks pass. Tumbleweed
+   Clang failed before compilation on package-mirror timeouts; the local Clang
+   19.1.7 build compiled the library and passed all seven limiter test cases.
+   The failed CI check remains unresolved. Keep this PR paired with the kernel
+   change through review. Its `QGROUP_RESCAN_HOLD_FILE` setting defers new
+   automatic scans while a shared absolute-path marker has a future deadline;
+   it does not cancel an already-running scan. Set the same
+   `QGROUP_RESCAN_WINDOW=05:00-21:00` and hold-file path on every Kingston
+   Snapper config, retaining the rolling 24-hour per-filesystem cap.
+
+   The Snapper-only candidate does not keep qgroups consistent with the stock
+   module in the reproduced snapshot workload. The paired Btrfs change avoids
+   that inconsistency fallback for the tested shared-parent topology; no
+   counter corruption has been demonstrated, so this is a scan-avoidance
+   optimization, not a repair for proven bad accounting. Preserve the existing
+   conservative fallback for other layouts. QEMU comparisons and the
+   `linux-btrfs` discussion are documented in `GOAL-done.md`.
+
+   The replacement kernel patch applies to Btrfs `for-next`
+   `2789b2c034d7c0c8687355921a38c5ac41a565fa`, passes `patch --dry-run` and
+   `checkpatch.pl --strict`, and has exact-release QEMU fallback coverage. It
+   has not been resubmitted. Obtain the user's DCO sign-off for this exact
+   patch before adding its `Signed-off-by` trailer or sending it.
 2. **Deploy and maintain our latest-upstream Snapper build.** Install our
    locally built Snapper from the latest upstream baseline, including the
    reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging
@@ -151,25 +106,16 @@ quota-based cleanup must wait until the counters are consistent.
    Snapper package contain the intended fix afterward. Preserve normal kernel
    security upgrades; do not rely on manual intervention after each APT
    kernel upgrade.
-4. **Finish accounting and recovery coverage.** QEMU now covers compressed
-   and incompressible data, externally shared snapshots, partial overwrites,
-   truncation, create/delete churn, timeline cleanup, concurrent tracker
-   allocation, orphan and one-sided tracker recovery, and interrupted scans
-   with complete trackers. The latest-upstream Snapper build is the primary
-   acceptance target. Results from older Snapper builds remain historical
-   baseline evidence only.
-   The latest-line build must repair an interrupted config-only tracker,
-   complete successive hourly snapshots and timeline cleanup, preserve
-   counters across a full rescan, and pass quota-limit cleanup with the
-   `7.1.13+deb13-amd64` candidate module. On the current PR #1203 head, 24
-   consecutive hourly root/home rounds spanning midnight, used-space listing,
-   quota-limit cleanup, and post-cleanup counter comparison passed with that
-   module; the exact fixture and results are recorded in `GOAL-done.md`.
-   Extend coverage only for additional Btrfs layouts needed to support the
-   paired patch, using the same kernel release.
-5. **Preserve temporary host containment, including after resume.** Confirm
-   the timeline wrapper's explicit `btrfs quota rescan` commands remain
-   disabled while snapshots continue. This wrapper is one rescan initiator;
+4. **Finish accounting and recovery coverage.** Use the latest-upstream
+   Snapper build as the primary acceptance target and the exact
+   `7.1.13+deb13-amd64` kernel. Existing QEMU coverage and results are in
+   `GOAL-done.md`. After upstream review, rerun the full acceptance workload
+   against the final paired source; add coverage only for Btrfs layouts needed
+   by the patch or not already covered.
+5. **Preserve temporary host containment, including after resume.** The
+   timeline wrapper's explicit `btrfs quota rescan` commands are currently
+   disabled while snapshots continue; the current host check is recorded in
+   `GOAL-done.md`. This wrapper is one rescan initiator;
    Snapper's quota-query and snapshot-tracking code can independently start a
    rescan when it finds inconsistent qgroups. Btrfs snapshot inheritance can
    mark qgroups inconsistent, but does not itself start a rescan. Keep those

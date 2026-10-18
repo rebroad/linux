@@ -903,3 +903,23 @@ broader filesystem coverage and host rollout remain open.
   generated initrd, test script, and fresh Btrfs image are under
   `/var/tmp/snapper-pr1203-quota/`; the serial log is
   `serial.log`. It does not verify the live D-Bus daemon path or host rollout.
+
+## D-Bus deferred-quota runtime verification (2026-10-18)
+
+- Ran the latest PR #1203 Snapper build with `snapperd` and the normal Snapper
+  D-Bus client in QEMU, on the exact `7.1.13+deb13-amd64` kernel with its
+  stock Btrfs module. A test bus was provided through the system-bus address
+  environment variable; this exercises Snapper's real D-Bus methods but not
+  the host's system-bus policy or service activation configuration.
+- With the configured `05:00-21:00` window closed, the workload reproduced
+  qgroup inconsistency. The daemon trace confirms that `snapper list` called
+  `CalculateUsedSpaceStatus` and quota cleanup called `QueryQuotaStatus`;
+  both received deferred-rescan handling. The list displayed numeric
+  last-known values and the stale warning. With `SPACE_LIMIT="1 MiB"`,
+  cleanup reported that it deferred on stale counters and deleted no
+  snapshots. No new rescan completed; the guest reported
+  `STALE-QUOTA: PASS`.
+- The serial log and disposable fixture are under
+  `/var/tmp/snapper-pr1203-dbus/`; the serial log is `serial.log`. This
+  closes the live Snapper daemon/client method-path check. Host deployment,
+  system-bus activation/policy, and APT-upgrade persistence remain open.

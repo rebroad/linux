@@ -1011,6 +1011,15 @@ broader filesystem coverage and host rollout remain open.
   that executable and the `dkms` command are currently absent. This confirms
   the hook points exist but does not yet prove the complete APT failure and
   rollback behavior for a failed module build.
+- The installed image package's `postinst` calls `linux-run-hooks image
+  postinst`; that helper executes the hook directories with
+  `run-parts --exit-on-error`. The image hook order is `dkms`,
+  `initramfs-tools`, `unattended-upgrades`, then `zz-update-grub`. A DKMS
+  failure therefore stops this sequence before initramfs generation and GRUB
+  update. This was established by reading the installed maintainer script,
+  helper, and hook directory; no failing hook was triggered. A DKMS rollout
+  must account for this APT failure mode while preventing an unpatched kernel
+  from becoming the boot target.
 - `/var/lib/dkms/mok.key` and `mok.pub` exist, but
   `mokutil --test-key /var/lib/dkms/mok.pub` reports the certificate is not
   enrolled. The running stock Btrfs module reports signer `Build time

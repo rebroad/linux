@@ -2400,3 +2400,32 @@ specified in `GOAL.md`.
   count stayed at four during the snapshot rounds and increased only for the
   final per-filesystem rescans. Serial log, init script, and images are in
   `linux.build/qgroup-postassign-stock-20261018/`.
+
+## Snapper shared-QGROUP tracker source path (2026-10-18)
+
+- Source inspection of `snapper/snapper/Btrfs.cc::prepareQGroupTracking()`
+  explains the shared root/home QGROUP mismatch. The first config creates a
+  level-2 tracker containing its live source and the configured snapshot
+  QGROUP. When a second config uses that same QGROUP, its source has no parent
+  while the snapshot QGROUP already has one. Snapper only adds the missing
+  source if the tracker contains exactly the existing QGROUP; because it
+  already contains the first config's source too, that condition fails.
+  Snapper then sees an existing parent and returns `Consistent` without
+  pairing the second source with the shared QGROUP.
+- `Btrfs::createSnapshot()` still passes the configured QGROUP to the snapshot
+  inheritance ioctl (`BtrfsUtils.cc::create_snapshot()`). The second source
+  therefore reaches Btrfs with no parent while the inherited QGROUP is under
+  the first source's tracker. This fails the candidate kernel's safe
+  shared-parent preconditions and takes its conservative rescan fallback,
+  matching the candidate-module QEMU reproduction where root stayed
+  consistent and the following home snapshot marked the shared group
+  inconsistent.
+- This establishes that sharing a QGROUP causes a real Snapper tracker
+  mismatch and prevents separate root/home totals. It does not explain the
+  stock-module failures with distinct QGROUPs: those configs have separate
+  two-member trackers, and the matching four-group QEMU test passes with the
+  candidate fast path but marks qgroups inconsistent on stock. The evidence
+  therefore points to two related but distinct issues: shared IDs are an
+  invalid layout for the required accounting and mishandle tracker setup;
+  stock Btrfs also cannot maintain the valid distinct-ID layout without
+  rescanning.

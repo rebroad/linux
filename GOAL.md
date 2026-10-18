@@ -57,14 +57,19 @@ quota-based cleanup must wait until the counters are consistent.
    works or why the required assignment/inheritance semantics make the kernel
    companion necessary. Evidence is in `GOAL-done.md`.
 
-   Do not yet call the kernel modification unnecessary or required. Existing
-   stock-module QEMU tests show inconsistency both with and without tracker
-   groups; the candidate module keeps the tested distinct-group tracking layout
-   consistent, while the shared-ID mismatch still fails with the candidate.
+   Treat the kernel change as provisionally required for the current Snapper
+   design and four-collective requirement. Source inspection explains a
+   separate shared-ID Snapper flaw: its second config can reuse a tracker that
+   contains the first source, then skip pairing the second source with the
+   shared snapshot QGROUP. This explains the shared-ID mismatch, but does not
+   explain stock-module failures with distinct groups. The candidate module
+   keeps the tested distinct-group tracking layout consistent, while the
+   shared-ID mismatch still fails with the candidate.
    Use the exact same Snapper build and workload for each new stock/candidate
    comparison. Put fixtures and outputs only in the sibling build tree. Do not
    migrate the live p8 qgroups or deploy a kernel module until a Snapper-only
-   alternative has been tested against the four-collective requirement.
+   alternative has passed the four-collective requirement without per-snapshot
+   rescans.
 
 2. **Confirm the kernel patch's necessity and scope.** Review the Btrfs change
    against the reproducible Snapper 0.13.2 tests: identical four-group tracked

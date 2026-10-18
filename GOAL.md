@@ -31,9 +31,12 @@ accounting and expected cleanup behavior. Avoid unnecessary
 full rescans by correcting their cause, not by hiding inconsistency or
 weakening accounting. Keep both rescan gates configurable in Snapper: the
 optional hold-file gate and the rolling 24-hour per-filesystem limit. Disable
-both in the investigation host configs so scans may repeat. Keep the configured
-local-time window at 05:00-21:00 and identical across configs sharing a
-filesystem. A deferred rescan must never report stale counters as consistent. When a rescan is
+the daily limit in the investigation host configs so scans may repeat. Keep
+the shared hold-file path configured for `force-suspend`; it pauses new scans
+only while its temporary marker exists, then expires at its configured local
+time (04:00 by default). Keep the configured local-time window at 05:00-21:00
+and identical across configs sharing a filesystem. A deferred rescan must
+never report stale counters as consistent. When a rescan is
 deferred, Snapper must still return last-known quota values with an explicit
 stale status; `snapper list` should display them with a warning, and
 quota-based cleanup must wait until the counters are consistent.
@@ -75,7 +78,9 @@ quota-based cleanup must wait until the counters are consistent.
    add `QGROUP_RESCAN_DAILY_LIMIT` (default `yes`, `no` disables the rolling
    24-hour cap). For the investigation host, keep the shared hold path enabled
    so `force-suspend` can pause new scans until its deadline, and set the daily
-   limit to `no`. Use `FORCE_SUSPEND_RESCAN_RESUME_TIME` in
+   limit to `no`. The hold is inactive unless the marker exists; it must not
+   prevent scans during the investigation otherwise. Use
+   `FORCE_SUSPEND_RESCAN_RESUME_TIME` in
    `/etc/default/force-suspend` to configure the hold deadline time (default
    `04:00`). Retain `QGROUP_RESCAN_WINDOW=05:00-21:00`. Before scanning, Snapper
    must verify all three policy values agree across configs sharing a
@@ -99,8 +104,9 @@ quota-based cleanup must wait until the counters are consistent.
    consistent and the exclusive counters matched a full rescan. This confirms
    the shared p8 group/tracker mismatch as a cause on p8. The host migration
    must wait until the candidate module is active. Run the migration's
-   required full rescan inside the configured window; the host's disabled
-   cooldown and empty hold path allow repeated rescans during investigation.
+   required full rescan inside the configured window; the disabled daily limit
+   allows repeated rescans during investigation. Keep the hold path configured
+   for `force-suspend`, which creates a temporary marker only when needed.
 
    The tested Snapper tracking layout gives each config a separate level-1
    snapshot QGROUP and pairs that QGROUP with its live source under a tracker.

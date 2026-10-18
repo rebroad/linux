@@ -90,8 +90,11 @@ quota-based cleanup must wait until the counters are consistent.
    six build/test checks passed. Tumbleweed Clang failed before compilation
    because zypper timed out fetching repository metadata and could not find
    the `clang` package; GitHub refused a rerun because this account lacks
-   repository-admin rights. The amendment changes indentation only. Its
-   current head also adds
+   repository-admin rights. A local Clang 19.1.7 build compiled the Snapper
+   library and passed all seven `qgroup-rescan-limiter` test cases; this
+   narrows the remaining CI uncertainty to that failed CI job, but does not
+   turn its status green. The amendment changes indentation only. Its current
+   head also adds
    `QGROUP_RESCAN_HOLD_FILE`, which lets Snapper defer a fresh automatic scan
    while the configured absolute-path marker contains a future epoch
    deadline. All configs sharing a filesystem must use the same marker path;

@@ -134,13 +134,16 @@ quota-based cleanup must wait until the counters are consistent.
    tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
    exact-kernel QEMU testing with Secure Boot and signature enforcement
    enabled. The reviewed local DKMS package recipe is committed, built, and
-   installed for the running kernel; its module is selected by `modprobe`,
-   signed by the enrolled key, and present in that kernel's refreshed initramfs.
-   Package removal and reinstall verified restoration and reselection of the
-   stock module. The host also has kernel `7.1.8+deb13-amd64` installed, but the
-   candidate is not yet installed for that kernel. Revise and validate package
-   installation so it builds and signs the module for every installed kernel
-   version with matching headers, and refreshes every corresponding initramfs.
+   installed for the running kernel; it is also built and installed for every
+   kernel currently present on the host: `7.1.8+deb13-amd64` and
+   `7.1.13+deb13-amd64`. Both module files are signed by the enrolled key,
+   selected by `modprobe` for their respective kernel releases, and included
+   under `updates/dkms` in their matching initramfs images. Package removal and
+   reinstall previously verified restoration and reselection of the stock
+   module. Upgrading the DKMS package left a stale broken registration for the
+   old version because its versioned source directory was removed; update the
+   package lifecycle to clean that stale state after the new signed modules
+   and initramfs images have been installed, then repeat upgrade/removal tests.
    This does not prove behavior after booting the installed module or a future
    kernel APT upgrade. Debian's kernel hook chain propagates DKMS build failures
    from image post-install, so validate an upgrade path that neither leaves APT
@@ -148,14 +151,15 @@ quota-based cleanup must wait until the counters are consistent.
    build is unsupported.
 
    **Next steps for safe local production use:**
-   - Completed for the running kernel: review and build the DKMS package recipe;
-     install without unloading the running Btrfs module; verify exact-kernel
-     DKMS status, module selection, signature, initramfs copy, and stock-module
-     rollback. Evidence and hashes are in `GOAL-done.md`.
-   - Extend package installation and verify signed module selection plus
-     initramfs inclusion for every kernel version installed on the host,
-     including the retained fallback kernel. Fail clearly if a bootable kernel
-     lacks matching headers or cannot build the patched module.
+   - Completed for all kernels currently installed: build, sign, and install
+     the candidate for 7.1.8 and 7.1.13; verify per-kernel module selection and
+     initramfs inclusion. The host has not booted either candidate module yet.
+     Evidence and hashes are in `GOAL-done.md`.
+   - Rebuild and reinstall the lifecycle update that removes the prior broken
+     DKMS registration only after all current modules and initramfs images are
+     successfully updated. Repeat package-upgrade and removal rollback checks.
+     Fail clearly if an installed bootable kernel lacks matching headers or
+     cannot build the patched module.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.

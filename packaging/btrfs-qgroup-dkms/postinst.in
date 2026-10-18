@@ -43,6 +43,16 @@ case "${1:-}" in
                 update-initramfs -c -k "$kernel"
             fi
         done
+        for version_dir in "/var/lib/dkms/$module"/*; do
+            test -d "$version_dir" || continue
+            old_version=${version_dir##*/}
+            test "$old_version" = "$version" && continue
+            if test -L "$version_dir/source" &&
+                test ! -e "$version_dir/source"; then
+                echo "Removing stale DKMS registration $module/$old_version" >&2
+                rm -rf -- "$version_dir"
+            fi
+        done
         ;;
 esac
 

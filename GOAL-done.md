@@ -1769,3 +1769,21 @@ specified in `GOAL.md`.
   unsubmitted pending the user's review and DCO certification for this exact
   revision. Patch SHA-256:
   `64781dca15601157ad574b0115ab737e4d5d1f3539af761ace4fb02afd239c0c`.
+
+## Cross-config rescan policy enforcement (2026-10-18)
+
+- The latest-upstream Snapper candidate now enumerates `SNAPPER_CONFIGS` when
+  qgroups are inconsistent and no scan is active. For every nonempty `QGROUP`,
+  it resolves the configured subvolume's Btrfs filesystem UUID and compares
+  that config's rescan window and hold-file path with the initiating config.
+  A same-filesystem mismatch, unreadable config, invalid window, or unresolved
+  subvolume defers the new scan; the stale-value and cleanup-deferral behavior
+  remains in place. An already-running scan still follows the existing wait
+  path.
+- Added unit coverage for matching policies, mismatched windows, mismatched
+  hold paths, and ignoring configs on other filesystems. The full Snapper build
+  completed; `make check` exited successfully with 30 passes, 2 optional skips,
+  and no failures. The core testsuite passed 20/20, and the focused limiter
+  binary passed 8 cases and 108 assertions. A QEMU run with deliberately
+  mismatched config policies remains to be done. Generated artifacts remain in
+  the sibling build tree.

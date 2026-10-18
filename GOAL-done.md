@@ -1016,10 +1016,13 @@ broader filesystem coverage and host rollout remain open.
   `run-parts --exit-on-error`. The image hook order is `dkms`,
   `initramfs-tools`, `unattended-upgrades`, then `zz-update-grub`. A DKMS
   failure therefore stops this sequence before initramfs generation and GRUB
-  update. This was established by reading the installed maintainer script,
-  helper, and hook directory; no failing hook was triggered. A DKMS rollout
-  must account for this APT failure mode while preventing an unpatched kernel
-  from becoming the boot target.
+  update. The image `postinst` uses `#!/bin/sh -e`, so the nonzero helper
+  result also fails package configuration. A temporary `run-parts` harness
+  with a failing DKMS hook and later initramfs/GRUB sentinels returned the
+  DKMS status (`42`) and ran only the DKMS hook. This validates the runner's
+  short-circuit behavior, not the full dpkg rollback or reboot path. A DKMS
+  rollout must account for this APT failure mode while preventing an unpatched
+  kernel from becoming the boot target.
 - `/var/lib/dkms/mok.key` and `mok.pub` exist, but
   `mokutil --test-key /var/lib/dkms/mok.pub` reports the certificate is not
   enrolled. The running stock Btrfs module reports signer `Build time

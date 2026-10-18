@@ -906,8 +906,17 @@ broader filesystem coverage and host rollout remain open.
   reported the exact-release different/multiple-parent QEMU checks. The reply
   is in the existing `linux-btrfs` review thread.
 - The replacement patch remains local; it applies cleanly to the currently
-  fetched `for-next` tip and is not yet resubmitted. Review its final diff and
-  DCO trailer before sending it.
+  fetched `for-next` tip and is not yet resubmitted. The follow-up check below
+  records the final diff review and the remaining DCO sign-off gate.
+
+- Rechecked the `for-next` tip directly on the Btrfs maintainer remote on
+  2026-10-18; it is still `2789b2c034d7c0c8687355921a38c5ac41a565fa`, and the
+  extracted source file matches that ref's `fs/btrfs/qgroup.c` blob. The final
+  email patch applies cleanly there and `checkpatch.pl --strict --no-tree
+  --no-signoff` reports zero findings. Its commit text includes the qgroup
+  topology, exact-kernel QEMU fallback results, and `Assisted-by` disclosure.
+  No `Signed-off-by` trailer was added; the user's DCO sign-off for this exact
+  replacement patch is still required before submission.
 
 ## Host runtime and module deployment audit (2026-10-18)
 

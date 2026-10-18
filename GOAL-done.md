@@ -1397,9 +1397,13 @@ specified in `GOAL.md`.
   Clang failed during package installation: openSUSE metadata requests timed
   out and zypper could not find `clang`, before compilation began. A targeted
   rerun was refused because the GitHub account lacks repository-admin rights.
-  To verify the affected toolchain path, configured a separate Clang 19.1.7
-  build under `/mnt/kingston/builds/rebroad/src/snapper.build/clang-src`;
-  the Snapper library compiled and all seven `qgroup-rescan-limiter` test
-  cases passed. This focused local result does not change the failed CI status
-  or establish a full Clang CI pass. The PR remains open and has no review
-  decision.
+  To verify the affected toolchain path, configured a separate build with
+  Debian Clang 19.1.7 under
+  `/mnt/kingston/builds/rebroad/src/snapper.build/clang-src`. The complete
+  `make -j2` build and `make -j2 check VERBOSE=1` test step passed: 30 passed,
+  2 skipped, 0 failed across five suites. The full log is
+  `clang-src/full-clang-check.log` (SHA-256
+  `0e4c73c563effdaae229f91220dab37b0b8fe899e106627d10e913ea0d0ace4c`). This
+  validates the local Clang compile/test path but does not clear the failed
+  GitHub CI check, which remains red and could not be rerun with this account.
+  The PR remains open and has no review decision.

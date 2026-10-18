@@ -36,11 +36,12 @@ quota-based cleanup must wait until the counters are consistent.
    currently at `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0` against upstream
    `master` `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. It has no review
    decision. Codespell and five of six CI build/test checks pass. Tumbleweed
-   Clang failed before compilation on package-mirror timeouts; the local Clang
-   19.1.7 build compiled the library and passed all seven limiter test cases.
-   The failed CI check remains unresolved. Keep this PR paired with the kernel
-   change through review. Its `QGROUP_RESCAN_HOLD_FILE` setting defers new
-   automatic scans while a shared absolute-path marker has a future deadline;
+   Clang failed before compilation on package-mirror timeouts. A local Clang
+   19.1.7 full compile and `make check` passed (30 passed, 2 skipped, 0
+   failed), but the failed CI check remains red and was not rerun. Keep this PR
+   paired with the kernel change through review.
+   `QGROUP_RESCAN_HOLD_FILE` defers new automatic scans while a shared
+   absolute-path marker has a future deadline;
    it does not cancel an already-running scan. Set the same
    `QGROUP_RESCAN_WINDOW=05:00-21:00` and hold-file path on every Kingston
    Snapper config, retaining the rolling 24-hour per-filesystem cap.

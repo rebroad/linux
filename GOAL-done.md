@@ -2575,9 +2575,51 @@ specified in `GOAL.md`.
   leaves wrong counters after a completed rescan. Treat the candidate as a
   rescan-avoidance optimization unless additional evidence shows a correctness
   failure or that the required operating constraints cannot be met otherwise.
-- The current controlled results do establish that a shared root/home level-1
-  group cannot provide the four separately queryable snapshot totals and can
-  leave Snapper's tracker hierarchy mismatched. They do not establish that
-  sharing is the cause of all inconsistency events. Continue root-only,
-  home-only, both-order, and host-topology-matched QEMU cases before deciding
-  whether the kernel companion is needed for the operational goal.
+- These controlled results establish that a shared root/home level-1 group
+  cannot provide the four separately queryable snapshot totals and can leave
+  Snapper's tracker hierarchy mismatched. They do not establish that sharing
+  is the cause of all inconsistency events. The root-only, home-only, and
+  both-order cases were completed in the later matrix recorded below; the
+  host-matched four-group hierarchy remains to be tested.
+
+## Stock-kernel matrix and Snapper's deferred-rescan child path (2026-10-18)
+
+- Repeated the manually constructed shared/distinct QGROUP matrix on the
+  running release kernel image `7.1.13+deb13-amd64`
+  (SHA-256 `b03e297715d838016b69362ecda036f13bcd663077982efa6087d084155c6c4b`).
+  The guest loaded the stock Btrfs module
+  (`6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`) and
+  the latest-upstream-based Snapper source with the current local Btrfs
+  tracking change. The guest reported Snapper 0.13.2 / libsnapper 8.2.0 and
+  verified their loaded hashes: `snapper`
+  `917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f`,
+  `libsnapper.so.8.2.0`
+  `c34dfac310cd204ef4e38b0d62cd5af835ce5c2674ab3f0fda719e50e6ccdb8d`.
+- The full shared matrix completed with `MATRIX: PASS`. In its rate-limit
+  case, root and home both used snapshot QGROUP `1/100`, the automatic window
+  was `00:00-24:00`, and `QGROUP_RESCAN_DAILY_LIMIT` was enabled. Root's first
+  snapshot marked qgroups inconsistent. Before home’s first snapshot, Snapper
+  performed one rescan; that snapshot marked qgroups inconsistent again.
+- A focused `--debug` rerun confirmed that the next timeline snapshot, whose
+  parent is the prior snapshot (`num_parent != 0`), enters
+  `prepareQGroupTracking()`: Snapper logged that the rescan was deferred until
+  `2026-10-19 20:34:30 UTC` under the one-per-24-hours policy, then logged that
+  it created the snapshot while accounting remained inconsistent. The scan
+  count stayed at one, and `snapper list` printed
+  `qgroup data is inconsistent; displaying last-known used-space values`.
+  This validates the guard on both parentless and timeline-child snapshots;
+  the earlier source version only checked the parentless path.
+- Before an explicit full rescan, the shared group still showed the stale
+  `3,162,112 referenced / 16,384 exclusive` counters. After the full rescan,
+  `1/100` showed `7,389,184 / 49,152`; the inconsistency flag cleared. Thus a
+  deferred scan leaves quota status explicitly stale and a later full scan
+  recomputes the aggregate. It does not show that the kernel's conservative
+  fallback is incorrect, nor does this rate-limit test identify why each
+  snapshot requests that fallback.
+- Full and focused logs, guest overlay, and filesystem images are under
+  `/var/tmp/linux.build/qgroup-matrix-20261018/stock/latest-snapper/` and
+  `/var/tmp/linux.build/qgroup-matrix-20261018/stock/latest-snapper-rate-debug/`.
+  The focused serial log is the evidence for the deferral message and stale
+  `snapper list` behavior. Continue with the host-matched four-group hierarchy,
+  including cleanup/deletion and tracker-parent relationships, before deciding
+  whether the kernel companion is operationally needed.

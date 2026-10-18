@@ -54,7 +54,7 @@ quota-based cleanup must wait until the counters are consistent.
 
 ## Next steps
 
-1. **Continue the shared-ID Snapper QEMU investigation — 40% done.** Use the
+1. **Continue the shared-ID Snapper QEMU investigation — 70% done.** Use the
    latest built Snapper from this repository and disposable QEMU filesystems.
    Compare root and home using one shared snapshot QGROUP ID with the same
    configs using distinct IDs. Start every case from fresh quota state, and
@@ -71,10 +71,14 @@ quota-based cleanup must wait until the counters are consistent.
    cases that produce different outcomes. First use the stock module for the
    running kernel; use the candidate module only as a paired comparison where
    it helps distinguish a Snapper layout problem from a kernel accounting
-   problem. The existing shared-versus-distinct QEMU results are suggestive
-   but do not settle this question: they used different module conditions and
-   snapshot layouts, and the shared-ID case's qgroup setup must be validated
-   against the host's actual topology.
+   problem. The manually configured stock-kernel matrix now covers fresh
+   shared and distinct root/home groups, root-only and home-only repeats, both
+   operation orders, explicit-rescan controls, and a rate-limited follow-up
+   snapshot. These results show that a shared ID is not required for the stock
+   kernel to set the inconsistency flag, and that sharing can leave Snapper's
+   aggregate counters stale. They do not yet reproduce the host's complete
+   four-group hierarchy or explain why the kernel cannot incrementally account
+   for every tested snapshot.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is
@@ -87,9 +91,13 @@ quota-based cleanup must wait until the counters are consistent.
    or user-visible behavior cannot meet the required accounting and operating
    constraints with the stock kernel; describe it as a fast-path optimization
    when that is what the evidence supports.
-   Keep host qgroup migration and production module activation paused until
-   this decision is supported by reproducible QEMU evidence. Record each
-   completed case and its limits in `GOAL-done.md`.
+   Next, repeat the workload using the host-matched four independent groups
+   (p8-root, p8-home, Kingston-root, Kingston-home), including tracker parents,
+   cleanup/deletion, and source-data changes. Establish which qgroup operation
+   sets the flag and compare counters before and after a full rescan. Keep host
+   qgroup migration and production module activation paused until this
+   decision is supported by reproducible QEMU evidence. Record each completed
+   case and its limits in `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository

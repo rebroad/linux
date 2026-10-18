@@ -1331,3 +1331,28 @@ specified in `GOAL.md`.
   and that it does not cancel an already-running scan.
 - No replacement patch was attached. The replacement remains gated on the
   user's DCO sign-off, and the Snapper PR remains open for upstream review.
+
+## Twenty-four hourly Snapper rounds on the candidate module (2026-10-18)
+
+- Rechecked Snapper PR #1203 and upstream `master`: the PR is still open at
+  `bbccc0a4f62b4245031a521b310a2cec86122b44`, based on the current upstream
+  tip `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; all seven CI checks pass,
+  and no review decision is recorded.
+- Extended the existing exact-kernel QEMU fixture to advance through 24
+  consecutive hourly root/home snapshot rounds, from 02:00 on October 17 to
+  01:00 on October 18. This is simulated guest-clock coverage, not a 24-hour
+  elapsed-time run. The guest kernel reported
+  `7.1.13+deb13-amd64`; it ran Snapper 0.13.2 from PR #1203 with Btrfs module
+  SHA-256 `de0ef9b7a9b0b0ee609fbbae2e234ba940bfcb70f94d4fc903bc48b370059b96`.
+- One qgroup inconsistency warning occurred during tracker setup, before the
+  hourly rounds. The fixture reconciled it before beginning those rounds. No
+  further inconsistency warning appeared during the 24 rounds; clean quota
+  listings did not start scans. Both configs reached 25 snapshots before
+  quota-aware timeline cleanup reduced each to one snapshot. A full rescan
+  afterward left the recorded quota counters unchanged, and the fixture ended
+  `SNAPPER-QUOTA: PASS`.
+- Serial log:
+  `/var/tmp/qgroup-perfs-cap/longrun/serial-24h.log`, SHA-256
+  `d8f9914e8d1f5db9c2517e91eb39fe1520591bd18cf159064e997c2e42af476d`.
+  This is QEMU evidence only; the locally built latest-upstream Snapper and
+  candidate module are not deployed on the host.

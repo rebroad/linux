@@ -51,8 +51,10 @@ quota-based cleanup must wait until the counters are consistent.
    inconsistent. Snapper's limiter then enforces the scan ceiling, returns
    last-known values as stale, and defers quota cleanup; this contains the
    repeated scans but does not keep qgroups consistent. The same latest-line
-   Snapper workload with the candidate kernel module completed three hourly
-   rounds without inconsistency and passed quota cleanup. The Snapper-only PR
+   Snapper workload with the candidate kernel module completed 24 consecutive
+   hourly rounds spanning midnight without another inconsistency warning and
+   passed quota cleanup. The one observed warning occurred during tracker
+   setup before those rounds. The Snapper-only PR
    therefore does not meet the consistency requirement; continue with the
    paired kernel change unless a Snapper-only hierarchy can be shown to keep
    the counters accurate while preserving snapshot-only quota scope. The RFC,
@@ -149,12 +151,12 @@ quota-based cleanup must wait until the counters are consistent.
    The latest-line build must repair an interrupted config-only tracker,
    complete successive hourly snapshots and timeline cleanup, preserve
    counters across a full rescan, and pass quota-limit cleanup with the
-   `7.1.13+deb13-amd64` candidate module. On the current PR #1203 head, the
-   hourly root/home workload, used-space listing, quota-limit cleanup, and
-   post-cleanup counter comparison passed with that module; the exact fixture
-   and results are recorded in `GOAL-done.md`. Extend coverage only for
-   additional Btrfs layouts needed to support the paired patch, using the
-   same kernel release.
+   `7.1.13+deb13-amd64` candidate module. On the current PR #1203 head, 24
+   consecutive hourly root/home rounds spanning midnight, used-space listing,
+   quota-limit cleanup, and post-cleanup counter comparison passed with that
+   module; the exact fixture and results are recorded in `GOAL-done.md`.
+   Extend coverage only for additional Btrfs layouts needed to support the
+   paired patch, using the same kernel release.
 5. **Preserve temporary host containment, including after resume.** Confirm
    the timeline wrapper's explicit `btrfs quota rescan` commands remain
    disabled while snapshots continue. This wrapper is one rescan initiator;

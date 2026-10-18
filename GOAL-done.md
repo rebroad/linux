@@ -1606,6 +1606,10 @@ specified in `GOAL.md`.
   `000d4fe0b57541e35fd5f4ce64114be16ddd489b`. All seven checks pass: Debian,
   Fedora, Leap, Ubuntu, Tumbleweed GCC, Tumbleweed Clang, and Codespell. The PR
   remains open with no review decision.
+- Corrected the PR description's stale label for the hold-file QEMU run: it
+  identifies `bbccc0a4` as the tested prior head and states that current head
+  `000d4fe0` differs only in whitespace, with a full local package build/test
+  and all seven CI checks passing on the current head.
 - Traced the bad indentation from `ws`'s output-tab-size override: it treated
   EditorConfig `indent_size=4` as a tab stop despite `tab_width=8`. Removed
   that override; an isolated Git fixture now converts an eight-column indent

@@ -43,37 +43,39 @@ quota-based cleanup must wait until the counters are consistent.
 
 ## Next steps
 
-1. **Determine whether shared root/home QGROUP IDs cause the inconsistency.**
-   This is the immediate investigation priority. Continue the Snapper 0.13.2
-   QEMU workload using the exact in-use Debian kernel release
-   `7.1.13+deb13-amd64`. Run a controlled A/B comparison that changes only
-   whether the root and home Snapper configs share a snapshot QGROUP or use
-   distinct QGROUPs. Keep Snapper revision, snapshot/cleanup sequence, source
-   subvolumes, qgroup parent/tracker topology, quota state, and kernel module
-   identical between runs wherever possible. Record the qgroup tree and
-   referenced/exclusive counters before and after each operation, every
-   inconsistency transition, and whether a full rescan changes the counters.
-   Repeat each case enough to rule out a one-off result.
+1. **Determine whether a Snapper-only design can avoid rescans on stock Btrfs.**
+   Continue the Snapper 0.13.2 QEMU workload on the exact in-use Debian kernel
+   release `7.1.13+deb13-amd64`. The repeated paired test now shows that both
+   shared root/home IDs and distinct IDs can become inconsistent on the stock
+   module. A root snapshot marked each filesystem inconsistent before its
+   following home snapshot in that run, so shared IDs do not explain the first
+   inconsistency. The shared ID also combines root and home counters and cannot
+   provide the required independent collectives. Test alternate Snapper
+   snapshot/QGROUP assignment or tracking layouts that preserve four separate,
+   accurate collectives while avoiding the stock-module inconsistency. Record
+   the exact qgroup tree, each snapshot's effect, and pre/post-rescan counters.
+   Completed paired-test evidence is in `GOAL-done.md`.
 
-   Existing QEMU results are not yet a clean answer: the p8 shared-ID layout
-   reproduced inconsistency even with the candidate module, while a distinct-ID
-   four-group workload became inconsistent with the stock module and remained
-   consistent with the candidate. These runs differ in topology and do not
-   isolate the shared-ID variable. Use the existing fixtures where suitable,
-   and add or adjust fixtures only in the sibling build tree. Put the decisive
-   setup and results in `GOAL-done.md` once verified. Do not migrate the live
-   p8 qgroups or deploy a kernel module based on the current mixed evidence.
+   Do not yet call the kernel modification unnecessary or required. Existing
+   stock-module QEMU tests show inconsistency both with and without tracker
+   groups; the candidate module keeps the tested distinct-group tracking layout
+   consistent, while the shared-ID mismatch still fails with the candidate.
+   Use the exact same Snapper build and workload for each new stock/candidate
+   comparison. Put fixtures and outputs only in the sibling build tree. Do not
+   migrate the live p8 qgroups or deploy a kernel module until a Snapper-only
+   alternative has been tested against the four-collective requirement.
 
 2. **Decide whether a kernel modification is needed from the QEMU evidence.**
-   First establish whether a Snapper configuration/tracking layout with
-   distinct root and home snapshot QGROUPs avoids inconsistency on the stock
-   module while preserving the four required independent collectives and
-   correct exclusive accounting. If it does, prefer that Snapper-only fix and
-   stop treating the kernel patch as required. If the controlled tests show a
-   reproducible stock-kernel failure that the candidate avoids, review whether
-   that difference is necessary and sufficiently general before retaining the
-   kernel companion. Keep this decision separate from Secure Boot, host
-   deployment, and upstream publication gates.
+   After testing Snapper-only alternatives in step 1, run the best layout that
+   preserves four separate collectives with both the stock and candidate
+   modules, keeping Snapper build, qgroup setup, and snapshot/cleanup sequence
+   identical. Compare inconsistency transitions, rescans, and every group's
+   referenced/exclusive values against a final full rescan. If stock Btrfs
+   passes these checks, prefer the Snapper-only fix and drop the kernel
+   requirement. If only the candidate passes, confirm the patch is limited to
+   the necessary safe case before retaining the kernel companion. Keep this
+   decision separate from Secure Boot, host deployment, and upstream
+   publication gates.
 
 3. **Complete the paired upstream contributions — 70% done.** Develop and validate the
    Snapper fix against the latest revision in the official upstream repository

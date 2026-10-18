@@ -2329,3 +2329,46 @@ specified in `GOAL.md`.
   build ID `dbacb384412daefbc812969624941d88b79396b7`. The currently loaded
   module has build ID `059c7530edfb1e54ce3b71e44d1f4aa3a4216e17`, so candidate
   activation remains unverified and the p8 migration has not been run.
+
+## Paired shared-versus-distinct QGROUP test on stock Btrfs (2026-10-18)
+
+- Repeated a paired QEMU workload twice using the exact Debian
+  `7.1.13+deb13-amd64` kernel image (SHA-256
+  `b03e297715d838016b69362ecda036f13bcd663077982efa6087d084155c6c4b`), the
+  stock Btrfs module from the stock initrd override (SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`), and
+  Snapper 0.13.2 executable/library hashes
+  `3e1e9bab1e82c7e5a77b45e965cd5e746e78c6ba77ae9c3b0f5245812fa70402` and
+  `8290bbb047da6344e621193261a52666d16a810724d7341d3a1ec80e273cab3e`.
+- In each guest, p8 root and home configs shared QGROUP `1/0`; Kingston root
+  and home used distinct QGROUPs `1/0` and `1/1`. Both filesystems began with
+  the same source data sizes, Snapper setup sequence, and two root/home
+  snapshot rounds. Before the workload, removed all level-2 tracker-parent
+  relations from both filesystems and recorded qgroup trees showing no parents.
+  Snapper then recreated tracker relationships as snapshots were made. The
+  only configured treatment difference was whether the two configs on a
+  filesystem shared their snapshot QGROUP.
+- On both repetitions, the p8 root snapshot made qgroup inconsistency visible
+  before the following home snapshot. The distinct-ID Kingston root snapshot
+  also made its filesystem inconsistent before its home snapshot. Across the
+  two filesystems, the first round ended with three inconsistency events and
+  the second with four; the scan-completion count rose from four after setup
+  to five and then six. Thus sharing the root/home ID was not necessary for
+  inconsistency in this workload. Since the p8 flag was already set by the
+  root snapshot, this run cannot assign an additional onset to the home
+  snapshot.
+- Before the final full rescan, p8 root and home both reported the same stale
+  combined QGROUP value, `7,569,408` referenced and `2,260,992` exclusive
+  bytes. The full rescan changed that shared value to `10,944,512` referenced
+  and `3,407,872` exclusive bytes. On the distinct-ID Kingston filesystem,
+  the full rescan yielded separate exclusive values of `2,260,992` for root
+  and `1,146,880` for home. The shared-ID layout therefore cannot meet the
+  required independent root/home accounting even apart from its
+  inconsistency.
+- Both repetitions produced the same event sequence and counters. Run 1
+  serial log and fixture: `linux.build/qgroup-p8-shared-stock-20261018/`;
+  repeated run: `linux.build/qgroup-p8-shared-stock-repeat-20261018/`. Both
+  use the shared initrd and test script from the first fixture. These are
+  QEMU results only. The test rules out shared IDs as the sole cause, but does
+  not rule out a distinct Snapper-only layout or establish that the kernel
+  change is necessary.

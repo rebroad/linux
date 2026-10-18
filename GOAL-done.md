@@ -1356,3 +1356,20 @@ specified in `GOAL.md`.
   `d8f9914e8d1f5db9c2517e91eb39fe1520591bd18cf159064e997c2e42af476d`.
   This is QEMU evidence only; the locally built latest-upstream Snapper and
   candidate module are not deployed on the host.
+
+## Snapper rescan-limiter test coverage review (2026-10-18)
+
+- Inspected the clean Snapper checkout at PR #1203 head
+  `bbccc0a4f62b4245031a521b310a2cec86122b44`. Its
+  `testsuite/qgroup-rescan-limiter.cc` includes coverage for persistent
+  per-filesystem state shared across limiter instances, independent filesystem
+  UUIDs, and the 24-hour boundary (the rounded reservation blocks a second
+  scan until 24 hours and one second after the first request).
+- The same test file covers the `05:00-21:00` local-time window, its exclusive
+  end, a window crossing midnight, active-scan reservation refresh, malformed
+  state failing closed, and concurrent reservations where only one process
+  wins. The current PR's CI checks passed; this was a source review, not a new
+  local test run. Prior full local `make check` results are recorded above.
+- This unit coverage verifies limiter calculations and coordination. It does
+  not replace host verification that every Kingston Snapper config uses the
+  shared state directory and time window, or the QEMU and post-resume checks.

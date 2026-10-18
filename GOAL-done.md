@@ -1725,3 +1725,8 @@ specified in `GOAL.md`.
   five-nodesize QEMU pass, and the still-pending DCO sign-off. The published
   head and base are unchanged; all seven checks remain successful, with no
   reviews or review decision.
+- After review of the description, replaced the full hashes in its validation
+  references with concise Markdown links to the corresponding commits in
+  `openSUSE/snapper`, `rebroad/snapper`, and the Btrfs maintainer tree. Verified
+  that no unlinked 40-character commit hashes remain in the text and that the
+  PR head is unchanged.

@@ -3014,6 +3014,34 @@ specified in `GOAL.md`.
   `/var/tmp/linux.build/qgroup-removal-7.2.6/`. This validates the regression
   and paired workload in QEMU. Live-host cleanup validation remains open.
 
+## Snapper rescan hold, window, and stale quota values (2026-10-19)
+
+- Used the latest-upstream Snapper 0.13.2 executable from the Snapper PR branch
+  (guest SHA-256
+  `917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f`) with
+  the exact Debian `7.2.6+deb13-amd64` kernel and stock Btrfs module in QEMU
+  TCG. A stock snapshot created the expected inconsistent-qgroup state. All
+  four configs had matching `QGROUP_RESCAN_WINDOW=05:00-21:00`, the same hold
+  path, and the daily cap disabled.
+- With a future hold deadline, `snapper list --columns number,used-space`
+  showed the `Used Space` column, the stale-values warning, and the last-known
+  16 KiB value; the scan count remained zero. Replacing the deadline with an
+  expired timestamp while leaving the production window closed also kept the
+  stale value visible and the scan count at zero. After changing all four
+  configs to an open window, the expired marker permitted one scan; the list
+  retained the 16 KiB value without a stale warning and quota status reported
+  no scan in progress. The harness failed if quota was reported unavailable,
+  if either deferral started a scan, or if recovery failed to start exactly one.
+- The guest then completed the eight-round four-group timeline cleanup and
+  synchronous deletion sequence, reaching
+  `HOST-TOPOLOGY: CLEANUP-COMPLETE`. No qgroup info item `-ENOENT` error
+  appeared. The serial log is
+  `/var/tmp/linux.build/qgroup-rescan-gates-20261019/production-window-stock.serial.log`;
+  the initrd, two disposable Btrfs images, and test harness are alongside it.
+  This verifies the hold/window behavior and stale quota display in this QEMU
+  scenario. Repeated hold cycles across all four configs and live-host
+  correlation remain open.
+
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 
 - The host's `apt upgrade` transaction (started at 22:27) installed and

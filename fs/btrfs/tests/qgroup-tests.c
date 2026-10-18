@@ -577,6 +577,7 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 {
 	struct btrfs_fs_info *fs_info = root->fs_info;
 	struct btrfs_trans_handle trans;
+	const u32 nodesize = fs_info->nodesize;
 	const u64 srcid = TEST_QGROUP(0, 10010);
 	const u64 parentid = TEST_QGROUP(1, 10010);
 	const u64 src_parentid = TEST_QGROUP(2, 10011);
@@ -587,6 +588,19 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 	const u64 shared_parentid = TEST_QGROUP(2, 10020);
 	const u64 other_parentid = TEST_QGROUP(2, 10021);
 	const u64 extra_memberid = TEST_QGROUP(0, 10021);
+	const u64 overflow_srcid = TEST_QGROUP(0, 10030);
+	const u64 overflow_parentid = TEST_QGROUP(1, 10030);
+	const u64 overflow_shared_parentid = TEST_QGROUP(2, 10030);
+	const u64 overflow_ancestorid = TEST_QGROUP(3, 10030);
+	struct btrfs_qgroup *overflow_parent;
+	struct btrfs_qgroup *overflow_shared_parent;
+	struct btrfs_qgroup *overflow_ancestor;
+	u64 *overflow_counters[4];
+	u64 *tracked_counters[12];
+	u64 counters_before[ARRAY_SIZE(tracked_counters)];
+	u64 saved_counter;
+	unsigned int i;
+	unsigned int j;
 	int ret;
 
 	test_msg("running snapshot quick-inherit fallback tests");
@@ -680,6 +694,92 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 	if (ret != 1) {
 		test_err("extra shared-parent member topology unexpectedly returned %d", ret);
 		return -EINVAL;
+	}
+
+	/* Ancestor counter overflow must fall back before changing any counters. */
+	test_msg("running snapshot quick-inherit ancestor overflow tests");
+	ret = create_test_qgroup(&trans, overflow_srcid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, overflow_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, overflow_shared_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, overflow_ancestorid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, overflow_srcid,
+				       overflow_shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, overflow_parentid,
+				       overflow_shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, overflow_shared_parentid,
+				       overflow_ancestorid);
+	if (ret)
+		return ret;
+
+	overflow_parent = find_test_qgroup(fs_info, overflow_parentid);
+	overflow_shared_parent = find_test_qgroup(fs_info,
+						 overflow_shared_parentid);
+	overflow_ancestor = find_test_qgroup(fs_info, overflow_ancestorid);
+	if (!overflow_parent || !overflow_shared_parent || !overflow_ancestor) {
+		test_err("overflow test qgroups disappeared from the qgroup tree");
+		return -ENOENT;
+	}
+	overflow_parent->rfer = 3 * root->fs_info->nodesize;
+	overflow_parent->rfer_cmpr = 2 * root->fs_info->nodesize;
+	overflow_parent->excl = root->fs_info->nodesize;
+	overflow_parent->excl_cmpr = root->fs_info->nodesize / 2;
+	overflow_shared_parent->rfer = 5 * root->fs_info->nodesize;
+	overflow_shared_parent->rfer_cmpr = 3 * root->fs_info->nodesize;
+	overflow_shared_parent->excl = 2 * root->fs_info->nodesize;
+	overflow_shared_parent->excl_cmpr = root->fs_info->nodesize;
+	overflow_ancestor->rfer = 6 * root->fs_info->nodesize;
+	overflow_ancestor->rfer_cmpr = 4 * root->fs_info->nodesize;
+	overflow_ancestor->excl = 3 * root->fs_info->nodesize;
+	overflow_ancestor->excl_cmpr = root->fs_info->nodesize;
+
+	overflow_counters[0] = &overflow_ancestor->rfer;
+	overflow_counters[1] = &overflow_ancestor->rfer_cmpr;
+	overflow_counters[2] = &overflow_ancestor->excl;
+	overflow_counters[3] = &overflow_ancestor->excl_cmpr;
+	tracked_counters[0] = &overflow_parent->rfer;
+	tracked_counters[1] = &overflow_parent->rfer_cmpr;
+	tracked_counters[2] = &overflow_parent->excl;
+	tracked_counters[3] = &overflow_parent->excl_cmpr;
+	tracked_counters[4] = &overflow_shared_parent->rfer;
+	tracked_counters[5] = &overflow_shared_parent->rfer_cmpr;
+	tracked_counters[6] = &overflow_shared_parent->excl;
+	tracked_counters[7] = &overflow_shared_parent->excl_cmpr;
+	tracked_counters[8] = &overflow_ancestor->rfer;
+	tracked_counters[9] = &overflow_ancestor->rfer_cmpr;
+	tracked_counters[10] = &overflow_ancestor->excl;
+	tracked_counters[11] = &overflow_ancestor->excl_cmpr;
+	for (i = 0; i < ARRAY_SIZE(overflow_counters); i++) {
+		saved_counter = *overflow_counters[i];
+		*overflow_counters[i] = U64_MAX - nodesize + 1;
+		for (j = 0; j < ARRAY_SIZE(tracked_counters); j++)
+			counters_before[j] = *tracked_counters[j];
+
+		ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info,
+							       overflow_srcid,
+							       overflow_parentid);
+		if (ret != 1) {
+			test_err("ancestor counter overflow unexpectedly returned %d", ret);
+			return -EINVAL;
+		}
+		for (j = 0; j < ARRAY_SIZE(tracked_counters); j++) {
+			if (*tracked_counters[j] != counters_before[j]) {
+				test_err("ancestor overflow changed qgroup counters");
+				return -EINVAL;
+			}
+		}
+		*overflow_counters[i] = saved_counter;
 	}
 	return 0;
 }

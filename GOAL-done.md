@@ -1738,3 +1738,34 @@ specified in `GOAL.md`.
 - Removed the host-specific preferred rescan window from the PR. The published
   description now discusses the configurable window generically and contains
   no host-preference, Kingston, or personal-path references.
+- Removed the duplicate kernel-base hyperlink in the published description:
+  only the Btrfs maintainer repository name links to the repository, while
+  `for-next` is plain branch text. Verified the sentence contains one link.
+
+## Ancestor-counter overflow hardening (2026-10-18)
+
+- Review found that the fast path checked the directly updated qgroup but did
+  not preflight every ancestor that receives the counter increment. It now
+  checks referenced and exclusive counters on the complete affected chain
+  before mutating any qgroup; overflow retains the rescan fallback with no
+  partial counter updates. The in-tree regression test sets each of the four
+  ancestor counters to its overflow boundary and verifies the target,
+  tracker, and ancestor counters remain unchanged.
+- Built the test-enabled module against the exact Debian
+  `7.1.13+deb13-amd64` headers and symbol table. Its vermagic matches the
+  running release; module SHA-256:
+  `ad78440a50fb0ad81638690aec99b6bdfca4a3ef8b514c73bcc7a9d2e5e893db`.
+- Booted the exact Debian kernel image with a 4 GiB QEMU guest. Shared-parent,
+  topology-fallback, and ancestor-overflow tests ran at all five nodesizes
+  (4-64 KiB), ending in `QGROUP-SANITY: PASS`. Serial log:
+  `/var/tmp/qgroup-root-cause-7.1.13/qgroup-sanity-overflow-20261018/qemu.log`,
+  SHA-256 `08a11a7ce419d451bfb6c1903b24f7e16c13f34bc599f1dda7f7ae21cb138132`.
+- Rechecked the live Btrfs `for-next` ref before regenerating the combined
+  patch; it remains at the same commit recorded above. The unsigned draft now
+  includes the ancestor preflight and regression test, applies to that base,
+  and passes `checkpatch.pl --strict --no-tree --no-signoff` with zero
+  warnings. Standard strict checkpatch reports only the missing human
+  `Signed-off-by` line. The patch has an `Assisted-by` trailer and remains
+  unsubmitted pending the user's review and DCO certification for this exact
+  revision. Patch SHA-256:
+  `64781dca15601157ad574b0115ab737e4d5d1f3539af761ace4fb02afd239c0c`.

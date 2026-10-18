@@ -3282,6 +3282,7 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	struct btrfs_qgroup *src;
 	struct btrfs_qgroup *parent;
 	struct btrfs_qgroup *shared_parent;
+	struct btrfs_qgroup *qgroup_to_update;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
 	LIST_HEAD(qgroup_list);
@@ -3328,7 +3329,7 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		 */
 		if (parent->excl != parent->rfer)
 			return 1;
-		qgroup_iterator_add(&qgroup_list, parent);
+		qgroup_to_update = parent;
 	} else {
 		/*
 		 * A snapshot-only parent can be updated without a rescan when the
@@ -3352,12 +3353,31 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		}
 		if (nr_members != 2 || !shared_parent_has_src ||
 		    !shared_parent_has_parent ||
-		    shared_parent->rfer > U64_MAX - nodesize ||
-		    shared_parent->rfer_cmpr > U64_MAX - nodesize ||
 		    parent->excl > U64_MAX - nodesize ||
 		    parent->excl_cmpr > U64_MAX - nodesize)
 			return 1;
+		qgroup_to_update = shared_parent;
+	}
 
+	/*
+	 * Check all counters before changing any of them.  Ancestor qgroups may
+	 * account for additional members and have larger counters than the group
+	 * being updated directly.
+	 */
+	qgroup_iterator_add(&qgroup_list, qgroup_to_update);
+	list_for_each_entry(qgroup, &qgroup_list, iterator) {
+		if (qgroup->rfer > U64_MAX - nodesize ||
+		    qgroup->rfer_cmpr > U64_MAX - nodesize ||
+		    qgroup->excl > U64_MAX - nodesize ||
+		    qgroup->excl_cmpr > U64_MAX - nodesize) {
+			qgroup_iterator_clean(&qgroup_list);
+			return 1;
+		}
+		list_for_each_entry(list, &qgroup->groups, next_group)
+			qgroup_iterator_add(&qgroup_list, list->group);
+	}
+
+	if (qgroup_to_update != parent) {
 		/*
 		 * The source remains outside the snapshot-only parent, so only the
 		 * new snapshot root is added to that parent's exclusive count.
@@ -3369,7 +3389,6 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		parent->excl = new_excl;
 		parent->excl_cmpr = new_excl_cmpr;
 		qgroup_dirty(fs_info, parent);
-		qgroup_iterator_add(&qgroup_list, shared_parent);
 	}
 
 	list_for_each_entry(qgroup, &qgroup_list, iterator) {
@@ -3378,10 +3397,6 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		qgroup->excl += nodesize;
 		qgroup->excl_cmpr += nodesize;
 		qgroup_dirty(fs_info, qgroup);
-
-		/* Append parent qgroups to @qgroup_list. */
-		list_for_each_entry(list, &qgroup->groups, next_group)
-			qgroup_iterator_add(&qgroup_list, list->group);
 	}
 	qgroup_iterator_clean(&qgroup_list);
 	return 0;

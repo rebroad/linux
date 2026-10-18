@@ -34,13 +34,11 @@ quota-based cleanup must wait until the counters are consistent.
    kernel investigation and acceptance testing.
 
    The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
-   currently at `000d4fe0b57541e35fd5f4ce64114be16ddd489b` against upstream
-   `master` `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. It has no review
-   decision. All seven CI checks for this updated head now pass, including
-   Tumbleweed GCC and Clang. The prior Tumbleweed Clang failure was on the
-   previous head and has been superseded by this successful check. The current
-   local GCC build and focused qgroup rescan limiter test also passed. Keep
-   this PR paired with the kernel change through review.
+   based on the latest official `openSUSE/snapper` master. It is open, all
+   seven CI checks pass, and upstream review is pending. Keep this PR paired
+   with the kernel change through review. The current source, CI, and local
+   validation evidence is recorded in `GOAL-done.md`; refresh upstream state
+   before rebasing or starting new work.
 
    **PR description practice:** Follow the target repository's PR template and
    conventions. Keep the description focused on the current implementation,
@@ -69,16 +67,14 @@ quota-based cleanup must wait until the counters are consistent.
    conservative fallback for other layouts. QEMU comparisons and the
    `linux-btrfs` discussion are documented in `GOAL-done.md`.
 
-   The replacement kernel patch applies to Btrfs `for-next`
-   `2789b2c034d7c0c8687355921a38c5ac41a565fa`, passes a zero-fuzz dry run and
-   `checkpatch.pl --strict --no-tree --no-signoff`, and has exact-release QEMU
-   fallback coverage. Standard `checkpatch.pl --strict` reports only the
-   missing `Signed-off-by` trailer. The patch has not been resubmitted; obtain
-   the user's DCO sign-off for this exact patch before adding that trailer or
-   sending it. The mail-formatted draft against this `for-next` base is
-   `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`
-   (SHA-256 `0673884246f1448c0d730533367aafa65bebee79db4162fde9f7c94e291b8f8f`);
-   it intentionally has no sign-off trailer.
+   The kernel companion is based on the Btrfs maintainer tree's
+   [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
+   Its exact-release QEMU tests, including ancestor-counter overflow fallback,
+   and current patch checks are recorded in `GOAL-done.md`. The patch has not
+   been submitted; review the exact patch and
+   obtain the user's DCO sign-off before adding a `Signed-off-by` trailer or
+   sending it to the mailing list. The unsigned mail-formatted draft is
+   `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
 2. **Deploy and maintain our latest-upstream Snapper build.** Install our
    locally built Snapper from the latest upstream baseline, including the
    reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging

@@ -536,7 +536,11 @@ static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
 		return -ENOENT;
 	}
 
-	/* Model a source and snapshot parent with overlapping referenced bytes. */
+	/*
+	 * The common parent's union includes bytes not referenced by the source
+	 * alone.  This verifies that the new snapshot parent takes its referenced
+	 * count from the common parent rather than from either child.
+	 */
 	src->rfer = 4 * nodesize;
 	src->rfer_cmpr = 2 * nodesize;
 	src->excl = 3 * nodesize;
@@ -545,8 +549,8 @@ static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
 	parent->rfer_cmpr = nodesize;
 	parent->excl = nodesize;
 	parent->excl_cmpr = nodesize / 2;
-	shared_parent->rfer = 4 * nodesize;
-	shared_parent->rfer_cmpr = 2 * nodesize;
+	shared_parent->rfer = 6 * nodesize;
+	shared_parent->rfer_cmpr = 3 * nodesize;
 	shared_parent->excl = 3 * nodesize;
 	shared_parent->excl_cmpr = nodesize;
 
@@ -555,13 +559,13 @@ static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
 		test_err("shared-parent quick inherit failed: %d", ret);
 		return ret < 0 ? ret : -EINVAL;
 	}
-	if (btrfs_verify_qgroup_counts(fs_info, parentid, 4 * nodesize,
+	if (btrfs_verify_qgroup_counts(fs_info, parentid, 6 * nodesize,
 				       2 * nodesize) ||
-	    btrfs_verify_qgroup_counts(fs_info, shared_parentid, 5 * nodesize,
+	    btrfs_verify_qgroup_counts(fs_info, shared_parentid, 7 * nodesize,
 				       4 * nodesize) ||
-	    parent->rfer_cmpr != 2 * nodesize ||
+	    parent->rfer_cmpr != 3 * nodesize ||
 	    parent->excl_cmpr != nodesize / 2 + nodesize ||
-	    shared_parent->rfer_cmpr != 3 * nodesize ||
+	    shared_parent->rfer_cmpr != 4 * nodesize ||
 	    shared_parent->excl_cmpr != 2 * nodesize) {
 		test_err("shared-parent quick inherit produced incorrect counters");
 		return -EINVAL;

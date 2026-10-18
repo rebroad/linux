@@ -117,10 +117,13 @@ quota-based cleanup must wait until the counters are consistent.
    snapshots. The eight-round test now confirms the same relationship with
    ten MiB of payload and nine unique metadata blocks per snapshot collective;
    the independent extent-tree reconciliation is recorded in `GOAL-done.md`.
-   Exercise the configured hold/window gates during repeated cycles and
-   validate the same accounting against live-host operations. The short
-   stock/candidate and extended paired results and their limits are recorded
-   there.
+   QEMU verified the production `05:00-21:00` window and hold together on the
+   stock 7.2.6 module: while held or outside the window, `snapper list`
+   displayed the last-known 16 KiB value as stale and started no scan; after
+   the marker expired and the window opened, one scan cleared stale status.
+   Repeat this across the four configs and multiple hold cycles, then validate
+   the accounting against live-host operations. The test and limits are in
+   `GOAL-done.md`.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is

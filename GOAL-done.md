@@ -923,8 +923,11 @@ specified in `GOAL.md`.
   The reviewable email file is
   `/var/tmp/qgroup-review-different-parent/revised-for-next.email.patch`
   (SHA-256 `ba296c63714f5dc36dc9045ebf37541e544ad074cf2d3b8060529c78de43f22d`).
-  No `Signed-off-by` trailer was added; the user's DCO sign-off for this exact
-  replacement patch is still required before submission.
+  A regular `checkpatch.pl --strict` run reports only the absent
+  `Signed-off-by` trailer; `--strict --no-tree --no-signoff` reports no style
+  findings. A fresh zero-fuzz dry run on the current remote tip also applies
+  cleanly. No `Signed-off-by` trailer was added; the user's DCO sign-off for
+  this exact replacement patch is still required before submission.
 
 - Checked current `torvalds/linux` master through the GitHub API on
   2026-10-18 at `58161ead29e50d70a317ea26b472e0c7508e69da`. Its

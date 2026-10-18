@@ -55,10 +55,12 @@ quota-based cleanup must wait until the counters are consistent.
    `linux-btrfs` discussion are documented in `GOAL-done.md`.
 
    The replacement kernel patch applies to Btrfs `for-next`
-   `2789b2c034d7c0c8687355921a38c5ac41a565fa`, passes `patch --dry-run` and
-   `checkpatch.pl --strict`, and has exact-release QEMU fallback coverage. It
-   has not been resubmitted. Obtain the user's DCO sign-off for this exact
-   patch before adding its `Signed-off-by` trailer or sending it.
+   `2789b2c034d7c0c8687355921a38c5ac41a565fa`, passes a zero-fuzz dry run and
+   `checkpatch.pl --strict --no-tree --no-signoff`, and has exact-release QEMU
+   fallback coverage. Standard `checkpatch.pl --strict` reports only the
+   missing `Signed-off-by` trailer. The patch has not been resubmitted; obtain
+   the user's DCO sign-off for this exact patch before adding that trailer or
+   sending it.
 2. **Deploy and maintain our latest-upstream Snapper build.** Install our
    locally built Snapper from the latest upstream baseline, including the
    reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging

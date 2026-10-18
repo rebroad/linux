@@ -1231,3 +1231,20 @@ specified in `GOAL.md`.
   stale-data behavior in QEMU; it does not mean the locally built Snapper or
   candidate kernel module is deployed on the host. Serial log:
   `/var/tmp/qgroup-perfs-cap/serial-stale.log`.
+
+## Suspend-marker integration audit (2026-10-18)
+
+- `force-suspend` writes an epoch deadline to
+  `/var/tmp/force-suspend-btrfs-rescan-until` immediately before requesting
+  suspend. The timeline wrapper contains code to read this marker only inside
+  its currently commented-out explicit-rescan block. The latest-upstream
+  Snapper `QGroupRescanLimiter` does not read the marker, so this marker alone
+  cannot defer Snapper's internal rescan path.
+- The installed timeline service override runs
+  `/usr/local/sbin/snapper-timeline-all-roots`; the packaged timer uses
+  `OnCalendar=hourly`. The only file found in the system sleep-hook directories
+  was the packaged unattended-upgrades hook; there is no custom hook to renew
+  the rescan hold after resume. The system bus was inaccessible in this
+  sandbox, so the loaded timer state and actual resume/catch-up ordering were
+  not verified. No marker or unit file was changed. A host-side post-resume
+  guard remains to be implemented and tested with system privileges.

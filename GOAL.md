@@ -4,7 +4,8 @@ This is the active **to-do** document. It lists remaining work, with rough
 completion percentages for partially completed items. Move verified completed
 work and its evidence to [`GOAL-done.md`](GOAL-done.md), then remove that work
 from this checklist. Percentages are progress estimates, not test results or
-approval states.
+approval states. Keep this file focused on what remains to do; `GOAL-done.md`
+is the record of completed work and useful historical evidence.
 
 The required and accepted host runtime is the locally built Snapper from our
 repository, based on the latest official upstream source and carrying our
@@ -109,7 +110,7 @@ quota-based cleanup must wait until the counters are consistent.
    successful uninstalled build and test evidence are in `GOAL-done.md`.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
-3. **Make the fix durable across APT upgrades — 35% done.** Prefer a Snapper-only
+3. **Make the fix durable across APT upgrades — 55% done.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
@@ -129,21 +130,47 @@ quota-based cleanup must wait until the counters are consistent.
    rebuild/repository findings are recorded in `GOAL-done.md`; the paired
    package and update workflow remains to be selected and verified. An
    isolated Debian DKMS build against the exact running kernel headers
-   succeeded, was signed with a temporary test key, and resolved ahead of the
-   packaged module in a synthetic module tree. This advances an APT-packaged
-   DKMS module as a deployment candidate, but does not verify host deployment.
-   Secure Boot is enabled and module signatures are enforced. A locally
-   enrolled `Rebroad's module signing key` is present; verify that the matching
-   private key signs the final candidate, then verify initramfs selection and
-   APT upgrade behavior before choosing DKMS. Debian's kernel hook chain
-   propagates DKMS build failures from image post-install, so prove an
-   unsupported future kernel cannot leave APT upgrades failing or boot an
-   unpatched Btrfs module.
-   Before considering the host rollout complete, exercise the relevant APT
-   upgrade/reinstall path and verify the running kernel, loaded module, and
-   Snapper package contain the intended fix afterward. Preserve normal kernel
-   security upgrades; do not rely on manual intervention after each APT
-   kernel upgrade.
+   succeeded and resolved ahead of the packaged module in a synthetic module
+   tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
+   exact-kernel QEMU testing with Secure Boot and signature enforcement
+   enabled. DKMS is now installed, and local DKMS package source has been
+   added but is not yet reviewed or built. This does not prove that the package
+   builds, registers, signs, and installs correctly in the host module tree and
+   initramfs. Debian's kernel hook chain propagates DKMS build failures from
+   image post-install, so validate an upgrade path that neither leaves APT
+   failing nor permits booting an unpatched Btrfs module when a future kernel
+   build is unsupported.
+
+   **Next steps for safe local production use:**
+   - Review the DKMS package source and its install, signing, initramfs, and
+     removal hooks; build the package and inspect its contents before installing
+     it. Keep generated package/build files in the Linux sibling build tree.
+   - Install the candidate package without unloading the currently running
+     Btrfs module. Verify DKMS registration and build status for the exact
+     running kernel, the selected module path and hash, its Secure Boot
+     signature, and the initramfs copy. Confirm the stock packaged module
+     remains available as the rollback version.
+   - Exercise package removal and reinstall, confirming rollback restores the
+     stock module and initramfs. Do not reboot until the rollback path and the
+     next boot's module selection are verified.
+   - After that review, activate the candidate at a planned reboot and verify
+     the running kernel, loaded module version/signature, and Btrfs qgroup
+     behavior on the host. Keep a tested route back to the stock module.
+   - Simulate and perform the relevant kernel APT upgrade/reinstall path.
+     Verify DKMS rebuild and signing for the new kernel, initramfs selection,
+     and booted module; also prove a failed/unsupported build cannot silently
+     boot the stock unpatched module or leave kernel package configuration
+     broken. Preserve normal kernel security upgrades.
+   - Install the locally built latest-upstream Snapper package only after the
+     same review of its package contents, config migration, and rollback path.
+     Verify the active binary and library are the locally built versions,
+     with the rescan window and hold settings applied to every Kingston
+     configuration. Restore quota cleanup limits only after accounting and
+     cleanup are verified under the paired host runtime.
+
+   Before considering the host rollout complete, verify the running kernel,
+   loaded module, initramfs, Secure Boot signature, and active Snapper package
+   contain the intended fixes after both package reinstall and kernel upgrade.
 4. **Finish accounting and recovery coverage — 95% done.** Use the latest-upstream
    Snapper build as the primary acceptance target and the exact
    `7.1.13+deb13-amd64` kernel. Existing QEMU coverage and results are in

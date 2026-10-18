@@ -107,8 +107,8 @@ quota-based cleanup must wait until the counters are consistent.
    remains short until a full rescan, and the shortfall moves with snapshot
    order. Eight-round timeline cleanup and synchronous deletion pass in both
    snapshot orders with the candidate and the qgroup-removal-only baseline.
-   Live-host validation and durable deletion regression coverage remain. With
-   the candidate module,
+   Live-host validation, hold/window repeated-cycle checks, and broader
+   root-cause reconciliation remain. With the candidate module,
    a forced full rescan immediately after snapshots left nonempty qgroup
    counters unchanged in both root-first and home-first order: each snapshot
    group reported 4,243,456 referenced and 49,152 exclusive bytes. The
@@ -228,10 +228,9 @@ quota-based cleanup must wait until the counters are consistent.
    while the candidate run did not. Treat this as evidence for the fast path's
    rescan-avoidance benefit, not as proof of incorrect stock accounting after
    a completed scan. Cleanup and deletion coverage is recorded in
-   `GOAL-done.md`; investigate its post-deletion full-rescan warnings and
-   finish counter reconciliation before deciding whether the kernel change is
-   needed for the operating constraints. See `GOAL-done.md` for results and
-   limits.
+   `GOAL-done.md`; verify the scan and accounting behavior against live-host
+   operations, then decide whether the fast path is needed to meet the
+   operating constraints. See `GOAL-done.md` for results and limits.
 
    The kernel companion is based on the Btrfs maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).

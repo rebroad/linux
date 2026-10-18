@@ -139,15 +139,23 @@ quota-based cleanup must wait until the counters are consistent.
    and results are recorded in `GOAL-done.md`. Extend coverage only for
    additional Btrfs layouts needed to support the paired patch, using the
    same kernel release.
-5. **Preserve temporary host containment.** Confirm the timeline wrapper's
-   explicit `btrfs quota rescan` commands remain disabled while snapshots
-   continue. This wrapper is one rescan initiator; Snapper's quota-query code
-   can independently start a rescan when it finds inconsistent qgroups.
-   Btrfs snapshot inheritance can mark qgroups inconsistent, but does not
-   itself start a rescan. Keep those state changes distinct when tracing
-   future scans. Restore the original `SPACE_LIMIT="0.5"` settings only after
-   both changes are deliberately deployed and their initialization scan,
-   quota accounting, and cleanup behavior are verified.
+5. **Preserve temporary host containment, including after resume.** Confirm
+   the timeline wrapper's explicit `btrfs quota rescan` commands remain
+   disabled while snapshots continue. This wrapper is one rescan initiator;
+   Snapper's quota-query and snapshot-tracking code can independently start a
+   rescan when it finds inconsistent qgroups. Btrfs snapshot inheritance can
+   mark qgroups inconsistent, but does not itself start a rescan. Keep those
+   state changes distinct when tracing future scans. The active hourly
+   `snapper-timeline.timer` uses `OnCalendar`; systemd catches up calendar
+   events that elapse during suspend when the system resumes. Prevent that
+   catch-up run from accidentally starting a fresh qgroup scan, including
+   through Snapper's internal rescan path. The existing force-suspend marker
+   is not sufficient: the timeline wrapper's only marker check is inside its
+   disabled explicit-rescan block, and Snapper's limiter does not read it.
+   Verify the sleep/resume guard on the host. Restore the original
+   `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
+   deployed and their initialization scan, quota accounting, and cleanup
+   behavior are verified.
 
 ## Acceptance
 

@@ -918,6 +918,25 @@ broader filesystem coverage and host rollout remain open.
   No `Signed-off-by` trailer was added; the user's DCO sign-off for this exact
   replacement patch is still required before submission.
 
+## Post-resume Snapper timer audit (2026-10-18)
+
+- The active `snapper-timeline.timer` is an hourly `OnCalendar` timer and was
+  due at 06:00 BST after its 05:00 run. The unit has no `Persistent=yes`;
+  systemd's timer documentation still specifies that an active calendar timer
+  whose event elapses during suspend catches up after resume. `Persistent=`
+  only controls catch-up when the timer unit itself was inactive.
+- The cleanup timer uses `OnBootSec` and `OnUnitActiveSec`, not a calendar
+  event. No enabled `sleep.target` hook directly invokes Snapper or Btrfs; the
+  only configured sleep-target symlinks at inspection were GRUB services.
+  The `snapper-timeline.service` override runs the all-roots wrapper, whose
+  explicit rescan block remains commented out.
+- The force-suspend hold marker is not a guard for Snapper's library limiter:
+  its only current reader is inside that commented-out wrapper block. A
+  resumed hourly catch-up can therefore run Snapper and reach its internal
+  automatic-rescan path if qgroups are inconsistent. Add and verify a
+  suspend/resume guard for that timer path before declaring host containment
+  complete.
+
 ## Host runtime and module deployment audit (2026-10-18)
 
 - A read-only host check confirmed the running kernel is

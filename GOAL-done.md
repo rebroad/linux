@@ -2188,3 +2188,24 @@ specified in `GOAL.md`.
   distinct groups before host accounting can satisfy this requirement. A
   Snapper-only alternative and the safe migration of the p8 qgroup hierarchy
   remain to be assessed.
+
+## Live root/home qgroup topology audit (2026-10-18)
+
+- Read the active p8 and Kingston Snapper config files and Btrfs qgroup
+  hierarchy. The live kernel is `7.1.13+deb13-amd64`; no qgroup rescan was
+  running on either filesystem during the audit.
+- Kingston is already configured with distinct groups: root `1/100` and home
+  `1/101`. Their level-2 trackers separately pair the live root/home
+  subvolume with its snapshot group (`2/1` for root, `2/0` for home).
+  Structural membership maps to 69 root and 15 home snapshots, plus the
+  corresponding `.snapshots` directory in each group.
+- p8 root and home both still use `1/100`. That group has 79 root and 28 home
+  snapshot subvolumes, plus both `.snapshots` directories. Its current level-2
+  tracker `2/0` pairs the live root subvolume with this combined snapshot
+  group; p8 home has no separate tracker. The migration must separate the
+  existing home membership as well as direct future snapshots to a home
+  group, and establish the matching tracker without merging root and home.
+- Both filesystems report qgroup data inconsistent. Their stored referenced
+  and exclusive byte counters are stale and were not used as measurements.
+  The audit establishes the current grouping problem but does not identify
+  which snapshot operation originally marked either filesystem inconsistent.

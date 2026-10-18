@@ -84,10 +84,15 @@ quota-based cleanup must wait until the counters are consistent.
    deployment verification that every Kingston config uses the intended
    shared values.
 
-   Migrate p8 root and home to distinct snapshot QGROUPs, then verify all four
-   required collectives (p8-root, p8-home, Kingston-root, Kingston-home)
+   Kingston already assigns root to `1/100` and home to `1/101`. On p8, both
+   configs still use `1/100`; that group currently contains 79 root snapshots,
+   28 home snapshots, and both `.snapshots` subvolumes. Migrate p8 so root and
+   home have distinct snapshot QGROUPs, accounting for existing as well as
+   future snapshots and keeping a separate source-plus-snapshot tracker for
+   each config. Then verify p8-root, p8-home, Kingston-root, and Kingston-home
    independently against a full rescan. Root and home must not be combined
-   into one snapshot QGROUP.
+   into one snapshot QGROUP. Both filesystems currently report inconsistent
+   qgroup data, so their stored byte counters are stale until rescanned.
 
    The tested Snapper tracking layout gives each config a separate level-1
    snapshot QGROUP and pairs that QGROUP with its live source under a tracker.

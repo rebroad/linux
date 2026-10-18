@@ -2938,9 +2938,50 @@ specified in `GOAL.md`.
   `stock-verified-home-root.serial.log`. The tested initrd images and fresh
   Btrfs disk images are preserved in the same directory. This longer sequence
   supports the source-level explanation of the rescan cycle and demonstrates
-  candidate counter stability for the tested topology. Repeated cleanup and
-  deletion, hold/window behavior during this workload, and live-host
-  correlation remain unverified.
+  candidate counter stability for the tested topology. The next section
+  records repeated cleanup and deletion; hold/window behavior during the
+  extended sequence and live-host correlation remain unverified.
+
+## Eight-round cleanup and synchronous deletion (2026-10-19)
+
+- Extended the eight-round four-collective workload through Snapper timeline
+  cleanup and synchronous deletion on the exact 7.2.6 kernel in both
+  root-first and home-first orders. The same
+  Snapper 0.13.2 executable was used for both module variants. Timeline cleanup
+  was configured with `TIMELINE_MIN_AGE=0` and
+  `TIMELINE_LIMIT_HOURLY=2-2`; `SPACE_LIMIT=1.0` left quota-based cleanup out
+  of this test. Each config had eight snapshots before cleanup, one afterward,
+  then zero after deleting the remaining snapshot with `snapper delete --sync`.
+- The candidate module
+  (`f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`)
+  entered cleanup with two scans, both explicit full-rescan controls, and zero
+  inconsistency warnings in either order. Cleanup and all four synchronous
+  deletes added no scans or warnings in either order. The qgroup-removal-only
+  baseline module
+  (`9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`)
+  entered cleanup after 30 automatic scans and two explicit scans; cleanup and
+  synchronous deletion added no scans in either order. Its warning count was
+  25/26 in the retained `dmesg` buffer; these counts are not treated as total
+  warning counts. Neither module logged `qgroup info item update error -2`.
+- After deleting all snapshots, each `1/100` and `1/101` group contained only
+  its `.snapshots` subvolume and reported 16,384 referenced / 16,384 exclusive
+  bytes. Final explicit full rescans completed on both filesystems; those four
+  group counters were unchanged afterward and both scans cleared without a
+  qgroup error. The baseline's final snapshot counters were reconciled by the
+  full scan before cleanup, as in the paired eight-round creation run.
+- The candidate serial logs are
+  `/var/tmp/linux.build/qgroup-repeated-cleanup-20261019/candidate-cleanup-root-home.serial.log`
+  and
+  `/var/tmp/linux.build/qgroup-repeated-cleanup-home-root-20261019/candidate-cleanup-home-root.serial.log`.
+  The baseline serial logs are
+  `/var/tmp/linux.build/qgroup-repeated-cleanup-stock-20261019/stock-cleanup-root-home.serial.log`
+  and
+  `/var/tmp/linux.build/qgroup-repeated-cleanup-stock-home-root-20261019/stock-cleanup-home-root.serial.log`.
+  All four show `HOST-TOPOLOGY: CLEANUP-COMPLETE`. This demonstrates repeated
+  cleanup and synchronous deletion across the four independent groups and
+  both operation orders in these QEMU cases. The separate qgroup-removal patch
+  review, durable in-kernel regression coverage, and live-host cleanup
+  validation remain open.
 
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 

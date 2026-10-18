@@ -967,5 +967,11 @@ broader filesystem coverage and host rollout remain open.
   `overlay/rootcause-init`, and `serial.log`. This verifies the conservative
   fallback for the maintainer's topology; it does not establish corruption or
   prove that this optimization is required for the Snapper fix.
-- A concise revised hierarchy explanation and mailing-list response remain to
-  be prepared and reviewed before any further reply is sent.
+- Refreshed the Btrfs maintainer repository. The revised patch applies cleanly
+  to current `for-next` `2789b2c034d7c0c8687355921a38c5ac41a565fa`, as well as
+  its current `master` and `for-7.4` refs, using `patch --dry-run` against the
+  fetched `qgroup.c` files. The new for-next-based diff is
+  `/var/tmp/qgroup-review-different-parent/revised-for-next.patch`.
+- A concise revised hierarchy explanation and mailing-list response are
+  prepared locally. Human review and DCO sign-off remain before any further
+  reply is submitted.

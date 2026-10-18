@@ -58,8 +58,9 @@ quota-based cleanup must wait until the counters are consistent.
    different-parent fallback. The fallback passes QEMU checks on the exact
    in-use kernel. A concise corrected patch and response are prepared locally;
    review them before any further mailing-list follow-up. The
-   narrowed patch was checked against current upstream source and compiled
-   against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
+   revised kernel patch is regenerated against current Btrfs `for-next`
+   (`2789b2c034d7c0c8687355921a38c5ac41a565fa`) and applies cleanly there.
+   Kernel build and runtime acceptance remain on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's
    `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history upstream
    PR [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed

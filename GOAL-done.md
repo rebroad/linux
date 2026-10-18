@@ -946,7 +946,8 @@ broader filesystem coverage and host rollout remain open.
   Repeated pre-sleep calls preserve the original state; an inactive timer
   remains inactive.
 - A fake-`systemctl` harness passed the active, inactive, resume, and repeated
-  pre-sleep paths; `sh -n` also passed. The installed timer is hourly with
+  pre-sleep paths, plus stop/start failure cleanup; `sh -n` also passed. The
+  installed timer is hourly with
   `Persistent=no`. Stopping it during sleep prevents systemd's active-calendar
   timer catch-up behavior; restarting it schedules its next calendar elapse.
 - The host hook has not yet been installed. The ordinary escalated shell could
@@ -969,7 +970,7 @@ broader filesystem coverage and host rollout remain open.
   Snapper based on latest upstream; deploying that build is still gated on
   review and acceptance.
 - `dkms` is in dpkg's `rc` state (removed, with residual configuration), so
-  DKMS is not currently installed or available as a deployment mechanism.
+  DKMS is not currently installed or usable as a deployment mechanism.
   `kmod` and `mokutil` are installed. A persistent kernel-module deployment
   method, including Secure Boot signing and upgrade behavior, remains to be
   selected and verified.

@@ -497,6 +497,50 @@ static int add_test_qgroup_relation(struct btrfs_trans_handle *trans,
 	return btrfs_add_qgroup_relation(trans, src, dst, prealloc);
 }
 
+static int test_qgroup_remove_after_rescan_fallback(struct btrfs_root *root)
+{
+	struct btrfs_fs_info *fs_info = root->fs_info;
+	struct btrfs_trans_handle trans;
+	const u64 qgroupid = TEST_QGROUP(1, 10040);
+	const u64 parentid = TEST_QGROUP(2, 10040);
+	struct btrfs_qgroup *qgroup;
+	struct btrfs_qgroup *parent;
+	int ret;
+
+	test_msg("running qgroup removal after rescan fallback test");
+	btrfs_init_dummy_trans(&trans, fs_info);
+	ret = create_test_qgroup(&trans, qgroupid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, qgroupid, parentid);
+	if (ret)
+		return ret;
+
+	qgroup = find_test_qgroup(fs_info, qgroupid);
+	parent = find_test_qgroup(fs_info, parentid);
+	if (!qgroup || !parent) {
+		test_err("test qgroups disappeared before removal");
+		return -ENOENT;
+	}
+
+	/* Force relation removal to require a full qgroup rescan. */
+	qgroup->rfer = root->fs_info->nodesize;
+	ret = btrfs_remove_qgroup(&trans, qgroupid);
+	if (ret) {
+		test_err("qgroup removal returned %d after removing its relation", ret);
+		return ret < 0 ? ret : -EINVAL;
+	}
+	if (find_test_qgroup(fs_info, qgroupid) ||
+	    !list_empty(&parent->members)) {
+		test_err("qgroup or relation remained after successful removal");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
 					     u32 nodesize)
 {
@@ -868,6 +912,9 @@ int btrfs_test_qgroups(u32 sectorsize, u32 nodesize)
 	if (ret)
 		goto out;
 	ret = test_multiple_refs(root, sectorsize, nodesize);
+	if (ret)
+		goto out;
+	ret = test_qgroup_remove_after_rescan_fallback(root);
 	if (ret)
 		goto out;
 	ret = test_qgroup_shared_parent_inherit(root, nodesize);

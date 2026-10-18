@@ -144,8 +144,10 @@ quota-based cleanup must wait until the counters are consistent.
    orders, and the eight-round repeated-cycle checks now also match in both
    orders. The repeated eight-round timeline cleanup and synchronous deletion
    passed with the candidate and baseline modules, without additional scans or
-   stale-qgroup errors; see `GOAL-done.md`. Complete the durable deletion
-   regression review and live-host reconciliation.
+   stale-qgroup errors; see `GOAL-done.md`. The deletion-fallback patch has
+   been reviewed locally and now has an in-kernel sanity regression test that
+   passes at all five configured node sizes under QEMU. Live-host cleanup
+   validation and broader root-cause reconciliation remain.
    The second-rescan `qgroup info item update error
    -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
    accounting inconsistent and returns a positive “rescan required” result,
@@ -158,12 +160,15 @@ quota-based cleanup must wait until the counters are consistent.
    matched four-collective QEMU cleanup/deletion workload: the module hash
    was confirmed in the guest, both final rescans completed, the stale-qgroup
    `-ENOENT` warning did not recur, and final quota status was consistent.
-   Review the patch for upstream quality and add durable regression coverage
-   before treating this deletion bug as fully closed. Keep it separate from
-   the six ordinary snapshot-creation fallback scans, which remain
-   unresolved. The retention script was not needed to reproduce the warning,
-   though its snapshot deletions may exercise the same lifecycle. Record
-   results and limits in `GOAL-done.md`.
+   The local source review and durable regression coverage are complete: the
+   new test forces relation deletion onto the positive rescan-required path
+   and verifies that qgroup teardown still removes the qgroup and relation.
+   The test and full four-group cleanup workload pass in QEMU. Keep this
+   deletion fix separate from the six ordinary snapshot-creation fallback
+   scans, which remain unresolved. The retention script was not needed to
+   reproduce the warning, though its snapshot deletions may exercise the same
+   lifecycle. Live-host confirmation remains; evidence and limits are in
+   `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository

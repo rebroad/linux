@@ -21,17 +21,16 @@ Snapper or modified Btrfs module. Local use instead requires technical review,
 the exact-kernel acceptance workload, a valid Secure Boot signature from an
 enrolled key, and a tested rollback and kernel-upgrade path.
 
-Find out whether Snapper's root and home configurations sharing a snapshot
-QGROUP ID cause the observed qgroup inconsistency. The immediate priority is a
-controlled Snapper QEMU investigation; do not treat the kernel module change as
-necessary or migrate the host's qgroups until that investigation establishes
-what causes the inconsistency and whether a Snapper-only fix is sufficient.
-Do not assume that a qgroup inconsistency flag means Btrfs has a correctness
-bug: the kernel may conservatively request a full rescan when it cannot update
-exclusive counters safely for a particular hierarchy. Distinguish that
-documented fallback from incorrect counters that remain wrong after a rescan,
-and from a Snapper configuration or tracking error. A kernel fast path may be
-an optimization even when it is useful to avoid frequent rescans.
+Determine and fix the source of Snapper-triggered qgroup rescans. Controlled
+QEMU tests show that sharing the root and home snapshot QGROUP is not required
+for the stock kernel's conservative rescan fallback, and a shared QGROUP
+cannot provide independently queryable root and home totals. The host's p8
+groups have therefore been split; do not treat that change or the candidate
+kernel fast path as proof that the root cause is fixed. Continue tracing which
+Snapper/Btrfs operations set inconsistency, whether completed full scans
+restore correct counters, and whether a Snapper-only change can meet the
+accounting and operating requirements. Distinguish a conservative fallback
+from incorrect counters and from a Snapper tracking/configuration error.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -54,7 +53,7 @@ quota-based cleanup must wait until the counters are consistent.
 
 ## Next steps
 
-1. **Complete the host-topology Snapper QEMU investigation — 85% done.** Use the
+1. **Complete the host-topology Snapper QEMU investigation — 90% done.** Use the
    latest built Snapper from this repository and disposable QEMU filesystems.
    Compare root and home using one shared snapshot QGROUP ID with the same
    configs using distinct IDs. Start every case from fresh quota state, and
@@ -77,10 +76,12 @@ quota-based cleanup must wait until the counters are consistent.
    snapshot. The host-shaped four-group workload has now also been run with
    both stock and candidate modules on the exact current 7.2.6 kernel. Stock
    triggered six automatic scans in eight snapshots; the candidate triggered
-   none. This confirms the shared ID is not required for stock's conservative
-   fallback, while the candidate fast path avoids it for the tested four-group
-   layout. Cleanup/deletion under the exact host topology and repeated live
-   operation remain to be validated.
+   none. Cleanup and synchronous deletion were then exercised for all four
+   configs under the same topology. Neither operation added scans or warnings
+   with either module. This confirms the shared ID is not required for stock's
+   conservative fallback, while the candidate fast path avoids it for the
+   tested four-group layout. Repeated live operation and source-data/counter
+   reconciliation still need deeper validation.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is
@@ -94,10 +95,16 @@ quota-based cleanup must wait until the counters are consistent.
    constraints with the stock kernel; describe it as a fast-path optimization
    when that is what the evidence supports.
    Continue the host-matched four independent group workload (p8-root,
-   p8-home, Kingston-root, Kingston-home) with cleanup/deletion and source-data
-   changes. Establish which qgroup operation sets the flag and compare counters
-   before and after a full rescan. Record each completed case and its limits
-   in `GOAL-done.md`.
+   p8-home, Kingston-root, Kingston-home). The exact 7.2.6 QEMU cleanup test
+   changed source data before snapshots and exercised timeline cleanup plus
+   synchronous deletion for every config; the evidence and limits are in
+   `GOAL-done.md`. After the first full rescan, all four now-empty snapshot
+   groups showed only the 16 KiB `.snapshots` directory, while the source
+   groups showed their measured source data. Still verify nonempty exclusive
+   counters against independently derived expectations and confirm that later
+   snapshots preserve them. Diagnose why a second full rescan after the first
+   had cleared inconsistency logged `qgroup info item update error -2` on the
+   stock module. Record each case and its limits in `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository
@@ -156,9 +163,11 @@ quota-based cleanup must wait until the counters are consistent.
    7.2.6, matched stock-module runs triggered repeated scans on distinct groups,
    while the candidate run did not. Treat this as evidence for the fast path's
    rescan-avoidance benefit, not as proof of incorrect stock accounting after
-   a completed scan. Retain the conservative fallback and finish cleanup and
-   deletion coverage before deciding whether the kernel change is needed for
-   the operating constraints. See `GOAL-done.md` for results and limits.
+   a completed scan. Cleanup and deletion coverage is recorded in
+   `GOAL-done.md`; investigate its post-deletion full-rescan warnings and
+   finish counter reconciliation before deciding whether the kernel change is
+   needed for the operating constraints. See `GOAL-done.md` for results and
+   limits.
 
    The kernel companion is based on the Btrfs maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
@@ -226,12 +235,14 @@ quota-based cleanup must wait until the counters are consistent.
    Its exact source accepted the qgroup patch and built against its matching
    headers. The package was upgraded before performing the APT kernel upgrade;
    DKMS's real 7.2.6 header hook selected that source, built and signed the
-   module, and the kernel post-install included it in the new initramfs. All
-   three installed kernel versions now have a signed module selected by
-   `modprobe` and present in the matching initramfs. The host has rebooted into
-   7.2.6 and the signed candidate module is loaded. The package
-   also maps 7.2.9 in case that image release becomes available. Package build,
-   module hashes, APT result, and per-kernel verification are in
+   module, and the kernel post-install included it in the new initramfs. The
+   three installed kernel versions verified at that time had signed modules
+   selected by `modprobe` and present in their matching initramfs. A later APT
+   upgrade installed 7.2.9; its DKMS build succeeded, the signed candidate is
+   selected by `modprobe`, and the module is in its initramfs. The host is
+   still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed,
+   but host boot and rollback verification remain. Package build, module
+   hashes, APT result, and per-kernel verification are in
    `GOAL-done.md`. The installed selector passes for a supported release and
    returns an explicit error for an unmapped release. However, source
    inspection shows that this failure propagates through DKMS and Debian's
@@ -246,11 +257,14 @@ quota-based cleanup must wait until the counters are consistent.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, and initramfs inclusion are verified for
-     all three installed releases: 7.1.8, 7.1.13, and 7.2.6. Stock-module
-     rollback and reinstall were also verified for 7.2.6. The post-reboot
+     all four installed releases: 7.1.8, 7.1.13, 7.2.6, and 7.2.9. Stock-module
+     rollback and reinstall were verified for 7.2.6. The 7.2.9 DKMS build was
+     triggered by the real APT kernel upgrade; its signed module is in the
+     initramfs and passed exact-release Secure Boot QEMU acceptance. Host boot
+     and rollback verification remain. The post-reboot
      audit confirms the candidate is loaded; the p8 group split and a full
-     rescan are complete. Final accounting and cleanup acceptance remain
-     outstanding. Evidence and hashes are in
+     rescan are complete. Final accounting and live-host cleanup acceptance
+     remain outstanding. Evidence and hashes are in
      `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
      actual 7.2.6 header and image hooks passed. Before any later kernel

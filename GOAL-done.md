@@ -2683,5 +2683,102 @@ specified in `GOAL.md`.
   21184958464 exclusive` bytes for home. Snapper root and home list commands
   returned without the stale-quota warning. These are live counters and can
   change with normal filesystem activity. Kingston's groups were not changed.
-  Cleanup behavior and a later snapshot run against the new live topology
-  remain to be checked.
+  The later exact-kernel QEMU cleanup workload below exercises the four-group
+  topology; live-host snapshot and cleanup acceptance remains to be checked.
+
+## Exact 7.2.6 host-topology cleanup and deletion workload (2026-10-18)
+
+- Reused the exact `7.2.6+deb13-amd64` kernel image, the same latest-upstream
+  Snapper executable and library hashes, and the matched stock and candidate
+  Btrfs modules from the host-topology test. Each run used two fresh Btrfs
+  filesystems with four independent snapshot collectives: p8-root, p8-home,
+  Kingston-root, and Kingston-home. The guest changed 1 MiB of source data
+  before each of two snapshots per config, then ran timeline cleanup with a
+  one-snapshot hourly limit and synchronously deleted the remaining snapshots.
+- Stock Btrfs completed the eight-snapshot creation phase with six automatic
+  rescans and eight `qgroup inherit needs a rescan` warnings. Timeline cleanup
+  deleted one snapshot in each config; synchronous deletion removed the
+  remaining snapshot in each config. Neither cleanup nor deletion increased
+  the scan or fallback-warning counts: they remained at six and eight. The
+  candidate completed the same workload with zero automatic scans or fallback
+  warnings, including cleanup and deletion.
+- Explicit full rescans completed on both filesystems in both runs, cleared
+  the inconsistency state, and produced qgroup trees for all four independent
+  collectives. The candidate full rescans logged no warning. An additional
+  explicit full rescan on each stock filesystem then logged
+  `qgroup info item update error -2`; both scans completed and the final
+  `btrfs qgroup show` output did not report inconsistent data. The warning
+  needs investigation, but this fixture did not leave the measured counters
+  stale. It does not independently verify every nonempty source/snapshot
+  exclusive value or prove that repeated later snapshots preserve them.
+- The counter sequence shows that the first reconciliation scan on each
+  filesystem cleared the inconsistent flag without a warning. Before that
+  scan, all four snapshot groups still showed stale values: root `1/100`
+  `4,243,456 referenced / 49,152 exclusive` bytes and home `1/101`
+  `3,178,496 / 32,768` bytes, on both filesystems. After the first scan and
+  before the extra rescan, all four groups showed `16,384 / 16,384` bytes,
+  matching their only remaining child, the empty `.snapshots` directory; the
+  source subvolumes showed `4,210,688 / 4,210,688` bytes. A second explicit
+  rescan on each filesystem then emitted the `-ENOENT` warning, completed, and
+  left those same counters and a clear inconsistency state. Thus this fixture
+  shows the first full scan restores the expected empty-group totals; the
+  warning is specific to the redundant second scan and did not leave the
+  measured counters stale.
+- Source inspection narrows this warning to the transaction-commit path:
+  `btrfs_run_qgroups()` writes each dirty qgroup's info item, and
+  `update_qgroup_info_item()` returns `-ENOENT` when the qgroup info key is
+  absent. The current warning does not print the qgroup ID, so this does not
+  establish that the missing item belonged to a deleted snapshot. The next
+  diagnostic must identify the qgroup ID and determine why it is dirty while
+  its info item is absent.
+- The guests reported `HOST-TOPOLOGY: COMPLETE` and `no rescan operation in
+  progress` at the end. Logs, disposable disk images, and initrd overlays are
+  in `/var/tmp/linux.build/qgroup-cleanup-20261018/`; the serial logs are
+  `stock.serial.log` and `candidate.serial.log`. The minimal initrd lacks
+  systemd, so Snapper's attempt to enable the timeline timer was not part of
+  this direct snapshot/cleanup harness. QEMU used TCG; this is not a live-host
+  cleanup acceptance run.
+
+## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
+
+- The host's `apt upgrade` transaction (started at 22:27) installed and
+  configured the Debian backports 7.2.9 kernel and headers.
+  `/var/log/apt/history.log` records completion at 22:33:42, and
+  `dpkg --audit` is empty. Although the
+  terminal displayed repeated `Tried to start delayed item ... but failed`
+  warnings before Ctrl+C, the package logs show the kernel post-install
+  completed. APT 3.0.3 is installed on Debian 13; the warning is associated
+  with Debian APT issue #1111554, but the host's logs do not preserve the
+  download-stage detail needed to identify the specific triggering transfer.
+- The real 7.2.9 header hook ran the installed DKMS selector, compiled and
+  signed `btrfs-qgroup/7.1.13+rebroad1.z20261018.154420.g29a221f567b0.m87a66389.s3a8cfb46`,
+  and installed `/lib/modules/7.2.9+deb13-amd64/updates/dkms/btrfs.ko.xz`.
+  Current DKMS status lists successful installs for all four installed
+  releases: 7.1.8, 7.1.13, 7.2.6, and 7.2.9.
+- For 7.2.9, `modprobe --show-depends -S` selected the DKMS module,
+  `modinfo` reported vermagic `7.2.9+deb13-amd64 SMP preempt mod_unload` and
+  signer `Rebroad's module signing key` (key ID
+  `79:BC:F6:D4:0C:64:F7:5A:78:CB:ED:BE:1F:4C:E8:1A:53:22:DE:29`), and the
+  compressed module hash was
+  `aab0c4b4e297f6814b167381956c6147d63c8adef5d1dde8aed8e5122acdce5f`. The
+  generated `/boot/initrd.img-7.2.9+deb13-amd64` contains that DKMS module.
+  Secure Boot is enabled. The host remains running 7.2.6; the following
+  exact-release QEMU test validates 7.2.9 without changing the host's running
+  kernel.
+- Then booted the exact Debian `7.2.9+deb13-amd64` image in QEMU through OVMF,
+  Microsoft's signed shim, Debian GRUB, and the enrolled `Rebroad` MOK
+  certificate. The kernel logged Secure Boot lockdown and
+  `module.sig_enforce=1`; it loaded the signed DKMS Btrfs module from
+  `updates/dkms`, with the same compressed module hash listed above. An
+  unsigned 7.2.9 Btrfs module with matching vermagic was rejected. The guest
+  ran the Snapper 0.13.2 stale-quota, hold-file, repeated snapshot, quota
+  cleanup, and full-rescan comparison workload and ended
+  `SNAPPER-QUOTA: PASS`. This validates the 7.2.9 module and Snapper workload
+  under Secure Boot in QEMU, but does not replace the separate four-group
+  accounting investigation on the in-use 7.2.6 kernel or a host reboot test.
+  The initrd hash is
+  `0c7cba5b07ed456bf12edaaa85a497ea4da44d95c13ec1565853a50ef8141e29`; the
+  serial log hash is
+  `5112524883654068a6776bb74f4bd3d1e0618ef19cfb873b15d969bddb98a5bb`. Both
+  and the disposable ESP/filesystem images are under
+  `/var/tmp/linux.build/qgroup-prod-validation-729/`.

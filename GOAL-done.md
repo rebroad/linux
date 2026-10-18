@@ -1735,3 +1735,6 @@ specified in `GOAL.md`.
   relevant exact-kernel QEMU results. Removed references to earlier PR heads
   and historical test comparisons. Re-read the published description and
   confirmed the current head and all seven successful checks.
+- Removed the host-specific preferred rescan window from the PR. The published
+  description now discusses the configurable window generically and contains
+  no host-preference, Kingston, or personal-path references.

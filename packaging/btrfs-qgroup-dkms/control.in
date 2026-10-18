@@ -1,0 +1,11 @@
+Package: btrfs-qgroup-dkms
+Version: @PACKAGE_VERSION@
+Section: kernel
+Priority: optional
+Architecture: all
+Depends: dkms, initramfs-tools, linux-headers-amd64, mokutil, openssl
+Maintainer: Local Btrfs Module Maintainer <root@localhost>
+Description: DKMS build of the locally patched Btrfs module
+ Builds the patched Btrfs filesystem module for installed Debian kernels,
+ signs it with the enrolled Secure Boot key, and installs it under
+ updates/dkms so it takes precedence over the distribution module.

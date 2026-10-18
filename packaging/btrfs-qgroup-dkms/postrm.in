@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+case "${1:-}" in
+    remove|purge)
+        depmod -a
+        update-initramfs -u -k all
+        ;;
+esac
+
+#DEBHELPER#

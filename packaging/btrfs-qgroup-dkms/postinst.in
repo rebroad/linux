@@ -1,0 +1,28 @@
+#!/bin/sh
+set -eu
+
+module=btrfs-qgroup
+version="@DKMS_VERSION@"
+
+case "${1:-}" in
+    configure)
+        key="@MOK_KEY@"
+        cert_der=/usr/share/btrfs-qgroup-dkms/Rebroad-module-signing-key.der
+        test -r "$key"
+        cert_fingerprint=$(openssl x509 -inform DER -in "$cert_der" \
+            -noout -fingerprint -sha1 | sed 's/^[^=]*=//' | tr -d ':' |
+            tr '[:upper:]' '[:lower:]')
+        if ! mokutil --list-enrolled 2>/dev/null |
+            sed -n 's/^SHA1 Fingerprint: //p' | tr -d ':' |
+            tr '[:upper:]' '[:lower:]' |
+            grep -Fxq "$cert_fingerprint"; then
+            echo "Error: module-signing certificate is not enrolled" >&2
+            exit 1
+        fi
+        dkms install -m "$module" -v "$version" -k "$(uname -r)"
+        depmod -a "$(uname -r)"
+        update-initramfs -u -k "$(uname -r)"
+        ;;
+esac
+
+#DEBHELPER#

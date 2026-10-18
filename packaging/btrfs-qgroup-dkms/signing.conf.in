@@ -1,0 +1,2 @@
+mok_signing_key="@MOK_KEY@"
+mok_certificate="/usr/share/btrfs-qgroup-dkms/Rebroad-module-signing-key.pem"

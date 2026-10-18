@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+module=btrfs-qgroup
+version="@DKMS_VERSION@"
+
+case "${1:-}" in
+    remove)
+        dkms remove -m "$module" -v "$version" --all
+        ;;
+esac
+
+#DEBHELPER#

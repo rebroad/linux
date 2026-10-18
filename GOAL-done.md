@@ -2623,3 +2623,65 @@ specified in `GOAL.md`.
   `snapper list` behavior. Continue with the host-matched four-group hierarchy,
   including cleanup/deletion and tracker-parent relationships, before deciding
   whether the kernel companion is operationally needed.
+
+## Host-shaped four-group testing on kernel 7.2.6 and p8 group split (2026-10-18)
+
+- After reboot, the host runs `7.2.6+deb13-amd64` and loads the signed candidate
+  Btrfs module from `/lib/modules/7.2.6+deb13-amd64/updates/dkms/btrfs.ko.xz`.
+  Its SHA-256 is
+  `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`; signer
+  `Rebroad's module signing key`; `/proc/modules` marks it out-of-tree.
+- Repeated the fresh host-shaped four-group QEMU workload on the exact 7.2.6
+  kernel image. Both runs used Snapper executable hash
+  `917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f` and
+  libsnapper hash
+  `c34dfac310cd204ef4e38b0d62cd5af835ce5c2674ab3f0fda719e50e6ccdb8d`.
+  The stock run loaded the Debian module at the 7.2.6 `updates/dkms` path,
+  SHA-256 `9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`;
+  the candidate run used the signed module hash above. The kernel, Snapper
+  binaries, two fresh Btrfs filesystems, source changes, tracker topology,
+  order, and eight-snapshot workload were matched. QEMU used TCG because KVM
+  is unavailable in this environment.
+- With stock Btrfs, the distinct four-group layout produced eight
+  `qgroup marked inconsistent, qgroup inherit needs a rescan` warnings and six
+  automatic rescans before the explicit final scans (`PRE-FULL scans=6`). With
+  the candidate, it produced no warning and no automatic scan (`PRE-FULL
+  scans=0`). Explicit final rescans completed in both guests and the runs ended
+  `HOST-TOPOLOGY: COMPLETE`. This confirms that distinct root/home groups do
+  not by themselves prevent the stock module's conservative fallback in this
+  workload; the candidate fast path avoids those repeated scans for the tested
+  two-member tracker hierarchy. It does not show stock counters remain wrong
+  after a completed scan, and the exact-topology cleanup/deletion path remains
+  untested.
+- The first stock log used a stale 7.1.13 path in its diagnostic hash command.
+  Before recording the result, corrected that path and reran the stock case on
+  fresh disks. The corrected serial log reports the exact 7.2.6 kernel and
+  stock-module hash above with the same six pre-full scans, eight warnings, and
+  successful completion. The corrected log and QEMU stderr are
+  `/var/tmp/linux.build/qgroup-host-topology-20261018/stock-7.2.6-corrected.serial.log`
+  and `stock-7.2.6-corrected.qemu.stderr`; the candidate evidence is in
+  `candidate-7.2.6.serial.log` and `candidate-7.2.6.qemu.stderr` in the same
+  directory.
+- Read-only inspection after reboot found p8 root `0/262` under tracker `2/0`,
+  p8 home source `0/263` with no tracker, root `.snapshots` directory `0/271`,
+  home `.snapshots` directory `0/272`, and 15 extant home snapshot
+  subvolumes. All home snapshot subvolumes and `0/272` were children of shared
+  group `1/100`; both Snapper configs still named `1/100`.
+- Following the user's request for separate p8 collectives, moved the 15 home
+  snapshot qgroups and `0/272` from `1/100` to new `1/101`, created tracker
+  `2/1` containing home source `0/263` and group `1/101`, and changed only
+  `/etc/snapper/configs/home` to `QGROUP="1/101"`. Root remains `1/100` under
+  `2/0`. A full quota rescan was explicitly started after these qgroup
+  membership changes because Btrfs marks quota accounting inconsistent when
+  qgroup parent/child assignments change. The rescan took several minutes;
+  `btrfs quota rescan -s /` then reported no operation in progress and
+  `btrfs qgroup show /` no longer reported inconsistent data.
+- Final live verification showed p8 root and home independently queryable as
+  `1/100` and `1/101`, with root and home trackers `2/0` and `2/1`. At the
+  verification read, raw counters were respectively `185190010880 referenced /
+  19866832896 exclusive` bytes for root and `287781203968 referenced /
+  21184958464 exclusive` bytes for home. Snapper root and home list commands
+  returned without the stale-quota warning. These are live counters and can
+  change with normal filesystem activity. Kingston's groups were not changed.
+  Cleanup behavior and a later snapshot run against the new live topology
+  remain to be checked.

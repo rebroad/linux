@@ -29,12 +29,11 @@ own snapshot QGROUP so its exclusive-space total remains separately visible;
 root and home do not need to share a snapshot QGROUP. Preserve accurate
 accounting and expected cleanup behavior. Avoid unnecessary
 full rescans by correcting their cause, not by hiding inconsistency or
-weakening accounting. Any automatic full rescans that remain necessary must be
-limited to a configurable local-time window and at most one per filesystem in
-any rolling 24-hour period, including across multiple Snapper configurations
-and repeated triggers. The host preference is 05:00-21:00 local time; all
-Snapper configurations sharing a filesystem must use the same window. A rate
-limit must never report stale counters as consistent. When a rescan is
+weakening accounting. Keep both rescan gates configurable in Snapper: the
+optional hold-file gate and the rolling 24-hour per-filesystem limit. Disable
+both in the investigation host configs so scans may repeat. Keep the configured
+local-time window at 05:00-21:00 and identical across configs sharing a
+filesystem. A deferred rescan must never report stale counters as consistent. When a rescan is
 deferred, Snapper must still return last-known quota values with an explicit
 stale status; `snapper list` should display them with a warning, and
 quota-based cleanup must wait until the counters are consistent.
@@ -72,17 +71,16 @@ quota-based cleanup must wait until the counters are consistent.
    concise descriptive Markdown link to the exact commit in its repository,
    rather than displaying a bare full hash.
 
-   `QGROUP_RESCAN_HOLD_FILE` defers new automatic scans while a shared
-   absolute-path marker has a future deadline; it does not cancel an
-   already-running scan. Set `QGROUP_RESCAN_HOLD_FILE=/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`
-   and the same `QGROUP_RESCAN_WINDOW=05:00-21:00` on every Kingston Snapper
-   config, retaining the rolling 24-hour per-filesystem cap. Before starting a
-   new scan, Snapper now checks the window and hold path for every configured
-   nonempty `QGROUP` on that filesystem. A mismatch or inability to inspect
-   the configured policies defers the scan and leaves quota data stale; an
-   already-running scan is still waited for. This runtime check complements
-   deployment verification that every Kingston config uses the intended
-   shared values.
+   Keep `QGROUP_RESCAN_HOLD_FILE` configurable (empty disables the hold) and
+   add `QGROUP_RESCAN_DAILY_LIMIT` (default `yes`, `no` disables the rolling
+   24-hour cap). For the investigation host, keep the shared hold path enabled
+   so `force-suspend` can pause new scans until its deadline, and set the daily
+   limit to `no`. Use `FORCE_SUSPEND_RESCAN_RESUME_TIME` in
+   `/etc/default/force-suspend` to configure the hold deadline time (default
+   `04:00`). Retain `QGROUP_RESCAN_WINDOW=05:00-21:00`. Before scanning, Snapper
+   must verify all three policy values agree across configs sharing a
+   filesystem; a mismatch or unverifiable policy defers the scan and preserves
+   stale status. An already-running scan is still waited for.
 
    Kingston already assigns root to `1/100` and home to `1/101`. On p8, both
    configs still use `1/100`; that group currently contains 79 root snapshots,
@@ -100,10 +98,9 @@ quota-based cleanup must wait until the counters are consistent.
    under a separate tracker, and rescanning, new root/home snapshots remained
    consistent and the exclusive counters matched a full rescan. This confirms
    the shared p8 group/tracker mismatch as a cause on p8. The host migration
-   must wait until the candidate module is active. The force-suspend hold only
-   defers new rescans; it does not itself block the layout migration. Run the
-   migration's required full rescan only after the hold expires, inside the
-   configured window, and subject to the rolling 24-hour limit.
+   must wait until the candidate module is active. Run the migration's
+   required full rescan inside the configured window; the host's disabled
+   cooldown and empty hold path allow repeated rescans during investigation.
 
    The tested Snapper tracking layout gives each config a separate level-1
    snapshot QGROUP and pairs that QGROUP with its live source under a tracker.
@@ -257,26 +254,17 @@ quota-based cleanup must wait until the counters are consistent.
    mark qgroups inconsistent, but does not itself start a rescan. Keep those
    state changes distinct when tracing future scans. The active hourly
    `snapper-timeline.timer` uses `OnCalendar`; systemd catches up calendar
-   events that elapse during suspend when the system resumes. Prevent that
-   catch-up run from accidentally starting a fresh qgroup scan, including
-   through Snapper's internal rescan path. PR #1203 now teaches Snapper's
-   internal limiter to honor the force-suspend marker through
-   `QGROUP_RESCAN_HOLD_FILE`; configure the shared local-home marker path in
-   every Kingston config. `force-suspend` and its resume helper now use this
-   path because `/var/tmp` resolves inside Kingston and is unmounted by
-   `force-unmount-kingston.sh`; the suspend command now fails closed if it
-   cannot write the hold. The sleep/resume guard is pushed to the home
-   repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
+   events that elapse during suspend when the system resumes. The sleep/resume
+   guard is pushed to the home repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
    host now has the local timeline and daily cleanup timers restored under
    `/etc/systemd/system`; the hourly wrapper invokes the installed Snapper
-   directly and the Kingston configs share the same hold/window values. The
-   enabled sleep.target unit and system-sleep hook use one root-owned helper
-   under `/usr/local/libexec`; it delegates hold-file updates to `rebroad` and
-   keeps root for timer control. Current host state and the hold deadline are
-   recorded in `GOAL-done.md`. No actual suspend/resume has yet been used to
-   verify ordering or the timer's catch-up behavior. Verify that a real resume
-   cannot start a fresh scan through either the wrapper or Snapper's internal
-   path.
+   directly. The enabled sleep.target unit and system-sleep hook use one
+   root-owned helper under `/usr/local/libexec` for timer control. Current host
+   state is recorded in `GOAL-done.md`. No actual suspend/resume has yet been
+   used to verify ordering or the timer's catch-up behavior. Verify that a real
+   resume cannot start a fresh scan through either the wrapper or Snapper's
+   internal path. The timer catch-up guard is separate from the `force-suspend`
+   hold, whose release deadline is controlled by its own setting.
    Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup
@@ -289,12 +277,12 @@ extents, keep qgroup data consistent. The exclusive-space totals for p8-root,
 p8-home, Kingston-root, and Kingston-home remain separately queryable and
 match a full rescan; root and home never share one snapshot QGROUP. Quota
 limits retain their existing snapshot-only scope.
-Unnecessary rescans do not recur, and any automatic full rescans that remain
-necessary start only inside the configured local-time window and no more than
-once per filesystem in any rolling 24-hour period across all Snapper
-processes and configurations. If a rescan is deferred, users can still see the
-last-known quota numbers and their stale status; quota-based deletion waits
-until the numbers are current. The host's configured preference is
+After the accounting cause is fixed, unnecessary rescans do not recur.
+Automatic full rescans start only inside the configured local-time window.
+During investigation, the per-day cap is disabled, while `force-suspend` can
+hold new scans until its configured deadline. If a rescan is deferred, users
+can still see the last-known quota numbers and their stale status; quota-based
+deletion waits until the numbers are current. The host's configured preference is
 05:00-21:00 local time for every Snapper configuration sharing the filesystem;
 the timeline wrapper's separate explicit rescan commands remain disabled.
 Prefer a Snapper-only fix. If the kernel/module must change, it is automatically

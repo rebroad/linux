@@ -1730,3 +1730,8 @@ specified in `GOAL.md`.
   `openSUSE/snapper`, `rebroad/snapper`, and the Btrfs maintainer tree. Verified
   that no unlinked 40-character commit hashes remain in the text and that the
   PR head is unchanged.
+- Replaced the validation history with current-state results only: latest
+  upstream base, current local build/tests, seven passing CI checks, and the
+  relevant exact-kernel QEMU results. Removed references to earlier PR heads
+  and historical test comparisons. Re-read the published description and
+  confirmed the current head and all seven successful checks.

@@ -1,9 +1,10 @@
-# DKMS builds the patched Btrfs subtree against each installed kernel's
-# configured headers. Keep the developer sanity tests disabled for production.
+# Select the matching patched Btrfs source, then build against this kernel's
+# headers. Keep the developer sanity tests disabled for production.
 PACKAGE_NAME="btrfs-qgroup"
 PACKAGE_VERSION="@DKMS_VERSION@"
 BUILT_MODULE_NAME[0]="btrfs"
 DEST_MODULE_LOCATION[0]="/updates/dkms"
 AUTOINSTALL="yes"
+PRE_BUILD="select-btrfs-source.sh ${kernelver}"
 MAKE[0]="make -C /lib/modules/${kernelver}/build M=${dkms_tree}/${module}/${module_version}/build CONFIG_BTRFS_FS=m CONFIG_BTRFS_FS_RUN_SANITY_TESTS=n modules"
 CLEAN="make -C /lib/modules/${kernelver}/build M=${dkms_tree}/${module}/${module_version}/build clean"

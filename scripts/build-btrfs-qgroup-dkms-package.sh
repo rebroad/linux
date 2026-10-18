@@ -4,12 +4,15 @@ set -euo pipefail
 usage() {
 	cat <<'EOF'
 Usage: BTRFS_MOK_KEY=... BTRFS_MOK_CERT=... \
+       [BTRFS_COMPAT_SOURCES=/path/to/kernel-sources.tsv] \
        scripts/build-btrfs-qgroup-dkms-package.sh
 
-Build a local Debian DKMS package for the current patched Btrfs source. The
-package and all generated files are written to the Linux sibling build tree.
-The build requires the running 7.1.13+deb13-amd64 headers and a matching,
-already enrolled Secure Boot key/certificate pair.
+Build a local Debian DKMS package for the patched Btrfs source. The package
+and all generated files are written to the Linux sibling build tree. The build
+requires the running 7.1.13+deb13-amd64 headers and a matching, already
+enrolled Secure Boot key/certificate pair. The optional tab-separated source
+manifest maps exact additional kernel releases to extracted matching Linux
+source trees; these trees are copied into the package and patched during build.
 EOF
 }
 
@@ -89,10 +92,110 @@ esac
 
 source_commit=$(git -C "$source_root" rev-parse HEAD)
 kernel_base=7.1.13
-dkms_version="${kernel_base}+rebroad1.g${source_commit:0:12}"
-package_version=$dkms_version
+kernel_series=${kernel_base%.*}
+kernel_source_version() {
+	awk '
+		/^VERSION = / { version = $3 }
+		/^PATCHLEVEL = / { patchlevel = $3 }
+		/^SUBLEVEL = / { sublevel = $3 }
+		END {
+			if (version == "" || patchlevel == "" || sublevel == "") exit 1
+			printf "%s.%s.%s\n", version, patchlevel, sublevel
+		}' "$1/Makefile"
+}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 work_root="$build_root/local-btrfs-dkms/${target_kernel}-${source_commit:0:12}-${stamp}"
+mkdir -p "$work_root"
+source_map="$work_root/kernel-source-map"
+
+declare -A source_base_for_kernel=() source_root_for_base=()
+source_root_for_base[$kernel_base]=$source_root
+compat_manifest=${BTRFS_COMPAT_SOURCES:-}
+if [[ -n $compat_manifest ]]; then
+	if [[ ! -r $compat_manifest ]]; then
+		echo "Error: cannot read BTRFS_COMPAT_SOURCES: $compat_manifest" >&2
+		exit 1
+	fi
+	while IFS= read -r line || [[ -n $line ]]; do
+		[[ -z $line || $line == \#* ]] && continue
+		if [[ $line != *$'\t'* || ${line#*$'\t'} == *$'\t'* ]]; then
+			echo "Error: compatibility source entries must be RELEASE<TAB>SOURCE_ROOT" >&2
+			exit 1
+		fi
+		compat_release=${line%%$'\t'*}
+		compat_root=${line#*$'\t'}
+		if [[ ! $compat_release =~ ^[0-9]+\.[0-9]+\.[0-9]+\+deb13-amd64$ ||
+		      ! -d $compat_root/fs/btrfs ]]; then
+			echo "Error: invalid compatibility source entry for $compat_release" >&2
+			exit 1
+		fi
+		compat_root=$(realpath "$compat_root")
+		compat_base=$(kernel_source_version "$compat_root")
+		if [[ ${compat_release%%+*} != "$compat_base" ]]; then
+			echo "Error: source $compat_root is $compat_base, not ${compat_release%%+*}" >&2
+			exit 1
+		fi
+		if [[ -n ${source_base_for_kernel[$compat_release]:-} ]]; then
+			echo "Error: duplicate compatibility source for $compat_release" >&2
+			exit 1
+		fi
+		if [[ -n ${source_root_for_base[$compat_base]:-} &&
+		      ${source_root_for_base[$compat_base]} != "$compat_root" ]]; then
+			echo "Error: conflicting source trees claim kernel $compat_base" >&2
+			exit 1
+		fi
+		source_base_for_kernel[$compat_release]=$compat_base
+		source_root_for_base[$compat_base]=$compat_root
+	done < "$compat_manifest"
+fi
+
+installed_kernel_count=0
+for module_dir in /lib/modules/*; do
+	[[ -d $module_dir ]] || continue
+	kernel_release=${module_dir##*/}
+	kernel_version=${kernel_release%%+*}
+	kernel_release_series=${kernel_version%.*}
+	if [[ $kernel_release_series == "$kernel_series" ]]; then
+		source_base_for_kernel[$kernel_release]=$kernel_base
+	elif [[ -z ${source_base_for_kernel[$kernel_release]:-} ]]; then
+		echo "Error: no matching Btrfs source supplied for installed kernel $kernel_release" >&2
+		exit 1
+	fi
+	installed_kernel_count=$((installed_kernel_count + 1))
+done
+if ((installed_kernel_count == 0)); then
+	echo "Error: no installed kernel module trees found under /lib/modules" >&2
+	exit 1
+fi
+
+: > "$source_map"
+for kernel_release in "${!source_base_for_kernel[@]}"; do
+	printf '%s\t%s\n' "$kernel_release" "${source_base_for_kernel[$kernel_release]}" \
+		>> "$source_map"
+done
+sort -o "$source_map" "$source_map"
+mapping_hash=$(sha256sum "$source_map" | cut -c1-8)
+
+source_fingerprints="$work_root/source-fingerprints"
+: > "$source_fingerprints"
+for compat_base in "${!source_root_for_base[@]}"; do
+	compat_root=${source_root_for_base[$compat_base]}
+	if find "$compat_root/fs/btrfs" -type f \
+		\( -name '*.o' -o -name '*.ko' -o -name '.*.cmd' \) \
+		-print -quit | grep -q .; then
+		echo "Error: generated build files found in Btrfs source $compat_root" >&2
+		exit 1
+	fi
+	fingerprint=$(tar -C "$compat_root" --sort=name --mtime='@0' \
+		--owner=0 --group=0 --numeric-owner -cf - fs/btrfs |
+		sha256sum | cut -c1-12)
+	printf '%s\t%s\n' "$compat_base" "$fingerprint" >> "$source_fingerprints"
+done
+sort -o "$source_fingerprints" "$source_fingerprints"
+source_hash=$(sha256sum "$source_fingerprints" | cut -c1-8)
+
+dkms_version="${kernel_base}+rebroad1.g${source_commit:0:12}.m${mapping_hash}.s${source_hash}"
+package_version=$dkms_version
 package_root="$work_root/package-root"
 package_name="btrfs-qgroup-dkms_${package_version}_all.deb"
 template_root="$source_root/packaging/btrfs-qgroup-dkms"
@@ -106,13 +209,37 @@ mkdir -p "$work_root" \
 	"$package_root/DEBIAN" \
 	"$package_root/etc/dkms/framework.conf.d" \
 	"$package_root/usr/share/btrfs-qgroup-dkms" \
-	"$package_root/usr/src/btrfs-qgroup-$dkms_version"
+	"$package_root/usr/src/btrfs-qgroup-$dkms_version/kernel-sources/$kernel_base/fs/btrfs"
+package_source_root="$package_root/usr/src/btrfs-qgroup-$dkms_version"
 "$cpto_bin" --nogit --no-lngit "$source_root/fs/btrfs" \
-	"$package_root/usr/src/btrfs-qgroup-$dkms_version"
+	"$package_source_root/kernel-sources/$kernel_base/fs/btrfs"
+
+qgroup_patch="$work_root/qgroup.patch"
+git -C "$source_root" diff "v$kernel_base" HEAD -- \
+	fs/btrfs/qgroup.c fs/btrfs/qgroup.h fs/btrfs/tests/qgroup-tests.c \
+	> "$qgroup_patch"
+if [[ ! -s $qgroup_patch ]]; then
+	echo "Error: no qgroup patch found between v$kernel_base and HEAD" >&2
+	exit 1
+fi
+
+for compat_base in "${!source_root_for_base[@]}"; do
+	[[ $compat_base == "$kernel_base" ]] && continue
+	compat_root=${source_root_for_base[$compat_base]}
+	variant_root="$package_source_root/kernel-sources/$compat_base"
+	mkdir -p "$variant_root/fs"
+	cp -a "$compat_root/fs/btrfs" "$variant_root/fs/"
+	patch --dry-run -p1 -d "$variant_root" < "$qgroup_patch" >/dev/null
+	patch -p1 -d "$variant_root" < "$qgroup_patch" >/dev/null
+done
+
+install -m 0644 "$source_map" "$package_source_root/kernel-source-map"
+install -m 0755 "$template_root/select-btrfs-source.sh" \
+	"$package_source_root/select-btrfs-source.sh"
 
 sed "s|@DKMS_VERSION@|$dkms_version|g" \
 	"$template_root/dkms.conf.in" \
-	> "$package_root/usr/src/btrfs-qgroup-$dkms_version/dkms.conf"
+	> "$package_source_root/dkms.conf"
 sed "s|@PACKAGE_VERSION@|$package_version|g" \
 	"$template_root/control.in" > "$package_root/DEBIAN/control"
 for maintainer_script in postinst prerm postrm; do

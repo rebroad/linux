@@ -948,6 +948,18 @@ broader filesystem coverage and host rollout remain open.
   automatic-rescan path if qgroups are inconsistent. Add and verify a
   suspend/resume guard for that timer path before declaring host containment
   complete.
+- A follow-up host journal check on 2026-10-18 showed the timeline service
+  running each hour from 00:00 through 05:00 BST, logging the `home` and `root`
+  timeline calls and exiting successfully. The timer remained active with
+  `Persistent=no`; its next elapse was 06:00. The new `sleep.target` unit was
+  still absent.
+- No `qgroup` or `rescan` entries appeared in the kernel journal for that
+  period. The visible `kworker/R-btrfs-qgroup-rescan` threads were idle, which
+  does not establish the filesystem's rescan state. A read-only
+  `btrfs quota rescan -s /mnt/kingston` query still returned
+  `Operation not permitted` from the escalated shell. Current scan status is
+  therefore unverified; do not infer that no scan is running from the journal
+  or worker thread names alone.
 
 ## Suspend-hook implementation (2026-10-18)
 

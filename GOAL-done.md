@@ -2853,6 +2853,38 @@ specified in `GOAL.md`.
   whether the optimization is safe to retain. The separate qgroup deletion
   regression still needs durable coverage.
 
+## Trace the stock snapshot-rescan cycle (2026-10-19)
+
+- In the exact 7.2.6 Btrfs source, `qgroup_snapshot_quick_inherit()` only
+  handles the existing fast path when the source's direct parent is the
+  requested snapshot QGROUP. In the tested layout, the source subvolume and
+  snapshot QGROUP are siblings under a level-2 tracker, so that check returns
+  the positive “rescan needed” result. `btrfs_qgroup_inherit()` propagates it
+  to `need_rescan` and calls `qgroup_mark_inconsistent()` after releasing the
+  qgroup lock.
+- The matching latest-upstream Snapper source calls
+  `Btrfs::prepareQGroupTracking()` before `create_snapshot()`. When the
+  tracker relations already match the expected source/snapshot hierarchy,
+  that method calls `quota_rescan_if_needed()`. If the previous snapshot set
+  the inconsistent flag, Snapper starts and waits for a full scan before it
+  creates the next snapshot. That next snapshot reaches the same conservative
+  kernel fallback. The six stock scans in the eight-snapshot test therefore
+  correspond to three subsequent snapshots on each of its two filesystems;
+  the first snapshot on each starts the cycle, and no extra scan is triggered
+  after the final snapshot.
+- The stock serial logs show the first snapshot's
+  `qgroup inherit needs a rescan` warning with no completed scan yet, followed
+  by a completed scan during the next snapshot operation and another
+  inheritance warning. This matches the source call order and the scan count.
+  The candidate fast path avoids setting inconsistency for this topology, so
+  Snapper's pre-snapshot check sees consistent accounting and starts no scan.
+- This traces the repeated rescans for the tested hierarchy to a conservative
+  kernel fallback followed by Snapper's pre-snapshot consistency check. It
+  does not show that the full scan repairs incorrect counters, nor establish
+  that every host rescan follows this path. Both stock and candidate full
+  rescans report the same measured nonempty counters in both tested operation
+  orders. Live correlation and longer repeated cycles remain open.
+
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 
 - The host's `apt upgrade` transaction (started at 22:27) installed and

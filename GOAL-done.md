@@ -1614,6 +1614,6 @@ specified in `GOAL.md`.
   EditorConfig `indent_size=4` as a tab stop despite `tab_width=8`. Removed
   that override; an isolated Git fixture now converts an eight-column indent
   to one tab, and the script passes a Python syntax check. The fix is committed
-  locally in `/home/rebroad` as `6f03ace4`; it is not yet pushed because the
-  remote branch advanced while unrelated unstaged changes in that checkout
-  prevent a safe rebase.
+  as `6f03ace4` on `/home/rebroad` `master` and is present at `origin/master`.
+  The home-repository checkout has unrelated modified files, which were left
+  untouched.

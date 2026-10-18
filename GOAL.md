@@ -52,10 +52,12 @@ quota-based cleanup must wait until the counters are consistent.
    narrowed patch was checked against current upstream source and compiled
    against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's
-   `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history draft
-   upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing
-   closed drafts #1201 and #1202; keep it paired with the kernel change through
-   review. Add a documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
+   `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history upstream
+   PR [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed
+   drafts #1201 and #1202. PR #1203 is ready for review; at the latest check
+   (2026-10-18), all CI checks passed and no review or maintainer feedback was
+   recorded. Keep it paired with the kernel change through review. Add a
+   documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
    configure every host Snapper config sharing Kingston to `05:00-21:00`
    local time, while retaining the per-filesystem rolling 24-hour cap.
 2. **Deploy the locally built Snapper.** Replace the host's currently

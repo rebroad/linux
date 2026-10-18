@@ -119,9 +119,11 @@ quota-based cleanup must wait until the counters are consistent.
    against the final paired source. The exact-release checkout now has
    maintainable qgroup selftests for the shared-parent fast path and the
    differing/multiple-parent fallbacks; they passed in QEMU on the exact
-   kernel. Before resubmitting the kernel patch, port this coverage to the
-   current Btrfs `for-next` submission base and rerun it there. Add coverage
-   only for Btrfs layouts needed by the patch or not already covered.
+   kernel. The tests and candidate kernel patch now apply to the current Btrfs
+   `for-next` submission base. Keep runtime kernel testing on the exact
+   in-use release; do not build or boot a different kernel for acceptance.
+   Add coverage only for Btrfs layouts needed by the patch or not already
+   covered.
 5. **Preserve temporary host containment, including after resume.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in

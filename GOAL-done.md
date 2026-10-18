@@ -1524,6 +1524,22 @@ specified in `GOAL.md`.
 - Serial log:
   `/var/tmp/qgroup-root-cause-7.1.13/qgroup-sanity-retry1-20261018/qemu-lockfix.log`,
   SHA-256 `01ad48903fc8b04b0e11a1cf8760986505e1031cdf6b35a302ce25e815dfec1d`.
-  The test coverage still needs to be ported to the current Btrfs `for-next`
-  submission base. The user's DCO sign-off for the revised kernel patch also
-  remains pending; do not resubmit it before that gate.
+  The user's DCO sign-off for the revised kernel patch remains pending; do not
+  resubmit it before that gate.
+
+## Btrfs selftest port to current for-next (2026-10-18)
+
+- Rechecked the live Btrfs `for-next` ref; it remains
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`. Applied the candidate kernel
+  patch and the new qgroup selftests to an extracted copy of that exact source
+  tree. Both applied without fuzz; line offsets differed because the source
+  files have moved. This was a temporary patch-application check only; the
+  main checkout remains on the exact in-use `7.1.13+deb13-amd64` source.
+- A mixed-version module build using the for-next Btrfs subtree and the
+  in-use kernel's generated headers failed in unrelated newer Btrfs APIs:
+  `struct bvec_iter` lacks `bi_offset`, and the older memory-cgroup headers
+  lack `mem_cgroup_shrink_is_root`. This does not test the qgroup patch. Do
+  not build or boot another kernel for acceptance; keep runtime tests on the
+  exact in-use release and use upstream review/CI for the submission base.
+- The exact-release sanity tests passed in QEMU as recorded above. The
+  replacement kernel patch remains gated on the user's DCO sign-off.

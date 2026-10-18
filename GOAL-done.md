@@ -1,14 +1,14 @@
 # Completed investigation evidence
 
-This file records verified findings that inform the active tasks in
-[`GOAL.md`](GOAL.md). A tracking-parent fix candidate has now passed the
+This file records verified findings and completed work for the active checklist
+in [`GOAL-todo.md`](GOAL-todo.md). A tracking-parent fix candidate has now passed the
 described QEMU snapshot and cleanup workloads on the then-current Snapper build;
 broader filesystem coverage and host rollout remain open.
 
 Snapper versions identified as Debian or distribution packages below are
 historical diagnostic baselines or QEMU controls only. The intended host
 runtime is our locally built Snapper from the latest upstream source, as
-specified in `GOAL.md`.
+specified in `GOAL-todo.md`.
 
 ## Kernel baseline
 
@@ -1819,3 +1819,18 @@ specified in `GOAL.md`.
   `/etc/snapper/configs` policy values could not be refreshed. Keep deployment
   gated until PR review, host-level access, and the remaining acceptance and
   upgrade checks are resolved.
+
+## Kernel DCO and AI-assistance policy checked (2026-10-18)
+
+- Checked the current kernel submission guide and AI coding-assistant and
+  generated-content guidance. A human submitter must personally review the
+  AI-assisted contribution, ensure it meets licensing requirements, add
+  their own `Signed-off-by`, and take responsibility for it. The DCO also
+  makes the signer's right to submit the work under the applicable open-source
+  license and the permanent public contribution record explicit.
+- The current unsigned patch includes `Assisted-by: Codex:GPT-6`, consistent
+  with the kernel's tool-attribution guidance, and has no `Signed-off-by`
+  trailer. The user must decide whether they can make the DCO certification
+  for this exact patch revision after reviewing it. No sign-off was inferred
+  from the earlier authorization or from the prior sign-off for a different
+  revision.

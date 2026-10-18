@@ -1,11 +1,24 @@
 # Goal: fix Snapper-triggered Btrfs qgroup inconsistency
 
+This is the active **to-do** document. It lists remaining work, with rough
+completion percentages for partially completed items. Move verified completed
+work and its evidence to [`GOAL-done.md`](GOAL-done.md), then remove that work
+from this checklist. Percentages are progress estimates, not test results or
+approval states.
+
 The required and accepted host runtime is the locally built Snapper from our
 repository, based on the latest official upstream source and carrying our
 reviewed changes. Any mention of the currently installed distribution version
 describes historical pre-migration status only; it is not an acceptable target
 runtime or an acceptance state. All deployment and acceptance work must target
 our built Snapper.
+
+Local testing and deployment are separate from public upstream submission.
+Upstream review and DCO certification are required before publishing the
+contributions; they are not prerequisites for installing the locally built
+Snapper or modified Btrfs module. Local use instead requires technical review,
+the exact-kernel acceptance workload, a valid Secure Boot signature from an
+enrolled key, and a tested rollback and kernel-upgrade path.
 
 Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
 leave the host with a persistent fix that survives normal package upgrades.
@@ -21,15 +34,15 @@ deferred, Snapper must still return last-known quota values with an explicit
 stale status; `snapper list` should display them with a warning, and
 quota-based cleanup must wait until the counters are consistent.
 
-## Remaining work
+## Next steps
 
-1. **Complete the paired upstream contributions.** Develop and validate the
+1. **Complete the paired upstream contributions — 70% done.** Develop and validate the
    Snapper fix against the latest revision in the official upstream repository
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
    branch as the development base. The host's required Snapper runtime is our
-   locally built and maintained version from latest upstream with the reviewed
-   fix; install and verify that build after the review and acceptance gates.
+   locally built and maintained version from latest upstream with our fix;
+   install and verify that build after the local safety and acceptance gates.
    Use only the exact in-use kernel release `7.1.13+deb13-amd64` for remaining
    kernel investigation and acceptance testing.
 
@@ -73,18 +86,20 @@ quota-based cleanup must wait until the counters are consistent.
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
    Its exact-release QEMU tests, including ancestor-counter overflow fallback,
    and current patch checks are recorded in `GOAL-done.md`. The patch has not
-   been submitted; review the exact patch and
-   obtain the user's DCO sign-off before adding a `Signed-off-by` trailer or
-   sending it to the mailing list. The unsigned mail-formatted draft is
+   been submitted. Review the exact patch and obtain the user's DCO sign-off
+   before adding a `Signed-off-by` trailer or sending it to the mailing list;
+   this public-submission gate does not block local testing or deployment.
+   The unsigned mail-formatted draft is
    `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
-2. **Deploy and maintain our latest-upstream Snapper build.** Install our
-   locally built Snapper from the latest upstream baseline, including the
-   reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging
+2. **Deploy and maintain our latest-upstream Snapper build — 65% done.** Install our
+   locally built Snapper from the latest upstream baseline, including our
+   qgroup fix, as the host's active Snapper runtime. Debian packaging
    is only the installation format for our build; the distribution-provided
    Snapper is not the target runtime or a runtime dependency.
-   Keep deployment
-   gated until the Snapper change and, if required, its
-   paired kernel change have review and the full accounting/quota checks pass.
+   Keep local deployment gated until technical review, the full accounting and
+   quota checks, Secure Boot signing, rollback, and kernel-upgrade behavior are
+   verified. Upstream PR review and DCO sign-off are separate
+   publication gates and are not prerequisites for local use.
    Rebuild from the latest reviewed Snapper source with the committed local
    Debian package recipe, verify quota support in the binary, and repeat the
    APT simulation before deployment. The recipe is
@@ -94,7 +109,7 @@ quota-based cleanup must wait until the counters are consistent.
    successful uninstalled build and test evidence are in `GOAL-done.md`.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
-3. **Make the fix durable across APT upgrades.** Prefer a Snapper-only
+3. **Make the fix durable across APT upgrades — 35% done.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
@@ -117,21 +132,35 @@ quota-based cleanup must wait until the counters are consistent.
    succeeded, was signed with a temporary test key, and resolved ahead of the
    packaged module in a synthetic module tree. This advances an APT-packaged
    DKMS module as a deployment candidate, but does not verify host deployment.
-   Secure Boot is enabled and module signatures are enforced. Verify signing
-   with an enrolled host key, initramfs selection, and APT upgrade behavior
-   before choosing DKMS. Debian's kernel hook chain propagates DKMS
-   build failures from image post-install, so prove an unsupported future
-   kernel cannot leave APT upgrades failing or boot an unpatched Btrfs module.
+   Secure Boot is enabled and module signatures are enforced. A locally
+   enrolled `Rebroad's module signing key` is present; verify that the matching
+   private key signs the final candidate, then verify initramfs selection and
+   APT upgrade behavior before choosing DKMS. Debian's kernel hook chain
+   propagates DKMS build failures from image post-install, so prove an
+   unsupported future kernel cannot leave APT upgrades failing or boot an
+   unpatched Btrfs module.
    Before considering the host rollout complete, exercise the relevant APT
    upgrade/reinstall path and verify the running kernel, loaded module, and
    Snapper package contain the intended fix afterward. Preserve normal kernel
    security upgrades; do not rely on manual intervention after each APT
    kernel upgrade.
-4. **Finish accounting and recovery coverage.** Use the latest-upstream
+4. **Finish accounting and recovery coverage — 70% done.** Use the latest-upstream
    Snapper build as the primary acceptance target and the exact
    `7.1.13+deb13-amd64` kernel. Existing QEMU coverage and results are in
-   `GOAL-done.md`. After upstream review, rerun the full acceptance workload
-   against the final paired source. The exact-release checkout now has
+   `GOAL-done.md`. The currently QEMU-tested module is not yet suitable for
+   local installation: it contains `btrfs_run_sanity_tests`, which runs
+   developer sanity tests during module load. A later external-module build
+   against the exact running kernel headers still contains that symbol,
+   despite the header configuration reporting
+   `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` unset. Resolve why the external build
+   includes it and produce a production-form module with sanity tests absent.
+   Then rerun the full acceptance workload against that exact artifact and the
+   final paired Snapper source; the earlier QEMU results do not validate this
+   production-form artifact. Verify the signed artifact with the already
+   enrolled `Rebroad` MOK key and demonstrate that Secure Boot accepts it in
+   the exact-kernel test environment. Do not install the module on the host
+   until these checks pass and a rollback path is ready. The exact-release
+   checkout now has
    maintainable qgroup selftests for the shared-parent fast path and the
    differing/multiple-parent fallbacks; they passed in QEMU on the exact
    kernel. The tests and candidate kernel patch now apply to the current Btrfs
@@ -139,7 +168,7 @@ quota-based cleanup must wait until the counters are consistent.
    in-use release; do not build or boot a different kernel for acceptance.
    Add coverage only for Btrfs layouts needed by the patch or not already
    covered.
-5. **Preserve temporary host containment, including after resume.** The
+5. **Preserve temporary host containment, including after resume — 80% done.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in
    `GOAL-done.md`. This wrapper is one rescan initiator;

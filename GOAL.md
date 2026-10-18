@@ -103,12 +103,14 @@ quota-based cleanup must wait until the counters are consistent.
    reconciliation still need deeper validation. With the candidate module,
    a forced full rescan immediately after snapshots left nonempty qgroup
    counters unchanged in both root-first and home-first order: each snapshot
-   group reported 4,243,456 referenced and 49,152 exclusive bytes. Still
-   derive the 49,152-byte metadata component independently from Btrfs extent
-   and tree data, and repeat longer cycles. The known file payload is 4 MiB
-   per source (2 MiB stable plus two 1 MiB change files), and the stock module
-   reaches the same full-rescan counters in both operation orders; evidence
-   and remaining limits are recorded in `GOAL-done.md`.
+   group reported 4,243,456 referenced and 49,152 exclusive bytes. The
+   49,152-byte metadata component is now reconciled against three unique
+   16 KiB metadata tree blocks belonging to the `.snapshots` root and its two
+   snapshots. Repeat longer cycles and validate the same accounting against
+   live-host operations. The known file payload is 4 MiB per source (2 MiB
+   stable plus two 1 MiB change files), and the stock module reaches the same
+   full-rescan counters in both operation orders; evidence and remaining
+   limits are recorded in `GOAL-done.md`.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is

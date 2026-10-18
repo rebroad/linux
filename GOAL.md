@@ -43,45 +43,7 @@ quota-based cleanup must wait until the counters are consistent.
 
 ## Next steps
 
-1. **Close the Snapper-only alternative assessment — 80% done.** Exact-release
-   QEMU has now tested shared and distinct IDs, tracked and untracked layouts,
-   and post-create QGROUP assignment. Shared IDs combine root/home accounting;
-   distinct IDs still become inconsistent on stock Btrfs. Creating snapshots
-   without QGROUP inheritance and assigning them afterward also leaves qgroup
-   accounting inconsistent until a full rescan, with stale counters in between.
-   The paired stock/candidate run shows the candidate keeps the tested
-   four-group tracked layout consistent. These results indicate the kernel
-   change is needed for the current Snapper behavior, but do not rule out every
-   Snapper-only design. Decide whether a remaining design can preserve four
-   accurate collectives without rescanning after snapshots; document why it
-   works or why the required assignment/inheritance semantics make the kernel
-   companion necessary. Evidence is in `GOAL-done.md`.
-
-   Treat the kernel change as provisionally required for the current Snapper
-   design and four-collective requirement. Source inspection explains a
-   separate shared-ID Snapper flaw: its second config can reuse a tracker that
-   contains the first source, then skip pairing the second source with the
-   shared snapshot QGROUP. This explains the shared-ID mismatch, but does not
-   explain stock-module failures with distinct groups. The candidate module
-   keeps the tested distinct-group tracking layout consistent, while the
-   shared-ID mismatch still fails with the candidate.
-   Use the exact same Snapper build and workload for each new stock/candidate
-   comparison. Put fixtures and outputs only in the sibling build tree. Do not
-   migrate the live p8 qgroups or deploy a kernel module until a Snapper-only
-   alternative has passed the four-collective requirement without per-snapshot
-   rescans.
-
-2. **Confirm the kernel patch's necessity and scope.** Review the Btrfs change
-   against the reproducible Snapper 0.13.2 tests: identical four-group tracked
-   workloads fail on stock `7.1.13+deb13-amd64` and pass with the candidate.
-   Confirm the patch only bypasses the rescan for the proven-safe shared-parent
-   case and retains conservative fallbacks. If no remaining Snapper-only design
-   meets the four-collective requirement without per-snapshot rescans, record
-   the kernel companion as required for this release and proceed through its
-   local safety, Secure Boot, and upgrade-persistence gates. Keep upstream
-   publication as a separate gate.
-
-3. **Complete the paired upstream contributions — 70% done.** Develop and validate the
+1. **Complete the paired upstream contributions — 70% done.** Develop and validate the
    Snapper fix against the latest revision in the official upstream repository
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
@@ -94,14 +56,17 @@ quota-based cleanup must wait until the counters are consistent.
    The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
    based on the latest official `openSUSE/snapper` master. It is open, all
    seven CI checks pass, and upstream review is pending. Keep PR #1203 active
-   while validating the accounting design. The kernel change remains a
-   candidate, not an assumed requirement: exact-release QEMU testing now shows
-   that distinct per-config QGROUPs with the current Snapper still become
+   while validating the accounting design. Exact-release QEMU testing shows
+   that distinct per-config QGROUPs with the current Snapper become
    inconsistent on the stock module, while the candidate module keeps four
-   independent groups consistent. Test whether a Snapper-only design can meet
-   the same four-group requirement before deciding that the kernel change is
-   necessary. Results and limits are recorded in `GOAL-done.md`; refresh
-   upstream state before rebasing or starting new work.
+   independent groups consistent. The tested Snapper-only alternatives cannot
+   keep accurate snapshot-only counters without rescanning. Treat the kernel
+   companion as required for this Snapper design on
+   `7.1.13+deb13-amd64`; it remains gated on local safety and upgrade checks.
+   The shared root/home QGROUP tracker mismatch is a separate Snapper bug and
+   distinct groups remain required for the four collectives. Results and
+   limits are recorded in `GOAL-done.md`; refresh upstream state before
+   rebasing or starting new work.
 
    **PR description practice:** Follow the target repository's PR template and
    conventions. Keep the description focused on the current implementation,
@@ -148,13 +113,12 @@ quota-based cleanup must wait until the counters are consistent.
 
    The tested Snapper tracking layout gives each config a separate level-1
    snapshot QGROUP and pairs that QGROUP with its live source under a tracker.
-   On stock `7.1.13`, inherited snapshots still mark qgroups inconsistent and
-   a later full rescan changes stale exclusive counters. The candidate Btrfs
+   On stock `7.1.13`, inherited snapshots mark qgroups inconsistent and a
+   later full rescan changes stale exclusive counters. The candidate Btrfs
    fast path avoids those marks in the four-group QEMU workload and the
-   counters then match a full rescan. This supports the candidate for the
-   tested layout, but does not rule out a different Snapper-only design.
-   Preserve the conservative fallback for layouts the fast path cannot prove
-   safe. See `GOAL-done.md` for the controlled comparison.
+   counters then match a full rescan. Preserve the conservative fallback for
+   layouts the fast path cannot prove safe. See `GOAL-done.md` for the
+   controlled comparison and the tested Snapper-only alternatives.
 
    The kernel companion is based on the Btrfs maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).

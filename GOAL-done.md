@@ -2429,3 +2429,43 @@ specified in `GOAL.md`.
   invalid layout for the required accounting and mishandle tracker setup;
   stock Btrfs also cannot maintain the valid distinct-ID layout without
   rescanning.
+
+## Snapper-only alternative assessment and kernel necessity (2026-10-18)
+
+- The required Snapper layout has a snapshot-only level-1 QGROUP and a
+  separate tracker containing that QGROUP plus the live source. On stock
+  `7.1.13`, the existing snapshot quick-inherit path only handles a source
+  whose direct parent is the target QGROUP, with the target's exclusive and
+  referenced counters equal. In the required layout, source and target are
+  siblings under a level-2 tracker, so stock Btrfs uses the conservative
+  rescan path. Making the source a member of the snapshot QGROUP to satisfy
+  the old fast path would include live-source extents in the snapshot-only
+  collective and violate the required accounting.
+- Two Snapper-only workarounds were tested on stock Btrfs. Leaving snapshots
+  untracked still marks qgroups inconsistent. Creating snapshots without
+  QGROUP inheritance and assigning them afterward marks quota accounting
+  inconsistent until a full rescan; its stale counters do not match the
+  post-rescan values. Thus neither preserves current independent counters
+  without rescanning.
+- The candidate adds a fast path only for the exact safe sibling layout:
+  source has one parent; target has that same sole parent; and the common
+  tracker contains exactly the source and target. It checks target, common
+  parent, and ancestor counter overflow before changing counters. Different
+  or multiple parents, extra tracker members, missing source membership, and
+  overflow retain the rescan fallback. The QEMU four-group workload on the
+  exact kernel passed with the candidate and failed on stock; the shared-ID
+  layout still falls back because its home source lacks the common tracker.
+- The exact-release qgroup sanity tests passed at nodesizes 4, 8, 16, 32, and
+  64 KiB, checking referenced, exclusive, compressed, and ancestor counters,
+  as well as different/multiple-parent fallbacks and ancestor overflow without
+  partial updates. The serial log is
+  `/var/tmp/qgroup-root-cause-7.1.13/shared-parent-union-20261018/qemu-4g.log`
+  and ends `QGROUP-SANITY: PASS`.
+- Conclusion, scoped to Snapper's Btrfs QGROUP accounting on
+  `7.1.13+deb13-amd64`: the kernel companion is required to preserve accurate
+  snapshot-only exclusive totals across repeated snapshots without a full
+  rescan after each snapshot. This does not claim that no custom userspace
+  extent-accounting design could be written; that would be a different
+  accounting implementation and is outside the required Snapper QGROUP
+  interface. Public upstream submission and host rollout remain separate
+  gates.

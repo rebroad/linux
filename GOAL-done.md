@@ -1795,5 +1795,13 @@ specified in `GOAL.md`.
   stale warning. Btrfs reported no scan in progress; the fixture ended
   `POLICY-MISMATCH: PASS`. Serial log SHA-256:
   `e1e4953ce173d2812ed360355ea0ad5ea150919fd267027c09192068e4ff31ed`.
+- Repeated the full two-config quota acceptance workload using the current
+  Snapper PR head `476f0814`, Snapper 0.13.2, and the paired candidate Btrfs
+  module on exact kernel `7.1.13+deb13-amd64`. Root and home used matching
+  `00:00-24:00` windows. Tracker setup for both configs started one automatic
+  shared-filesystem scan; hourly snapshots and quota cleanup completed, and the
+  final qgroup counters matched a full rescan. The log ended
+  `SNAPPER-QUOTA: PASS`; serial log SHA-256:
+  `1574899662080c0445c0271170ef99d1767e4af7231ab76baff5fbbc200ffdb4`.
 - The updated Snapper PR head has all seven GitHub CI checks successful.
   Generated artifacts remain in the sibling build tree.

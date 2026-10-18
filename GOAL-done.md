@@ -948,21 +948,27 @@ broader filesystem coverage and host rollout remain open.
 
 ## Suspend-hook implementation (2026-10-18)
 
-- Added and pushed `bin/snapper-timeline-sleep` in the home repository on
-  branch `codex/snapper-timeline-sleep-guard`, commit `bf3ce0d4`. The hook
-  remembers whether `snapper-timeline.timer` was active, stops it before
-  system sleep, and restarts it after resume only when it had been active.
-  Repeated pre-sleep calls preserve the original state; an inactive timer
-  remains inactive.
-- A fake-`systemctl` harness passed the active, inactive, resume, and repeated
-  pre-sleep paths, plus stop/start failure cleanup; `sh -n` also passed. The
-  installed timer is hourly with
-  `Persistent=no`. Stopping it during sleep prevents systemd's active-calendar
-  timer catch-up behavior; restarting it schedules its next calendar elapse.
-- The host hook has not yet been installed. The ordinary escalated shell could
-  not write under `/usr/lib/systemd/system-sleep`, and sudo authorization is
-  still pending. Install the committed file there, verify its hash and mode,
-  and confirm the timer remains active before treating this guard as deployed.
+- Added and pushed `bin/snapper-timeline-sleep` and
+  `systemd/snapper-timeline-sleep.service` in the home repository on
+  `codex/snapper-timeline-sleep-guard` (commits `bf3ce0d4` and fixup
+  `3b01c647`). The helper remembers whether `snapper-timeline.timer` was
+  active, stops it before system sleep, and restarts it after resume only if it
+  had been active. Repeated pre-sleep calls preserve the original state; an
+  inactive timer remains inactive.
+- The unit follows systemd's documented `sleep.target` oneshot pattern:
+  `ExecStart` runs the pre-sleep action, and `ExecStop` runs after resume. It
+  uses `RemainAfterExit=yes`, `StopWhenUnneeded=yes`, `Before=sleep.target`,
+  and `WantedBy=sleep.target`, and requires the mount containing the helper.
+  `systemd-analyze verify` passed with the packaged unit search path. A
+  fake-`systemctl` harness passed active/inactive, repeated pre-sleep, resume,
+  and stop/start failure-cleanup paths; `sh -n` passed too.
+- The live hourly timer has `Persistent=no`, so stopping it across sleep
+  prevents a missed calendar event from being replayed on resume. The host
+  unit has not yet been installed or enabled. Install the committed unit at
+  `/etc/systemd/system/snapper-timeline-sleep.service`, run `systemctl
+  daemon-reload` and enable it, then verify the dependency on `sleep.target`
+  and the active timer. Do not treat this guard as deployed before those live
+  checks pass.
 
 ## Host runtime and module deployment audit (2026-10-18)
 

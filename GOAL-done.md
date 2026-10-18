@@ -2547,3 +2547,37 @@ specified in `GOAL.md`.
   and both full rescans cleared the inconsistency flags. Continue the remaining
   root-only and topology-matched cases before deciding whether the kernel
   companion is required for the host's intended distinct-group layout.
+
+## Separate expected qgroup fallback from a kernel correctness bug (2026-10-18)
+
+- The stock-module four-group QEMU run demonstrates that shared root/home IDs
+  are not necessary for a qgroup inconsistency flag: distinct root and home
+  groups still triggered `qgroup inherit needs a rescan` on both filesystems.
+  The full scans completed and cleared the flags. This alone does not show
+  incorrect final accounting or a kernel correctness defect.
+- Snapper's current `Btrfs::prepareQGroupTracking()` creates a level-2 tracker
+  containing the live source qgroup and the snapshot-only level-1 qgroup, then
+  calls `quota_rescan_if_needed()` before the snapshot operation. The snapshot
+  is created with the configured level-1 group as its inheritance target.
+  `quota_rescan_if_needed()` starts and waits for a full scan when it sees the
+  filesystem's inconsistency flag and no scan is already running. Thus a
+  snapshot can make qgroups inconsistent, and a later Snapper invocation can
+  rescan before taking its next snapshot. The paired QEMU logs show scans
+  completing between such snapshot operations. This is a plausible mechanism
+  for recurring hourly scans; root-only and home-only repeated-operation
+  cases remain to be measured directly.
+- In the tested distinct-group layout, the source and target are siblings
+  under the same level-2 tracker. The candidate module has a bounded quick
+  accounting path for that exact two-member hierarchy; the stock module takes
+  the conservative full-rescan path. That behavior is consistent with a
+  safety fallback when the stock code cannot update exclusive counters
+  incrementally. The QEMU evidence does not establish that the stock kernel
+  leaves wrong counters after a completed rescan. Treat the candidate as a
+  rescan-avoidance optimization unless additional evidence shows a correctness
+  failure or that the required operating constraints cannot be met otherwise.
+- The current controlled results do establish that a shared root/home level-1
+  group cannot provide the four separately queryable snapshot totals and can
+  leave Snapper's tracker hierarchy mismatched. They do not establish that
+  sharing is the cause of all inconsistency events. Continue root-only,
+  home-only, both-order, and host-topology-matched QEMU cases before deciding
+  whether the kernel companion is needed for the operational goal.

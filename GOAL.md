@@ -26,6 +26,12 @@ QGROUP ID cause the observed qgroup inconsistency. The immediate priority is a
 controlled Snapper QEMU investigation; do not treat the kernel module change as
 necessary or migrate the host's qgroups until that investigation establishes
 what causes the inconsistency and whether a Snapper-only fix is sufficient.
+Do not assume that a qgroup inconsistency flag means Btrfs has a correctness
+bug: the kernel may conservatively request a full rescan when it cannot update
+exclusive counters safely for a particular hierarchy. Distinguish that
+documented fallback from incorrect counters that remain wrong after a rescan,
+and from a Snapper configuration or tracking error. A kernel fast path may be
+an optimization even when it is useful to avoid frequent rescans.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -72,8 +78,15 @@ quota-based cleanup must wait until the counters are consistent.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is
-   unrelated. Only if fresh, correctly configured distinct-ID cases still
-   become inconsistent should the kernel companion remain a required fix.
+   unrelated. For every stock-kernel rescan, determine whether Btrfs is taking
+   its conservative fallback for a hierarchy it cannot update incrementally,
+   whether Snapper is invoking the rescan on the next snapshot, and whether a
+   full rescan restores correct counters. A distinct-ID case that requests a
+   rescan does not by itself prove a kernel defect or make the companion a
+   correctness fix. Keep the companion only if the measured rescan frequency
+   or user-visible behavior cannot meet the required accounting and operating
+   constraints with the stock kernel; describe it as a fast-path optimization
+   when that is what the evidence supports.
    Keep host qgroup migration and production module activation paused until
    this decision is supported by reproducible QEMU evidence. Record each
    completed case and its limits in `GOAL-done.md`.

@@ -93,6 +93,17 @@ quota-based cleanup must wait until the counters are consistent.
    independently against a full rescan. Root and home must not be combined
    into one snapshot QGROUP. Both filesystems currently report inconsistent
    qgroup data, so their stored byte counters are stale until rescanned.
+   QEMU reproduced the p8 layout: the root snapshot stayed consistent, then
+   the home snapshot in the shared root group logged `qgroup inherit needs a
+   rescan`, even with the candidate module. After moving existing home
+   snapshots to their own group, pairing that group and the live home source
+   under a separate tracker, and rescanning, new root/home snapshots remained
+   consistent and the exclusive counters matched a full rescan. This confirms
+   the shared p8 group/tracker mismatch as a cause on p8. The host migration
+   must wait until the candidate module is active. The force-suspend hold only
+   defers new rescans; it does not itself block the layout migration. Run the
+   migration's required full rescan only after the hold expires, inside the
+   configured window, and subject to the rolling 24-hour limit.
 
    The tested Snapper tracking layout gives each config a separate level-1
    snapshot QGROUP and pairs that QGROUP with its live source under a tracker.

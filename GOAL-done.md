@@ -2209,3 +2209,73 @@ specified in `GOAL.md`.
   and exclusive byte counters are stale and were not used as measurements.
   The audit establishes the current grouping problem but does not identify
   which snapshot operation originally marked either filesystem inconsistent.
+
+## Reproduce and migrate the p8 shared root/home group in QEMU (2026-10-18)
+
+- Used the exact Debian `7.1.13+deb13-amd64` kernel image and the same Snapper
+  0.13.2 executable and libsnapper hashes recorded above. QEMU loaded the
+  signed candidate Btrfs module, SHA-256
+  `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`; guest
+  signature enforcement was off, as in the earlier accounting test.
+- Configured the p8 root and home Snapper configs to share `1/0`, while the
+  root source and snapshot group were tracked under `2/0`. The first root
+  snapshot left the filesystem consistent. The following home snapshot
+  produced `BTRFS warning (device vda): qgroup marked inconsistent, qgroup
+  inherit needs a rescan`; no rescan had started. This reproduces the p8
+  shared-group/tracker mismatch with the candidate kernel, independent of the
+  stock-kernel fallback seen in the earlier QEMU comparison.
+- Migrated the fixture's existing home snapshot memberships from `1/0` to
+  `1/1`, added a level-2 tracker `2/1` containing the live home source and
+  home snapshot group, changed the home config to `1/1`, and ran one full
+  rescan. Subsequent root and home snapshots started no additional rescan and
+  emitted no new inconsistency warning. After two snapshots per config, the
+  group's counters were:
+
+  | Collective | QGROUP | Referenced bytes | Exclusive bytes |
+  | --- | --- | ---: | ---: |
+  | p8-root | 1/0 | 6,586,368 | 2,260,992 |
+  | p8-home | 1/1 | 4,374,528 | 1,163,264 |
+
+- A further full rescan left both groups' referenced and exclusive counters
+  unchanged. The test ended `P8-MIGRATION: PASS`; serial log:
+  `linux.build/qgroup-p8-shared-to-separate-candidate-20261018/serial.log`.
+  This validates the membership move and separate tracker in the disposable
+  fixture; it does not mean the p8 host has been changed.
+- Kernel journal chronology on the host ties earlier inconsistency events to
+  the hourly Snapper service: on 2026-10-16 the service started at 12:42:29,
+  logged its home and root timelines, and the kernel marked a qgroup
+  inconsistent at 12:42:32; on 2026-10-17 the service started at 11:16:47,
+  logged home and root timelines, and the kernel marked a qgroup inconsistent
+  at 11:16:49. The timestamps identify the service-level trigger, while the
+  controlled p8 reproduction identifies the home snapshot as the trigger for
+  the shared p8 group.
+- At the live audit time, 2026-10-18 18:59 BST, the host had no active rescan.
+  The last completed scans in the retained journal were on device `sda1` at
+  2026-10-16 12:42:29 and device `sdb1` at 2026-10-17 11:16:47; each was
+  followed seconds later by a new inconsistency. The logs checked here do not
+  establish the historical device-name-to-filesystem mapping. The
+  force-suspend marker was active until 2026-10-19 04:00 BST, which deferred
+  new scans; the configured rescan window opens at 05:00. No manual host
+  rescan or group migration was started during that audit because activation
+  of the candidate module had not been verified.
+- The host had booted `7.1.13+deb13-amd64` on 2026-10-14 15:47 BST. Its signed
+  candidate module was installed later, on 2026-10-18 16:47 BST, and the
+  loaded module's build ID differed from that installed candidate. The host
+  is not yet proven to be running this candidate; verify the loaded module at
+  a planned reboot before applying the p8 migration. The 2026-10-16/17 kernel
+  events predate the candidate installation.
+
+## Live host gate check (2026-10-18 19:13 BST)
+
+- `sudo btrfs quota rescan -s /` and the corresponding Kingston query both
+  reported no rescan in progress. Both filesystems still report inconsistent
+  qgroup data, so their stored quota counters remain stale.
+- The live root and home Snapper configs both use `QGROUP=1/100` and have the
+  shared `05:00-21:00` rescan window and force-suspend marker configured. The
+  marker deadline is 2026-10-19 04:00 BST. This blocks new scans until that
+  deadline; it does not block a qgroup-layout change by itself.
+- The installed candidate module has SHA-256
+  `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5` and
+  build ID `dbacb384412daefbc812969624941d88b79396b7`. The currently loaded
+  module has build ID `059c7530edfb1e54ce3b71e44d1f4aa3a4216e17`, so candidate
+  activation remains unverified and the p8 migration has not been run.

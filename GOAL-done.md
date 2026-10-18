@@ -1717,3 +1717,11 @@ specified in `GOAL.md`.
   --no-signoff` reports zero errors and warnings. Standard strict checkpatch
   reports only the missing `Signed-off-by` trailer. The patch remains unsigned
   and unsubmitted pending the user's DCO sign-off for this exact revision.
+
+## Snapper companion-validation note refreshed (2026-10-18)
+
+- Updated PR #1203's kernel-companion paragraph to include the exact
+  `for-next` base, the strengthened tracker-union test, its exact-release
+  five-nodesize QEMU pass, and the still-pending DCO sign-off. The published
+  head and base are unchanged; all seven checks remain successful, with no
+  reviews or review decision.

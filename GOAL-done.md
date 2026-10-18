@@ -1784,6 +1784,16 @@ specified in `GOAL.md`.
   hold paths, and ignoring configs on other filesystems. The full Snapper build
   completed; `make check` exited successfully with 30 passes, 2 optional skips,
   and no failures. The core testsuite passed 20/20, and the focused limiter
-  binary passed 8 cases and 108 assertions. A QEMU run with deliberately
-  mismatched config policies remains to be done. Generated artifacts remain in
-  the sibling build tree.
+  binary passed 8 cases and 108 assertions.
+- Ran an exact-kernel QEMU case on `7.1.13+deb13-amd64` with the stock Debian
+  Btrfs module (SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`). At
+  07:00, root allowed `00:00-24:00` and home allowed `05:00-21:00`. Creating a
+  root snapshot marked qgroups inconsistent; Snapper logged the policy
+  mismatch, started no scan beyond the two baseline setup/reconciliation
+  completions, and `snapper list` returned numeric last-known usage with its
+  stale warning. Btrfs reported no scan in progress; the fixture ended
+  `POLICY-MISMATCH: PASS`. Serial log SHA-256:
+  `e1e4953ce173d2812ed360355ea0ad5ea150919fd267027c09192068e4ff31ed`.
+- The updated Snapper PR head has all seven GitHub CI checks successful.
+  Generated artifacts remain in the sibling build tree.

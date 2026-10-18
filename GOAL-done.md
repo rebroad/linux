@@ -2294,6 +2294,27 @@ specified in `GOAL.md`.
   `openSUSE/snapper` master at `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`;
   all seven reported CI checks pass and no review decision is recorded.
 
+## DKMS source-selector and failure-path audit (2026-10-18)
+
+- The installed DKMS package is present and reports the patched module
+  installed for all three installed releases: 7.1.8, 7.1.13, and 7.2.6. Its
+  packaged source map also includes exact 7.2.9 source for a future candidate.
+- Ran the installed source selector in a disposable `/var/tmp` directory.
+  For `7.1.13+deb13-amd64`, it selected the packaged 7.1.13 source and copied
+  a matching `Makefile`. For unmapped `7.3.0+deb13-amd64`, it exited 1 with
+  `no matching Btrfs source is packaged` before copying source files. The
+  disposable output was removed.
+- Source inspection confirms the unsupported-release failure is propagated:
+  DKMS `PRE_BUILD` invokes the selector; `dkms_autoinstaller` returns failure
+  when `dkms autoinstall` fails; `/etc/kernel/postinst.d/dkms` propagates that
+  status; and Debian's `linux-run-hooks` executes post-install hooks with
+  `run-parts --exit-on-error`. This indicates an unsupported kernel image
+  post-install can fail and leave dpkg needing recovery. The complete failed
+  kernel-package transaction was not reproduced. This package failure mode is
+  not an acceptable safety mechanism; an APT-level pre-install policy and its
+  interaction with unrelated security upgrades remain to be designed and
+  tested, as tracked in `GOAL.md`.
+
 ## Live host gate check (2026-10-18 19:13 BST)
 
 - `sudo btrfs quota rescan -s /` and the corresponding Kingston query both

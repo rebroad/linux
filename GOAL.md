@@ -190,11 +190,17 @@ quota-based cleanup must wait until the counters are consistent.
    7.2.6; the machine is still running 7.1.13 and has not rebooted. The package
    also maps 7.2.9 in case that image release becomes available. Package build,
    module hashes, APT result, and per-kernel verification are in
-   `GOAL-done.md`. The source selector deliberately fails for an unmapped
-   release. Prepare and test source support before installing each new APT
-   kernel candidate, and prove an unsupported build cannot silently boot an
-   unpatched module or leave kernel package configuration broken while
-   preserving security updates.
+   `GOAL-done.md`. The installed selector passes for a supported release and
+   returns an explicit error for an unmapped release. However, source
+   inspection shows that this failure propagates through DKMS and Debian's
+   `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore
+   leave the kernel image package unconfigured. This is not an acceptable
+   fail-safe. Design and verify a pre-install policy that prevents an
+   unsupported kernel from becoming bootable without leaving dpkg broken,
+   silently selecting stock Btrfs, or blocking unrelated security updates;
+   make any temporarily withheld kernel update visible. Keep preparing exact
+   source support before each new APT kernel candidate and test both the
+   supported and unsupported paths end to end.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, and initramfs inclusion are verified for

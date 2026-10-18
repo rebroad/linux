@@ -1,0 +1,385 @@
+# Goal: fix Snapper-triggered Btrfs qgroup inconsistency
+
+This is the active **to-do** document. It lists remaining work, with rough
+completion percentages for partially completed items. Move verified completed
+work and its evidence to [`GOAL-done.md`](GOAL-done.md), then remove that work
+from this checklist. Percentages are progress estimates, not test results or
+approval states. Keep this file focused on what remains to do; `GOAL-done.md`
+is the record of completed work and useful historical evidence.
+
+The required and accepted host runtime is the locally built Snapper from our
+repository, based on the latest official upstream source and carrying our
+reviewed changes. Any mention of the currently installed distribution version
+describes historical pre-migration status only; it is not an acceptable target
+runtime or an acceptance state. All deployment and acceptance work must target
+our built Snapper.
+
+Local testing and deployment are separate from public upstream submission.
+Upstream review and DCO certification are required before publishing the
+contributions; they are not prerequisites for installing the locally built
+Snapper or modified Btrfs module. Local use instead requires technical review,
+the exact-kernel acceptance workload, a valid Secure Boot signature from an
+enrolled key, and a tested rollback and kernel-upgrade path.
+
+Determine and fix the source of Snapper-triggered qgroup rescans. Controlled
+QEMU tests show that sharing the root and home snapshot QGROUP is not required
+for the stock kernel's conservative rescan fallback, and a shared QGROUP
+cannot provide independently queryable root and home totals. The host's p8
+groups have therefore been split; do not treat that change or the candidate
+kernel fast path as proof that the root cause is fixed. Continue tracing which
+Snapper/Btrfs operations set inconsistency, whether completed full scans
+restore correct counters, and whether a Snapper-only change can meet the
+accounting and operating requirements. Distinguish a conservative fallback
+from incorrect counters and from a Snapper tracking/configuration error.
+Once the cause is established, leave the host with a persistent fix that
+survives normal package upgrades.
+The required accounting has four independent snapshot collectives: p8-root,
+p8-home, Kingston-root, and Kingston-home. Each Snapper config must keep its
+own snapshot QGROUP so its exclusive-space total remains separately visible;
+root and home do not need to share a snapshot QGROUP. Preserve accurate
+accounting and expected cleanup behavior. Avoid unnecessary
+full rescans by correcting their cause, not by hiding inconsistency or
+weakening accounting. Keep both rescan gates configurable in Snapper: the
+optional hold-file gate and the rolling 24-hour per-filesystem limit. Disable
+the daily limit in the investigation host configs so scans may repeat. Keep
+the shared hold-file path configured for `force-suspend`; it pauses new scans
+only while its temporary marker exists, then expires at its configured local
+time (04:00 by default). Keep the configured local-time window at 05:00-21:00
+and identical across configs sharing a filesystem. A deferred rescan must
+never report stale counters as consistent. When a rescan is
+deferred, Snapper must still return last-known quota values with an explicit
+stale status; `snapper list` should display them with a warning, and
+quota-based cleanup must wait until the counters are consistent.
+
+## Next steps
+
+1. **Complete the host-topology Snapper QEMU investigation — 90% done.** Use the
+   latest built Snapper from this repository and disposable QEMU filesystems.
+   Compare root and home using one shared snapshot QGROUP ID with the same
+   configs using distinct IDs. Start every case from fresh quota state, and
+   make the qgroup membership and parent hierarchy match the intended
+   configuration before creating snapshots; changing only a config's
+   `QGROUP` string after quota setup is not sufficient evidence. Keep the
+   kernel module, Snapper build, source data, snapshot sequence, cleanup
+   behavior, and rescan policy identical within each comparison.
+
+   Exercise root-only and home-only snapshots, then both orders (root followed
+   by home and home followed by root). Record the first operation that sets
+   qgroup inconsistency, Snapper's rescan behavior, qgroup membership and
+   parent relationships, and counters before and after a full rescan. Repeat
+   cases that produce different outcomes. First use the stock module for the
+   running kernel; use the candidate module only as a paired comparison where
+   it helps distinguish a Snapper layout problem from a kernel accounting
+   problem. The manually configured stock-kernel matrix covers fresh shared
+   and distinct root/home groups, root-only and home-only repeats, both
+   operation orders, explicit-rescan controls, and a rate-limited follow-up
+   snapshot. The host-shaped four-group workload has now also been run with
+   both stock and candidate modules on the exact current 7.2.6 kernel. Stock
+   triggered six automatic scans in eight snapshots; the candidate triggered
+   none. Cleanup and synchronous deletion were then exercised for all four
+   configs under the same topology. Neither operation added scans or warnings
+   with either module. This confirms the shared ID is not required for stock's
+   conservative fallback, while the candidate fast path avoids it for the
+   tested four-group layout. Repeated live operation and source-data/counter
+   reconciliation still need deeper validation.
+
+   Decide from these results whether sharing the root/home ID causes the
+   inconsistency, contributes through Snapper's tracking hierarchy, or is
+   unrelated. For every stock-kernel rescan, determine whether Btrfs is taking
+   its conservative fallback for a hierarchy it cannot update incrementally,
+   whether Snapper is invoking the rescan on the next snapshot, and whether a
+   full rescan restores correct counters. A distinct-ID case that requests a
+   rescan does not by itself prove a kernel defect or make the companion a
+   correctness fix. Keep the companion only if the measured rescan frequency
+   or user-visible behavior cannot meet the required accounting and operating
+   constraints with the stock kernel; describe it as a fast-path optimization
+   when that is what the evidence supports.
+   Continue the host-matched four independent group workload (p8-root,
+   p8-home, Kingston-root, Kingston-home). The exact 7.2.6 QEMU cleanup test
+   changed source data before snapshots and exercised timeline cleanup plus
+   synchronous deletion for every config; the evidence and limits are in
+   `GOAL-done.md`. After the first full rescan, all four now-empty snapshot
+   groups showed only the 16 KiB `.snapshots` directory, while the source
+   groups showed their measured source data. Still verify nonempty exclusive
+   counters against independently derived expectations and confirm that later
+   snapshots preserve them. The second-rescan `qgroup info item update error
+   -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
+   accounting inconsistent and returns a positive “rescan required” result,
+   which caused `btrfs_remove_qgroup()` to exit after deleting the info item
+   but before freeing the in-memory qgroup. A narrow fix is now implemented
+   in this exact 7.2.6 source checkout. It preserves the positive fallback
+   result unless the relation was actually removed, and checks the result of
+   the in-memory relation deletion before proceeding. The complete external
+   Btrfs module built against the installed 7.2.6 headers and passed the
+   matched four-collective QEMU cleanup/deletion workload: the module hash
+   was confirmed in the guest, both final rescans completed, the stale-qgroup
+   `-ENOENT` warning did not recur, and final quota status was consistent.
+   Review the patch for upstream quality and add durable regression coverage
+   before treating this deletion bug as fully closed. Keep it separate from
+   the six ordinary snapshot-creation fallback scans, which remain
+   unresolved. The retention script was not needed to reproduce the warning,
+   though its snapshot deletions may exercise the same lifecycle. Record
+   results and limits in `GOAL-done.md`.
+
+   Then continue developing and validating the Snapper fix against the latest
+   revision in the official upstream repository
+   (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
+   new work. Do not use a distribution package source or older downstream
+   branch as the development base. The host's required Snapper runtime is our
+   locally built and maintained version from latest upstream with our fix;
+   install and verify that build after the local safety and acceptance gates.
+   The host has since rebooted into `7.2.6+deb13-amd64`; use that exact
+   in-use release for all remaining kernel investigation and acceptance
+   testing.
+
+   The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
+   based on the latest official `openSUSE/snapper` master. It is open, all
+   seven CI checks pass, and upstream review is pending. Keep PR #1203 active
+   while validating the accounting design, but its status and implementation
+   must follow the QEMU investigation above. Do not describe the kernel
+   companion as required unless the controlled tests establish that
+   distinct-ID accounting still fails independently of the shared-ID
+   configuration. Results and limits are recorded in `GOAL-done.md`; refresh
+   upstream state before rebasing or starting new work.
+
+   **PR description practice:** Follow the target repository's PR template and
+   conventions. Keep the description focused on the current implementation,
+   current validation, and current limitations. Include prior revisions,
+   superseded failures, or historical test comparisons only when the
+   repository's PR template or guidance asks for them. Keep project history in
+   `GOAL-done.md` or linked evidence. When a commit reference is needed, use a
+   concise descriptive Markdown link to the exact commit in its repository,
+   rather than displaying a bare full hash.
+
+   Keep `QGROUP_RESCAN_HOLD_FILE` configurable (empty disables the hold) and
+   add `QGROUP_RESCAN_DAILY_LIMIT` (default `yes`, `no` disables the rolling
+   24-hour cap). For the investigation host, keep the shared hold path enabled
+   so `force-suspend` can pause new scans until its deadline, and set the daily
+   limit to `no`. The hold is inactive unless the marker exists; it must not
+   prevent scans during the investigation otherwise. Use
+   `FORCE_SUSPEND_RESCAN_RESUME_TIME` in
+   `/etc/default/force-suspend` to configure the hold deadline time (default
+   `04:00`). Retain `QGROUP_RESCAN_WINDOW=05:00-21:00`. Before scanning, Snapper
+   must verify all three policy values agree across configs sharing a
+   filesystem; a mismatch or unverifiable policy defers the scan and preserves
+   stale status. An already-running scan is still waited for.
+
+   The p8 host now has separate groups: root `1/100` under tracker `2/0`, and
+   home `1/101` under tracker `2/1`. All 15 existing home snapshots and its
+   `.snapshots` directory were moved, the home Snapper config was updated, and
+   a full rescan completed with consistent accounting. Kingston remains root
+   `1/100` and home `1/101`. Keep the four independent collectives and the
+   rescan hold/window configuration; the investigation configs have the daily
+   limit disabled. The candidate module is active on the current
+   `7.2.6+deb13-amd64` kernel.
+
+   The candidate kernel fast path has passed the documented four-group QEMU
+   workload on both the former 7.1.13 release and current 7.2.6 release. On
+   7.2.6, matched stock-module runs triggered repeated scans on distinct groups,
+   while the candidate run did not. Treat this as evidence for the fast path's
+   rescan-avoidance benefit, not as proof of incorrect stock accounting after
+   a completed scan. Cleanup and deletion coverage is recorded in
+   `GOAL-done.md`; investigate its post-deletion full-rescan warnings and
+   finish counter reconciliation before deciding whether the kernel change is
+   needed for the operating constraints. See `GOAL-done.md` for results and
+   limits.
+
+   The kernel companion is based on the Btrfs maintainer tree's
+   [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
+   Its exact-release QEMU tests, including ancestor-counter overflow fallback,
+   and current patch checks are recorded in `GOAL-done.md`. The patch has not
+   been submitted. Review the exact patch and obtain the user's DCO sign-off
+   before adding a `Signed-off-by` trailer or sending it to the mailing list;
+   this public-submission gate does not block local testing or deployment.
+   The unsigned mail-formatted draft is
+   `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
+2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
+   now runs our locally built Snapper from the latest upstream baseline,
+   including our qgroup fix. Debian packaging
+   is only the installation format for our build; the distribution-provided
+   Snapper is not the target runtime or a runtime dependency.
+   Keep rollout completion gated until technical review, full accounting and
+   quota checks, rollback, and APT-upgrade behavior are verified. Upstream PR
+   review and DCO sign-off are separate publication gates and are not
+   prerequisites for local use. Verify quota support after every package
+   reinstall or upgrade, and repeat the APT simulation before changing the
+   installed package. The recipe is
+   `scripts/build-local-debian-package.sh` on the Snapper fork's
+   `codex/local-debian-package-builder` branch; it is separate from upstream
+   PR #1203. It keeps generated files in the Snapper sibling build tree. The
+   successful build, package installation, and runtime evidence are in
+   `GOAL-done.md`. Keep the timeline wrapper's explicit rescan block disabled
+   and set `SPACE_LIMIT="1.0"` to disable quota-aware cleanup during
+   investigation; an empty value leaves Snapper's default `0.5` limit active.
+   Recheck the shared rescan window and hold marker after package configuration
+   migrations.
+3. **Make the fix durable across APT upgrades — 75% done.** Prefer a Snapper-only
+   deployment if that fully fixes the cause and satisfies the rescan ceiling.
+   If a kernel/module change is required, choose and document a maintainable,
+   APT-managed deployment for the paired kernel and Snapper changes. It must
+   automatically apply/build and activate the Btrfs fix on every kernel
+   upgrade or reinstall. At all times, every kernel version installed under
+   `/lib/modules` must have its matching signed Btrfs module built, selected,
+   and included in that kernel's initramfs. This covers the running kernel,
+   every older kernel retained for rollback, and each newly installed kernel
+   before it can be selected for boot. An upgrade must not silently leave or
+   boot an unpatched module;
+   Snapper package upgrades/reinstalls must also retain its fix. For Snapper,
+   the host runtime must remain our locally built and
+   maintained version based on latest upstream; do not switch it back to a
+   distribution-provided Snapper binary. For the kernel/module, prefer reviewed
+   Debian/upstream packages when available; if locally maintained packages are
+   needed, define how they are built, installed, and kept current. Do not
+   depend on a manually copied kernel module or silently hold back security
+   updates.
+   A standalone locally built image is insufficient: Btrfs is shipped in the
+   versioned `linux-modules-*` package, and the matching `linux-image-*`
+   package requires that exact version. APT metadata and the Debian-source
+   rebuild/repository findings are recorded in `GOAL-done.md`. The
+   APT-managed DKMS package with release-matched sources is installed and has
+   built modules for every currently installed kernel; its failure behavior
+   for future unmapped releases and its long-term upgrade path remain to be
+   verified. An
+   isolated Debian DKMS build against the exact running kernel headers
+   succeeded and resolved ahead of the packaged module in a synthetic module
+   tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
+   exact-kernel QEMU testing with Secure Boot and signature enforcement
+   enabled. The APT-managed DKMS package now carries release-matched source
+   variants: the 7.1 source for installed releases 7.1.8 and 7.1.13, plus
+   exact 7.2.6 and 7.2.9 sources. The current APT image candidate was 7.2.6.
+   Its exact source accepted the qgroup patch and built against its matching
+   headers. The package was upgraded before performing the APT kernel upgrade;
+   DKMS's real 7.2.6 header hook selected that source, built and signed the
+   module, and the kernel post-install included it in the new initramfs. The
+   three installed kernel versions verified at that time had signed modules
+   selected by `modprobe` and present in their matching initramfs. A later APT
+   upgrade installed 7.2.9; its DKMS build succeeded, the signed candidate is
+   selected by `modprobe`, and the module is in its initramfs. The host is
+   still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed,
+   but host boot and rollback verification remain. Package build, module
+   hashes, APT result, and per-kernel verification are in
+   `GOAL-done.md`. The installed selector passes for a supported release and
+   returns an explicit error for an unmapped release. However, source
+   inspection shows that this failure propagates through DKMS and Debian's
+   `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore
+   leave the kernel image package unconfigured. This is not an acceptable
+   fail-safe. Design and verify a pre-install policy that prevents an
+   unsupported kernel from becoming bootable without leaving dpkg broken,
+   silently selecting stock Btrfs, or blocking unrelated security updates;
+   make any temporarily withheld kernel update visible. Keep preparing exact
+   source support before each new APT kernel candidate and test both the
+   supported and unsupported paths end to end.
+
+   **Next steps for safe local production use:**
+   - Build, signing, module selection, and initramfs inclusion are verified for
+     all four installed releases: 7.1.8, 7.1.13, 7.2.6, and 7.2.9. Stock-module
+     rollback and reinstall were verified for 7.2.6. The 7.2.9 DKMS build was
+     triggered by the real APT kernel upgrade; its signed module is in the
+     initramfs and passed exact-release Secure Boot QEMU acceptance. Host boot
+     and rollback verification remain. The post-reboot
+     audit confirms the candidate is loaded; the p8 group split and a full
+     rescan are complete. Final accounting and live-host cleanup acceptance
+     remain outstanding. Evidence and hashes are in
+     `GOAL-done.md`.
+   - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
+     actual 7.2.6 header and image hooks passed. Before any later kernel
+     release is installed, add its matching source and verify its DKMS build,
+     signature, module selection, and initramfs. Prove an unmapped or failed
+     build cannot silently boot stock Btrfs or leave package configuration
+     broken; keep normal security upgrades available.
+   - Keep the verified boot selection and signed stock-module rollback path
+     documented. Verify the new p8 groups through Snapper operations and
+     cleanup, and retain the active 7.2.6 release as the acceptance kernel.
+   - Verify the installed Snapper package after upgrade/reinstall and confirm
+     every Kingston configuration retains the rescan window and hold settings.
+     Restore quota cleanup limits only after accounting and cleanup are
+     verified under the paired host runtime.
+
+   Before considering the host rollout complete, verify the running kernel,
+   loaded module, initramfs, Secure Boot signature, and active Snapper package
+   contain the intended fixes after both package reinstall and kernel upgrade.
+4. **Finish accounting and recovery coverage — 95% done.** Use the latest-upstream
+   Snapper build as the primary acceptance target and the exact currently
+   running kernel (`7.2.6+deb13-amd64`). Existing QEMU coverage and results are in
+   `GOAL-done.md`. The exact-header external build has
+   `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` disabled. Although the module retains a
+   `btrfs_run_sanity_tests` entry-point symbol, disassembly shows it is only
+   the no-op stub; no Btrfs sanity-test objects or test functions are linked.
+   The earlier concern that the QEMU-tested module ran developer tests at load
+   time was incorrect. The current patched module, signed with the enrolled
+   MOK key, has now passed the full Snapper 0.13.2 QEMU acceptance workload on
+   the previous exact kernel; see the artifact hashes and serial log in
+   `GOAL-done.md`. Re-run the Secure Boot acceptance workload against 7.2.6
+   before considering production rollout complete.
+   Follow-up QEMU acceptance now boots the exact kernel through OVMF and shim
+   with Secure Boot enabled, imports the enrolled MOK certificate, and forces
+   `module.sig_enforce=1`. The signed Btrfs module loads, while an unsigned
+   copy is rejected. The full Snapper workload passes under enforcement; see
+   `GOAL-done.md`. The candidate is installed and loaded on the host; finish
+   Snapper package rollback verification and repeat Secure Boot acceptance on
+   7.2.6 before calling the rollout complete.
+   The exact-release checkout now has
+   maintainable qgroup selftests for the shared-parent fast path and the
+   differing/multiple-parent fallbacks; they passed in QEMU on the exact
+   kernel. The tests and candidate kernel patch now apply to the current Btrfs
+   `for-next` submission base. Keep runtime kernel testing on the exact
+   in-use release; do not build or boot a different kernel for acceptance.
+   Add coverage only for Btrfs layouts needed by the patch or not already
+   covered.
+5. **Preserve temporary host containment, including after resume — 92% done.** The
+   timeline wrapper's explicit `btrfs quota rescan` commands are currently
+   disabled while snapshots continue; the current host check is recorded in
+   `GOAL-done.md`. The 18:00 run exposed duplicate hourly snapshots: `/` and
+   `/mnt/p8/@` resolve to the same Btrfs subvolume IDs, and the mounted config
+   tree was discovered twice. The root repo wrapper now deduplicates by device,
+   subvolume ID, and config; its live-target check passed, but the next
+   scheduled run still needs to confirm one snapshot per target. This removes
+   redundant snapshot triggers, but does not yet prove the qgroup
+   inconsistency's underlying cause. This wrapper is one rescan initiator;
+   Snapper's quota-query and snapshot-tracking code can independently start a
+   rescan when it finds inconsistent qgroups. Btrfs snapshot inheritance can
+   mark qgroups inconsistent, but does not itself start a rescan. Keep those
+   state changes distinct when tracing future scans. The active hourly
+   `snapper-timeline.timer` uses `OnCalendar`; systemd catches up calendar
+   events that elapse during suspend when the system resumes. The sleep/resume
+   guard is pushed to the home repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
+   host now has the local timeline and daily cleanup timers restored under
+   `/etc/systemd/system`; the hourly wrapper invokes the installed Snapper
+   directly. The enabled sleep.target unit and system-sleep hook use one
+   root-owned helper under `/usr/local/libexec` for timer control. Current host
+   state is recorded in `GOAL-done.md`. No actual suspend/resume has yet been
+   used to verify ordering or the timer's catch-up behavior. Verify that a real
+   resume cannot start a fresh scan through either the wrapper or Snapper's
+   internal path. The timer catch-up guard is separate from the `force-suspend`
+   hold, whose release deadline is controlled by its own setting.
+   Restore the original
+   `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
+   deployed and their initialization scan, quota accounting, and cleanup
+   behavior are verified.
+
+## Acceptance
+
+Repeated Snapper-style snapshots and cleanup, including externally shared
+extents, keep qgroup data consistent. The exclusive-space totals for p8-root,
+p8-home, Kingston-root, and Kingston-home remain separately queryable and
+match a full rescan; root and home never share one snapshot QGROUP. Quota
+limits retain their existing snapshot-only scope.
+After the accounting cause is fixed, unnecessary rescans do not recur.
+Automatic full rescans start only inside the configured local-time window.
+During investigation, the per-day cap is disabled, while `force-suspend` can
+hold new scans until its configured deadline. If a rescan is deferred, users
+can still see the last-known quota numbers and their stale status; quota-based
+deletion waits until the numbers are current. The host's configured preference is
+05:00-21:00 local time for every Snapper configuration sharing the filesystem;
+the timeline wrapper's separate explicit rescan commands remain disabled.
+Prefer a Snapper-only fix. If the kernel/module must change, it is automatically
+reapplied and active after every kernel APT upgrade/reinstall, without blocking
+security updates; the installed Snapper fix also survives its APT
+upgrade/reinstall. Verify the running kernel, loaded module, Snapper package,
+and rescan rate.
+
+## Completed evidence
+
+See [`GOAL-done.md`](GOAL-done.md) for completed investigation, reproduction
+results, kernel baseline, and temporary containment details. That file is
+historical reference; the items above are the active work.

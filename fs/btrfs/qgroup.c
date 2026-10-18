@@ -1626,7 +1626,7 @@ out:
 }
 
 static int __del_qgroup_relation(struct btrfs_trans_handle *trans, u64 src,
-				 u64 dst)
+				 u64 dst, bool *relation_removed)
 {
 	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_qgroup *parent;
@@ -1635,6 +1635,8 @@ static int __del_qgroup_relation(struct btrfs_trans_handle *trans, u64 src,
 	bool found = false;
 	int ret = 0;
 	int ret2;
+
+	*relation_removed = false;
 
 	if (!fs_info->quota_root)
 		return -ENOTCONN;
@@ -1670,7 +1672,12 @@ delete_item:
 
 	if (found) {
 		spin_lock(&fs_info->qgroup_lock);
-		del_relation_rb(fs_info, src, dst);
+		ret = del_relation_rb(fs_info, src, dst);
+		if (ret) {
+			spin_unlock(&fs_info->qgroup_lock);
+			return ret;
+		}
+		*relation_removed = true;
 		ret = quick_update_accounting(fs_info, src, dst, -1);
 		ASSERT(parent);
 		squota_check_parent_usage(fs_info, parent);
@@ -1684,10 +1691,11 @@ int btrfs_del_qgroup_relation(struct btrfs_trans_handle *trans, u64 src,
 			      u64 dst)
 {
 	struct btrfs_fs_info *fs_info = trans->fs_info;
+	bool relation_removed;
 	int ret = 0;
 
 	mutex_lock(&fs_info->qgroup_ioctl_lock);
-	ret = __del_qgroup_relation(trans, src, dst);
+	ret = __del_qgroup_relation(trans, src, dst, &relation_removed);
 	mutex_unlock(&fs_info->qgroup_ioctl_lock);
 
 	return ret;
@@ -1808,6 +1816,7 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
+	bool relation_removed;
 	int ret = 0;
 
 	mutex_lock(&fs_info->qgroup_ioctl_lock);
@@ -1844,7 +1853,11 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 		list = list_first_entry(&qgroup->groups,
 					struct btrfs_qgroup_list, next_group);
 		ret = __del_qgroup_relation(trans, qgroupid,
-					    list->group->qgroupid);
+					    list->group->qgroupid,
+					    &relation_removed);
+		/* The relation was removed, but accounting needs a full rescan. */
+		if (ret > 0 && relation_removed)
+			ret = 0;
 		if (ret)
 			goto out;
 	}

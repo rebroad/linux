@@ -2265,6 +2265,35 @@ specified in `GOAL.md`.
   a planned reboot before applying the p8 migration. The 2026-10-16/17 kernel
   events predate the candidate installation.
 
+## Fresh live host audit (2026-10-18 19:46 BST)
+
+- The host is still running `7.1.13+deb13-amd64`. The installed signed DKMS
+  module is `updates/dkms/btrfs.ko.xz`, SHA-256
+  `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`, build
+  ID `dbacb384412daefbc812969624941d88b79396b7`. The loaded module's sysfs
+  build ID is `059c7530edfb1e54ce3b71e44d1f4aa3a4216e17`, so it is not the
+  installed candidate. Do not migrate p8 until a planned boot verifies the
+  candidate is loaded.
+- `/` is p8 subvolume `@` on `/dev/nvme0n1p5`; `/mnt/kingston` is `/dev/sdb1`.
+  Both filesystems report inconsistent qgroup data, and `btrfs quota rescan
+  -s` reports no scan in progress on either filesystem.
+- On p8, the live root source `0/262` and snapshot group `1/100` are under
+  tracker `2/0`; the live home source `0/263` has no tracker. Both Snapper
+  configs still use snapshot QGROUP `1/100`, and both `.snapshots` subvolumes
+  are members of that group. The p8 migration from the QEMU fixture has not
+  been applied to the host.
+- Kingston's live root and home sources are under separate trackers, with
+  root snapshot QGROUP `1/100` under `2/1` and home snapshot QGROUP `1/101`
+  under `2/0`. Its root/home separation is already present.
+- Snapper 0.13.2 is installed from local commit `017efa14`. The live root and
+  home configs have the shared force-suspend hold path, `QGROUP_RESCAN_DAILY_LIMIT=no`,
+  `QGROUP_RESCAN_WINDOW=05:00-21:00`, and `SPACE_LIMIT=1.0`. The hold marker is
+  absent, so the temporary hold is not active. No rescan was started during
+  this read-only audit.
+- Refreshed GitHub state for Snapper PR #1203: it remains open against
+  `openSUSE/snapper` master at `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`;
+  all seven reported CI checks pass and no review decision is recorded.
+
 ## Live host gate check (2026-10-18 19:13 BST)
 
 - `sudo btrfs quota rescan -s /` and the corresponding Kingston query both

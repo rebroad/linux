@@ -1202,3 +1202,32 @@ specified in `GOAL.md`.
   `home`/`root` journal messages do not establish that Kingston snapshots
   succeeded. Current Kingston snapshot and qgroup state still requires a
   privileged read.
+
+## Stale quota display and cleanup deferral (2026-10-18)
+
+- Extended the QEMU fixture with the latest-upstream Snapper PR #1203 build
+  and the candidate Btrfs module for the exact in-use kernel
+  `7.1.13+deb13-amd64`. The guest identified Snapper 0.13.2. Binary hashes:
+  `snapper` `6fd4b8705d2e348d6349354b865d1dec097f182ce3fd19d93c28c83c9c89a4ae`,
+  `libsnapper.so` `c33ac5b0da525ae3488f286825d54bb96fea228f0b5d502c7a365eb006f549a6`,
+  and compressed Btrfs module
+  `de0ef9b7a9b0b0ee609fbbae2e234ba940bfcb70f94d4fc903bc48b370059b96`.
+- Before the fixture's explicit reconciliation, Btrfs reported
+  `WARNING: qgroup data inconsistent, rescan recommended`, with no scan in
+  progress. The shared per-filesystem limiter already recorded the tracker
+  setup scan. For both `root` and `home`, `snapper list --columns
+  number,used-space` returned a used-space value and printed an explicit
+  warning that it was displaying last-known values; neither output contained
+  `n/a`.
+- With `SPACE_LIMIT="1 MiB"`, `snapper cleanup timeline` explicitly reported
+  `quota cleanup skipped (qgroup quota counters are stale; quota cleanup
+  deferred)` for each config. Fixture assertions confirmed neither config's
+  snapshot count changed and the completed rescan count remained three
+  (two baseline setup scans plus one shared tracker scan). Thus listing stale
+  values and deferring quota-based deletion did not start another rescan.
+- The fixture then explicitly reconciled qgroups and continued through its
+  hourly snapshot, clean listing, quota cleanup, and full-rescan counter
+  comparison checks, ending `SNAPPER-QUOTA: PASS`. This verifies the deferred
+  stale-data behavior in QEMU; it does not mean the locally built Snapper or
+  candidate kernel module is deployed on the host. Serial log:
+  `/var/tmp/qgroup-perfs-cap/serial-stale.log`.

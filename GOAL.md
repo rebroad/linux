@@ -72,10 +72,13 @@ quota-based cleanup must wait until the counters are consistent.
    automatically apply/build and activate the Btrfs fix on every kernel
    upgrade or reinstall, and ensure an upgrade cannot silently leave or boot
    an unpatched module; Snapper package upgrades/reinstalls must also retain
-   its fix. Prefer reviewed Debian/upstream
-   packages when available; if the host needs locally maintained packages,
-   define how they are built, installed, and kept current. Do not depend on a
-   manually copied kernel module or silently hold back security updates.
+   its fix. For Snapper, the host runtime must remain our locally built and
+   maintained version based on latest upstream; do not switch it back to a
+   distribution-provided Snapper binary. For the kernel/module, prefer reviewed
+   Debian/upstream packages when available; if locally maintained packages are
+   needed, define how they are built, installed, and kept current. Do not
+   depend on a manually copied kernel module or silently hold back security
+   updates.
    A standalone locally built image is insufficient: Btrfs is shipped in the
    versioned `linux-modules-*` package, and the matching `linux-image-*`
    package requires that exact version. APT metadata and the Debian-source

@@ -1834,3 +1834,59 @@ specified in `GOAL-todo.md`.
   for this exact patch revision after reviewing it. No sign-off was inferred
   from the earlier authorization or from the prior sign-off for a different
   revision.
+
+## Production-form module build and QEMU acceptance (2026-10-18)
+
+- Rechecked the exact-header external Btrfs build after suspecting its
+  `btrfs_run_sanity_tests` symbol meant the developer tests were enabled. The
+  running kernel's config has `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` unset; the
+  external module contains no `tests/*.o` objects or Btrfs test functions. The
+  symbol is the inline disabled-config stub, whose disassembly returns zero.
+  The same no-op stub, rather than test code, is present in the module from the
+  earlier 24-hour simulated Snapper workload. The prior production-form concern
+  was therefore a false alarm.
+- Built against the running `7.1.13+deb13-amd64` headers using the current
+  patched `fs/btrfs/qgroup.c` (source and external-build copy SHA-256
+  `b1177fe5d78f7e3300159ecfa5ec8cb17e54d60d75c8ebd81d8936a69c1fc760`). The
+  unsigned module SHA-256 is
+  `aabb3ee6015a33ca934a7b6a6a313ce2eebd44c43b9574d16100ec8ce6d36f1`; the
+  signed module SHA-256 is
+  `203891dd131aac27c93a419522990ded3a8a2859f94472761ea9c9d0c2f32ea9`.
+  Its vermagic is `7.1.13+deb13-amd64 SMP preempt mod_unload`.
+- Verified that the enrolled `Rebroad` MOK certificate and its local private
+  key have matching public-key fingerprints, and `mokutil --test-key` reports
+  the certificate enrolled. OpenSSL CMS verification of the appended module
+  signature against that certificate succeeds. No private-key material was
+  added to the source or build trees.
+- Replaced the module in a fresh initramfs fixture with this exact signed
+  artifact, compressed using xz CRC32 as required by the kernel's module
+  decompressor, and ran the Snapper 0.13.2 acceptance workload with the exact
+  Debian kernel image. The log reports the expected tracker-setup inconsistency,
+  then no further inconsistency during stale-data handling, 24 simulated
+  hourly rounds, quota cleanup, and full-rescan counter comparison; it ends
+  `SNAPPER-QUOTA: PASS`. Serial log SHA-256:
+  `eaca98e9f25c733ad3403fdbb479f226e7a47c428f28c4897dbbfbbb12df1853`.
+- An initial direct-kernel QEMU boot did not import the MOK certificate and
+  logged `module verification failed: signature and/or required key missing`;
+  that run was not Secure Boot acceptance evidence. Replaced it with an OVMF
+  Secure Boot boot through the Microsoft-signed shim and Debian-signed GRUB,
+  using a disposable variable store with the enrolled MOK certificate in
+  `MokList`. The exact kernel logged EFI Secure Boot lockdown and loaded the
+  `Rebroad's module signing key` certificate from `UEFI:MokListRT`.
+- Forced `module.sig_enforce=1` for the test. The signed Btrfs module loaded
+  and mounted the test filesystem without a signature warning. The fixture
+  then attempted to load an otherwise identical unsigned module; the kernel
+  rejected it with `Loading of unsigned module is rejected`, and the fixture
+  confirmed the enforcement parameter and rejection before continuing.
+  Snapper 0.13.2 completed the stale-data and cleanup checks, all 24 simulated
+  hourly rounds, and the full-rescan counter comparison under enforcement,
+  ending `SNAPPER-QUOTA: PASS`.
+- The enforced-boot initramfs SHA-256 is
+  `6174dffd03ef6ef656733cd262e35e7396c118a06e0d34c6ac78f6f0ff7d2e0b`; its
+  compressed signed Btrfs module SHA-256 is
+  `0c7f44d9aa377f82baf0620bfebe2548a2768272755a59d3cebc079001ec6a08`.
+  Serial log SHA-256:
+  `9d62d4a261cfb85c542c301c3018bb2629cfa1fe0f19016f8a2063380e8bb95f`.
+  This proves Secure Boot trust and signature enforcement in QEMU for this
+  exact kernel and artifact; host installation, rollback, and APT-upgrade
+  behavior remain unverified.

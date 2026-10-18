@@ -144,23 +144,23 @@ quota-based cleanup must wait until the counters are consistent.
    Snapper package contain the intended fix afterward. Preserve normal kernel
    security upgrades; do not rely on manual intervention after each APT
    kernel upgrade.
-4. **Finish accounting and recovery coverage — 70% done.** Use the latest-upstream
+4. **Finish accounting and recovery coverage — 95% done.** Use the latest-upstream
    Snapper build as the primary acceptance target and the exact
    `7.1.13+deb13-amd64` kernel. Existing QEMU coverage and results are in
-   `GOAL-done.md`. The currently QEMU-tested module is not yet suitable for
-   local installation: it contains `btrfs_run_sanity_tests`, which runs
-   developer sanity tests during module load. A later external-module build
-   against the exact running kernel headers still contains that symbol,
-   despite the header configuration reporting
-   `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` unset. Resolve why the external build
-   includes it and produce a production-form module with sanity tests absent.
-   Then rerun the full acceptance workload against that exact artifact and the
-   final paired Snapper source; the earlier QEMU results do not validate this
-   production-form artifact. Verify the signed artifact with the already
-   enrolled `Rebroad` MOK key and demonstrate that Secure Boot accepts it in
-   the exact-kernel test environment. Do not install the module on the host
-   until these checks pass and a rollback path is ready. The exact-release
-   checkout now has
+   `GOAL-done.md`. The exact-header external build has
+   `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` disabled. Although the module retains a
+   `btrfs_run_sanity_tests` entry-point symbol, disassembly shows it is only
+   the no-op stub; no Btrfs sanity-test objects or test functions are linked.
+   The earlier concern that the QEMU-tested module ran developer tests at load
+   time was incorrect. The current patched module, signed with the enrolled
+   MOK key, has now passed the full Snapper 0.13.2 QEMU acceptance workload on
+   the exact kernel; see the artifact hashes and serial log in `GOAL-done.md`.
+   Follow-up QEMU acceptance now boots the exact kernel through OVMF and shim
+   with Secure Boot enabled, imports the enrolled MOK certificate, and forces
+   `module.sig_enforce=1`. The signed Btrfs module loads, while an unsigned
+   copy is rejected. The full Snapper workload passes under enforcement; see
+   `GOAL-done.md`. Have a tested rollback path ready before host installation.
+   The exact-release checkout now has
    maintainable qgroup selftests for the shared-parent fast path and the
    differing/multiple-parent fallbacks; they passed in QEMU on the exact
    kernel. The tests and candidate kernel patch now apply to the current Btrfs

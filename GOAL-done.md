@@ -2,8 +2,13 @@
 
 This file records verified findings that inform the active tasks in
 [`GOAL.md`](GOAL.md). A tracking-parent fix candidate has now passed the
-described QEMU snapshot and cleanup workloads on the deployed Snapper version;
+described QEMU snapshot and cleanup workloads on the then-current Snapper build;
 broader filesystem coverage and host rollout remain open.
+
+Snapper versions identified as Debian or distribution packages below are
+historical diagnostic baselines or QEMU controls only. The intended host
+runtime is our locally built Snapper from the latest upstream source, as
+specified in `GOAL.md`.
 
 ## Kernel baseline
 

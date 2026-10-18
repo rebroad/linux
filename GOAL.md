@@ -76,12 +76,29 @@ quota-based cleanup must wait until the counters are consistent.
    snapshot. The host-shaped four-group workload has now also been run with
    both stock and candidate modules on the exact current 7.2.6 kernel. Stock
    triggered six automatic scans in eight snapshots; the candidate triggered
-   none. Cleanup and synchronous deletion were then exercised for all four
-   configs under the same topology. Neither operation added scans or warnings
+   none. The shared-parent fast path is now ported into the exact 7.2.6 source
+   tree with Btrfs sanity tests for its eligible topology, fallback cases,
+   and counter-overflow handling. A test-enabled module built against the
+   installed headers passed those tests at load and completed the same
+   workload with zero automatic scans and no inconsistency warnings; the
+   matched baseline module with only the qgroup-deletion fix had six
+   automatic scans. This supports keeping the fast path as a rescan-avoidance
+   optimization for the tested hierarchy, not as evidence that stock
+   accounting becomes incorrect after a full scan. Cleanup and synchronous
+   deletion were then exercised for all four configs under the same topology.
+   Neither operation added scans or warnings
    with either module. This confirms the shared ID is not required for stock's
    conservative fallback, while the candidate fast path avoids it for the
    tested four-group layout. Repeated live operation and source-data/counter
-   reconciliation still need deeper validation.
+   reconciliation still need deeper validation. With the candidate module,
+   a forced full rescan immediately after snapshots left nonempty qgroup
+   counters unchanged in both root-first and home-first order: each snapshot
+   group reported 4,243,456 referenced and 49,152 exclusive bytes. Still
+   derive the 49,152-byte metadata component independently from Btrfs extent
+   and tree data, and repeat longer cycles. The known file payload is 4 MiB
+   per source (2 MiB stable plus two 1 MiB change files), and the stock module
+   reaches the same full-rescan counters in both operation orders; evidence
+   and remaining limits are recorded in `GOAL-done.md`.
 
    Decide from these results whether sharing the root/home ID causes the
    inconsistency, contributes through Snapper's tracking hierarchy, or is
@@ -100,9 +117,10 @@ quota-based cleanup must wait until the counters are consistent.
    synchronous deletion for every config; the evidence and limits are in
    `GOAL-done.md`. After the first full rescan, all four now-empty snapshot
    groups showed only the 16 KiB `.snapshots` directory, while the source
-   groups showed their measured source data. Still verify nonempty exclusive
-   counters against independently derived expectations and confirm that later
-   snapshots preserve them. The second-rescan `qgroup info item update error
+   groups showed their measured source data. The candidate's nonempty
+   snapshot-group counters matched a forced full rescan in both operation
+   orders; the independently derived byte expectations and repeated-cycle
+   checks remain. The second-rescan `qgroup info item update error
    -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
    accounting inconsistent and returns a positive “rescan required” result,
    which caused `btrfs_remove_qgroup()` to exit after deleting the info item

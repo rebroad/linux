@@ -383,6 +383,8 @@ void btrfs_qgroup_free_refroot(struct btrfs_fs_info *fs_info,
 #ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
 int btrfs_verify_qgroup_counts(const struct btrfs_fs_info *fs_info, u64 qgroupid,
 			       u64 rfer, u64 excl);
+int btrfs_test_qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
+					     u64 srcid, u64 parentid);
 #endif
 
 /* New io_tree based accurate qgroup reserve API */

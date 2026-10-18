@@ -3276,9 +3276,10 @@ static int qgroup_auto_inherit(struct btrfs_fs_info *fs_info,
 }
 
 /*
- * Check if we can skip rescan when inheriting qgroups.  If @src has a single
- * @parent, and that @parent is owning all its bytes exclusively, we can skip
- * the full rescan, by just adding nodesize to the @parent's excl/rfer.
+ * Check if qgroup counters can be updated without a rescan.  This is possible
+ * when the source already belongs to the target parent, or when the source
+ * and target parent have exactly one common parent containing only those two
+ * qgroups.  Other hierarchies use the full rescan path.
  *
  * Return <0 for fatal errors (like srcid/parentid has no qgroup).
  * Return 0 if a quick inherit is done.
@@ -3289,11 +3290,18 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 {
 	struct btrfs_qgroup *src;
 	struct btrfs_qgroup *parent;
+	struct btrfs_qgroup *shared_parent;
+	struct btrfs_qgroup *qgroup_to_update;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
 	LIST_HEAD(qgroup_list);
 	const u32 nodesize = fs_info->nodesize;
+	u64 new_excl;
+	u64 new_excl_cmpr;
 	int nr_parents = 0;
+	int nr_members = 0;
+	bool shared_parent_has_src = false;
+	bool shared_parent_has_parent = false;
 
 	if (btrfs_qgroup_mode(fs_info) != BTRFS_QGROUP_MODE_FULL)
 		return 0;
@@ -3313,40 +3321,110 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		return 1;
 
 	list_for_each_entry(list, &src->groups, next_group) {
-		/* The parent is not the same, quick update is not possible. */
-		if (list->group->qgroupid != parentid)
+		/* More than one parent makes the accounting ambiguous. */
+		if (++nr_parents > 1)
 			return 1;
-		nr_parents++;
+	}
+	shared_parent = list_first_entry(&src->groups,
+					 struct btrfs_qgroup_list,
+					 next_group)->group;
+
+	if (shared_parent == parent) {
 		/*
-		 * More than one parent qgroup, we can't be sure about accounting
-		 * consistency.
+		 * The parent already contains the source.  The snapshot only adds
+		 * its new root node to the parent. Keep the existing exclusivity
+		 * check for this case; the shared-parent optimization below is
+		 * separate and does not change this path.
 		 */
-		if (nr_parents > 1)
+		if (parent->excl != parent->rfer)
 			return 1;
+		qgroup_to_update = parent;
+	} else {
+		/*
+		 * A snapshot-only parent can be updated without a rescan when the
+		 * source and that parent share exactly one parent, and that common
+		 * parent contains only those two qgroups.  Different or multiple
+		 * parents remain on the full-rescan path.
+		 */
+		if (!list_is_singular(&parent->groups) ||
+		    list_first_entry(&parent->groups, struct btrfs_qgroup_list,
+				     next_group)->group != shared_parent)
+			return 1;
+
+		list_for_each_entry(list, &shared_parent->members, next_member) {
+			nr_members++;
+			if (list->member == src)
+				shared_parent_has_src = true;
+			else if (list->member == parent)
+				shared_parent_has_parent = true;
+			else
+				return 1;
+		}
+		if (nr_members != 2 || !shared_parent_has_src ||
+		    !shared_parent_has_parent ||
+		    parent->excl > U64_MAX - nodesize ||
+		    parent->excl_cmpr > U64_MAX - nodesize)
+			return 1;
+		qgroup_to_update = shared_parent;
 	}
 
 	/*
-	 * The parent is not exclusively owning all its bytes.  We're not sure
-	 * if the source has any bytes not fully owned by the parent.
+	 * Check all counters before changing any of them.  Ancestor qgroups may
+	 * account for additional members and have larger counters than the group
+	 * being updated directly.
 	 */
-	if (parent->excl != parent->rfer)
-		return 1;
+	qgroup_iterator_add(&qgroup_list, qgroup_to_update);
+	list_for_each_entry(qgroup, &qgroup_list, iterator) {
+		if (qgroup->rfer > U64_MAX - nodesize ||
+		    qgroup->rfer_cmpr > U64_MAX - nodesize ||
+		    qgroup->excl > U64_MAX - nodesize ||
+		    qgroup->excl_cmpr > U64_MAX - nodesize) {
+			qgroup_iterator_clean(&qgroup_list);
+			return 1;
+		}
+		list_for_each_entry(list, &qgroup->groups, next_group)
+			qgroup_iterator_add(&qgroup_list, list->group);
+	}
 
-	qgroup_iterator_add(&qgroup_list, parent);
+	if (qgroup_to_update != parent) {
+		/*
+		 * The source remains outside the snapshot-only parent, so only the
+		 * new snapshot root is added to that parent's exclusive count.
+		 */
+		new_excl = parent->excl + nodesize;
+		new_excl_cmpr = parent->excl_cmpr + nodesize;
+		parent->rfer = shared_parent->rfer;
+		parent->rfer_cmpr = shared_parent->rfer_cmpr;
+		parent->excl = new_excl;
+		parent->excl_cmpr = new_excl_cmpr;
+		qgroup_dirty(fs_info, parent);
+	}
+
 	list_for_each_entry(qgroup, &qgroup_list, iterator) {
 		qgroup->rfer += nodesize;
 		qgroup->rfer_cmpr += nodesize;
 		qgroup->excl += nodesize;
 		qgroup->excl_cmpr += nodesize;
 		qgroup_dirty(fs_info, qgroup);
-
-		/* Append parent qgroups to @qgroup_list. */
-		list_for_each_entry(list, &qgroup->groups, next_group)
-			qgroup_iterator_add(&qgroup_list, list->group);
 	}
 	qgroup_iterator_clean(&qgroup_list);
 	return 0;
 }
+
+#ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
+int btrfs_test_qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
+					     u64 srcid, u64 parentid)
+{
+	int ret;
+
+	mutex_lock(&fs_info->qgroup_ioctl_lock);
+	spin_lock(&fs_info->qgroup_lock);
+	ret = qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	spin_unlock(&fs_info->qgroup_lock);
+	mutex_unlock(&fs_info->qgroup_ioctl_lock);
+	return ret;
+}
+#endif
 
 /*
  * Copy the accounting information between qgroups. This is necessary

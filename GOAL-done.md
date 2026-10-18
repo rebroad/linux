@@ -899,9 +899,15 @@ broader filesystem coverage and host rollout remain open.
   its current `master` and `for-7.4` refs, using `patch --dry-run` against the
   fetched `qgroup.c` files. The new for-next-based diff is
   `/var/tmp/qgroup-review-different-parent/revised-for-next.patch`.
-- A concise revised hierarchy explanation and mailing-list response are
-  prepared locally. Human review and DCO sign-off remain before any further
-  reply is submitted.
+- The earlier formal patch did not apply to the then-current development
+  branch. A plain-text reply to the reviewer sent on 2026-10-18 acknowledged
+  this, explained why the different-parent example intentionally returns to
+  the rescan path, clarified that no counter corruption was demonstrated, and
+  reported the exact-release different/multiple-parent QEMU checks. The reply
+  is in the existing `linux-btrfs` review thread.
+- The replacement patch remains local; it applies cleanly to the currently
+  fetched `for-next` tip and is not yet resubmitted. Review its final diff and
+  DCO trailer before sending it.
 
 ## Host runtime and module deployment audit (2026-10-18)
 

@@ -56,10 +56,14 @@ quota-based cleanup must wait until the counters are consistent.
    arrived on 2026-10-18: clarify the qgroup layouts and opt-in policy, avoid
    unsupported tracker terminology, disclose AI assistance, and test the
    different-parent fallback. The fallback passes QEMU checks on the exact
-   in-use kernel. A concise corrected patch and response are prepared locally;
-   review them before any further mailing-list follow-up. The
-   revised kernel patch is regenerated against current Btrfs `for-next`
-   (`2789b2c034d7c0c8687355921a38c5ac41a565fa`) and applies cleanly there.
+   in-use kernel. A plain-text reply sent on 2026-10-18 acknowledged that the
+   earlier formal patch did not apply to current `for-next`. It explained
+   that a positive return selects the rescan fallback for different parents
+   and reported the exact-release different/multiple-parent QEMU checks. The
+   replacement kernel patch is
+   regenerated against current Btrfs `for-next`
+   (`2789b2c034d7c0c8687355921a38c5ac41a565fa`) and passes `patch --dry-run`.
+   It has not been resubmitted; review its final diff and DCO trailer first.
    Kernel build and runtime acceptance remain on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's
    `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history upstream

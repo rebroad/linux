@@ -23,7 +23,11 @@ enrolled key, and a tested rollback and kernel-upgrade path.
 
 Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
 leave the host with a persistent fix that survives normal package upgrades.
-Preserve accurate accounting and expected cleanup behavior. Avoid unnecessary
+The required accounting has four independent snapshot collectives: p8-root,
+p8-home, Kingston-root, and Kingston-home. Each Snapper config must keep its
+own snapshot QGROUP so its exclusive-space total remains separately visible;
+root and home do not need to share a snapshot QGROUP. Preserve accurate
+accounting and expected cleanup behavior. Avoid unnecessary
 full rescans by correcting their cause, not by hiding inconsistency or
 weakening accounting. Any automatic full rescans that remain necessary must be
 limited to a configurable local-time window and at most one per filesystem in
@@ -49,10 +53,15 @@ quota-based cleanup must wait until the counters are consistent.
 
    The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
    based on the latest official `openSUSE/snapper` master. It is open, all
-   seven CI checks pass, and upstream review is pending. Keep this PR paired
-   with the kernel change through review. The current source, CI, and local
-   validation evidence is recorded in `GOAL-done.md`; refresh upstream state
-   before rebasing or starting new work.
+   seven CI checks pass, and upstream review is pending. Keep PR #1203 active
+   while validating the accounting design. The kernel change remains a
+   candidate, not an assumed requirement: exact-release QEMU testing now shows
+   that distinct per-config QGROUPs with the current Snapper still become
+   inconsistent on the stock module, while the candidate module keeps four
+   independent groups consistent. Test whether a Snapper-only design can meet
+   the same four-group requirement before deciding that the kernel change is
+   necessary. Results and limits are recorded in `GOAL-done.md`; refresh
+   upstream state before rebasing or starting new work.
 
    **PR description practice:** Follow the target repository's PR template and
    conventions. Keep the description focused on the current implementation,
@@ -75,13 +84,20 @@ quota-based cleanup must wait until the counters are consistent.
    deployment verification that every Kingston config uses the intended
    shared values.
 
-   The Snapper-only candidate does not keep qgroups consistent with the stock
-   module in the reproduced snapshot workload. The paired Btrfs change avoids
-   that inconsistency fallback for the tested shared-parent topology; no
-   counter corruption has been demonstrated, so this is a scan-avoidance
-   optimization, not a repair for proven bad accounting. Preserve the existing
-   conservative fallback for other layouts. QEMU comparisons and the
-   `linux-btrfs` discussion are documented in `GOAL-done.md`.
+   Migrate p8 root and home to distinct snapshot QGROUPs, then verify all four
+   required collectives (p8-root, p8-home, Kingston-root, Kingston-home)
+   independently against a full rescan. Root and home must not be combined
+   into one snapshot QGROUP.
+
+   The tested Snapper tracking layout gives each config a separate level-1
+   snapshot QGROUP and pairs that QGROUP with its live source under a tracker.
+   On stock `7.1.13`, inherited snapshots still mark qgroups inconsistent and
+   a later full rescan changes stale exclusive counters. The candidate Btrfs
+   fast path avoids those marks in the four-group QEMU workload and the
+   counters then match a full rescan. This supports the candidate for the
+   tested layout, but does not rule out a different Snapper-only design.
+   Preserve the conservative fallback for layouts the fast path cannot prove
+   safe. See `GOAL-done.md` for the controlled comparison.
 
    The kernel companion is based on the Btrfs maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
@@ -253,8 +269,10 @@ quota-based cleanup must wait until the counters are consistent.
 ## Acceptance
 
 Repeated Snapper-style snapshots and cleanup, including externally shared
-extents, keep qgroup data consistent; reference and exclusive counters match a
-full rescan, and quota limits retain their existing snapshot-only scope.
+extents, keep qgroup data consistent. The exclusive-space totals for p8-root,
+p8-home, Kingston-root, and Kingston-home remain separately queryable and
+match a full rescan; root and home never share one snapshot QGROUP. Quota
+limits retain their existing snapshot-only scope.
 Unnecessary rescans do not recur, and any automatic full rescans that remain
 necessary start only inside the configured local-time window and no more than
 once per filesystem in any rolling 24-hour period across all Snapper

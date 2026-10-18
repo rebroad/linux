@@ -2132,3 +2132,59 @@ specified in `GOAL.md`.
   show no empty-limit parse warnings, and that inconsistent qgroups cause the
   quota-aware cleanup pass to be skipped without suppressing count/time-based
   retention cleanup.
+
+## Four independent snapshot groups on two filesystems (2026-10-18)
+
+- The required accounting is four distinct snapshot collectives: p8-root,
+  p8-home, Kingston-root, and Kingston-home. A qgroup ID is local to its Btrfs
+  filesystem, so the same level-1 IDs can be reused on the two filesystems as
+  long as root and home have different IDs within each filesystem.
+- Built an isolated two-device QEMU workload using the exact Debian
+  `7.1.13+deb13-amd64` kernel image and the installed Snapper package from
+  commit `476f0814f665` (Snapper 0.13.2, libsnapper 8.2.0, `btrfs-quota`). The
+  guest binary and library hashes were respectively
+  `3e1e9bab1e82c7e5a77b45e965cd5e746e78c6ba77ae9c3b0f5245812fa70402` and
+  `8290bbb047da6344e621193261a52666d16a810724d7341d3a1ec80e273cab3e`. Each
+  filesystem had separate root and home configs with separate snapshot
+  QGROUPs (`1/0` and `1/1`). The configs and source subvolumes were paired
+  under their own level-2 tracker. Different file sizes made the four
+  exclusive totals distinguishable.
+- With the stock Debian Btrfs module (SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`), each
+  root snapshot marked its filesystem inconsistent and Snapper completed one
+  rescan per filesystem. The home snapshots then marked both filesystems
+  inconsistent again. The second round ran with those flags still set, and
+  the per-filesystem limiter prevented another scan. `snapper` reported the
+  group values as stale. In a matching one-filesystem control, a full rescan
+  changed the home group's exclusive counter from 1,130,496 to 1,146,880
+  bytes, confirming the stale value was materially wrong.
+- Repeated the comparison with the current host-installed, signed candidate
+  Btrfs module (SHA-256
+  `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`). The
+  same four-config workload completed two snapshot rounds with no new scan
+  and no inconsistency warning. Each config had two snapshots and retained a
+  separate exclusive total:
+
+  | Collective | QGROUP | Referenced bytes | Exclusive bytes |
+  | --- | --- | ---: | ---: |
+  | p8-root | 1/0 | 6,586,368 | 2,260,992 |
+  | p8-home | 1/1 | 4,358,144 | 1,146,880 |
+  | Kingston-root | 1/0 | 8,814,592 | 3,375,104 |
+  | Kingston-home | 1/1 | 4,292,608 | 1,114,112 |
+
+- A full rescan on each filesystem left all four referenced and exclusive
+  totals unchanged. Candidate serial log:
+  `linux.build/qgroup-four-groups-candidate-20261018/serial.log`; stock
+  comparison:
+  `linux.build/qgroup-four-groups-stock-20261018/serial.log`. The candidate
+  module signature was not trusted by the disposable QEMU guest, so the guest
+  logged module-verification failure and became tainted; signature enforcement
+  was not enabled for this accounting test.
+- This proves that separate root/home snapshot groups satisfy the four-total
+  reporting requirement in the tested layout, and that the candidate kernel
+  fast path prevents the repeated inconsistency seen with the stock module.
+  It does not prove that every Snapper-only design must fail. The p8 host
+  configs were last observed sharing `QGROUP=1/100`; they must be moved to
+  distinct groups before host accounting can satisfy this requirement. A
+  Snapper-only alternative and the safe migration of the p8 qgroup hierarchy
+  remain to be assessed.

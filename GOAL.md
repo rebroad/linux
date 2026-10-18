@@ -41,6 +41,16 @@ quota-based cleanup must wait until the counters are consistent.
    previous head and has been superseded by this successful check. The current
    local GCC build and focused qgroup rescan limiter test also passed. Keep
    this PR paired with the kernel change through review.
+
+   **PR description practice:** Follow the target repository's PR template and
+   conventions. Keep the description focused on the current implementation,
+   current validation, and current limitations. Include prior revisions,
+   superseded failures, or historical test comparisons only when the
+   repository's PR template or guidance asks for them. Keep project history in
+   `GOAL-done.md` or linked evidence. When a commit reference is needed, use a
+   concise descriptive Markdown link to the exact commit in its repository,
+   rather than displaying a bare full hash.
+
    `QGROUP_RESCAN_HOLD_FILE` defers new automatic scans while a shared
    absolute-path marker has a future deadline; it does not cancel an
    already-running scan. Set `QGROUP_RESCAN_HOLD_FILE=/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`

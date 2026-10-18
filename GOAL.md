@@ -31,6 +31,16 @@ Snapper/Btrfs operations set inconsistency, whether completed full scans
 restore correct counters, and whether a Snapper-only change can meet the
 accounting and operating requirements. Distinguish a conservative fallback
 from incorrect counters and from a Snapper tracking/configuration error.
+For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
+identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
+because its quick path does not handle source and snapshot groups as siblings
+under a common tracker. Before the next Snapper snapshot, `prepareQGroupTracking`
+checks the existing hierarchy and calls `quota_rescan_if_needed`, which scans
+and waits; the new snapshot then sets the flag again. The four-snapshot-per-
+filesystem workload's six stock scans match three scans per filesystem after
+the first snapshot. This is established for that fixture; verify it against
+the remaining live and longer-cycle cases before treating every observed host
+rescan as explained. See `GOAL-done.md` for the source and log evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -300,11 +310,15 @@ quota-based cleanup must wait until the counters are consistent.
      remain outstanding. Evidence and hashes are in
      `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
-     actual 7.2.6 header and image hooks passed. Before any later kernel
-     release is installed, add its matching source and verify its DKMS build,
-     signature, module selection, and initramfs. Prove an unmapped or failed
-     build cannot silently boot stock Btrfs or leave package configuration
-     broken; keep normal security upgrades available.
+     actual 7.2.6 header and image hooks passed. Before rebooting into the
+     next kernel version APT will install or select, prepare its matching
+     source and verify the DKMS build, signature, module selection, and
+     initramfs. Keep matching modules ready for every installed kernel,
+     including the running release and rollback versions. For each later
+     kernel release, complete these checks before it can be selected for boot.
+     Prove an unmapped or failed build cannot silently boot stock Btrfs or
+     leave package configuration broken; keep normal security upgrades
+     available.
    - Keep the verified boot selection and signed stock-module rollback path
      documented. Verify the new p8 groups through Snapper operations and
      cleanup, and retain the active 7.2.6 release as the acceptance kernel.

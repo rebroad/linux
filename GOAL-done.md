@@ -924,6 +924,29 @@ broader filesystem coverage and host rollout remain open.
   closes the live Snapper daemon/client method-path check. Host deployment,
   system-bus activation/policy, and APT-upgrade persistence remain open.
 
+## Current Snapper PR head with the stock in-use kernel module (2026-10-18)
+
+- Reused the current PR #1203 head (`bfdccd031b16988e132c609205ca6367e1dbfaaf`)
+  and the stock `7.1.13+deb13-amd64` Btrfs module (compressed module SHA-256
+  `6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`). The
+  fresh QEMU workload created root and home quota configs, reconciled the
+  tracker-setup scan, then ran three hourly root/home snapshot rounds.
+- Tracker setup triggered a rescan and marked qgroups inconsistent. After an
+  explicit reconciliation, the first hourly snapshot marked qgroups
+  inconsistent again. Snapper's per-filesystem limiter prevented another scan
+  during the remaining rounds: the scan-completion count stayed at four.
+- With qgroups still inconsistent, `snapper list --columns number,used-space`
+  printed numeric last-known values (including 2.14 MiB for the first root
+  snapshot) with the stale-data warning. Quota-based cleanup reported that it
+  was deferred and deleted no snapshots. Neither operation started another
+  scan. The guest printed `STOCK-CONTROL: PASS`.
+- This confirms the latest Snapper change enforces the daily scan limit and
+  preserves honest stale-quota behavior on the stock module, but it does not
+  prevent the snapshot hierarchy from making qgroups inconsistent. In the
+  latest-PR candidate-module workload above, the paired kernel change avoided
+  those warnings and allowed quota cleanup to pass. Serial log, initrd,
+  script, and fresh image: `/var/tmp/snapper-pr1203-quota/stock-control/`.
+
 ## Kernel maintainer feedback and different-parent check (2026-10-18)
 
 - Btrfs maintainer review asked for a plain-language qgroup hierarchy, a

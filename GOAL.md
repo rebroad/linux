@@ -41,20 +41,23 @@ quota-based cleanup must wait until the counters are consistent.
    exclusivity guard and passing quota cleanup. The kernel change is an
    optimization for this proven topology, not a repair for demonstrated bad
    accounting. The shared parent is created only by the candidate Snapper
-   `prepareQGroupTracking()` change; the stock Snapper baseline leaves the
-   source and configured snapshot qgroup without a shared level-2 parent. The
-   kernel's no-parent rescan fallback is expected for that baseline, so the
-   kernel change alone will not avoid its scans. Prefer a Snapper-only fix if
-   it can correctly prevent the inconsistency and unnecessary scans. Use the
-   paired Snapper/kernel path only if the kernel change is necessary for
-   correct accounting or to meet the daily rescan ceiling. The RFC,
+   `prepareQGroupTracking()` change. A fresh stock-module run of current PR
+   #1203 showed the tracking setup and first hourly snapshot still mark qgroups
+   inconsistent. Snapper's limiter then enforces the scan ceiling, returns
+   last-known values as stale, and defers quota cleanup; this contains the
+   repeated scans but does not keep qgroups consistent. The same latest-line
+   Snapper workload with the candidate kernel module completed three hourly
+   rounds without inconsistency and passed quota cleanup. The Snapper-only PR
+   therefore does not meet the consistency requirement; continue with the
+   paired kernel change unless a Snapper-only hierarchy can be shown to keep
+   the counters accurate while preserving snapshot-only quota scope. The RFC,
    differential results, correction, and
    formal kernel patch have been sent to `linux-btrfs`. Maintainer feedback
    arrived on 2026-10-18: clarify the qgroup layouts and opt-in policy, avoid
    unsupported tracker terminology, disclose AI assistance, and test the
-   different-parent fallback. That fallback now passes a QEMU check on the
-   exact in-use kernel; prepare a concise corrected patch and response for
-   review before sending another mailing-list message. The
+   different-parent fallback. The fallback passes QEMU checks on the exact
+   in-use kernel. A concise corrected patch and response are prepared locally;
+   review them before any further mailing-list follow-up. The
    narrowed patch was checked against current upstream source and compiled
    against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's

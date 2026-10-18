@@ -1617,3 +1617,35 @@ specified in `GOAL.md`.
   as `6f03ace4` on `/home/rebroad` `master` and is present at `origin/master`.
   The home-repository checkout has unrelated modified files, which were left
   untouched.
+
+## Sleep/resume qgroup hold and service installation (2026-10-18)
+
+- The post-resume helper previously refreshed the qgroup hold only when a
+  marker already existed. That left normal sleep without a prior `force-suspend`
+  unprotected: a timer catch-up could invoke Snapper's internal rescan path.
+  The helper now creates a hold before stopping the timeline timer and ensures
+  an unexpired hold before restarting it after resume. It fails closed if it
+  cannot create or refresh that hold.
+- The system unit previously executed `/home/rebroad/bin/snapper-timeline-sleep`
+  as root. It now executes `/usr/local/libexec/snapper-timeline-sleep`;
+  `bin/install-snapper-timeline-sleep` installs the helper and system unit as
+  root-owned files, reloads systemd, and enables the sleep hook. The unit
+  requires the mount containing the hold-file directory.
+- Added `bin/test_snapper_timeline_sleep.py` coverage for marker creation,
+  preserving a future marker, renewing an expired marker, inactive timers,
+  fail-closed pre-sleep and resume paths, and installer destinations. All seven
+  tests pass; `sh -n` passes for both shell scripts and `git diff --check`
+  passes. `systemd-analyze verify` could not fully validate the unit here: it
+  reported the expected absent not-yet-installed `/usr/local/libexec` helper
+  and a sandbox permission error opening the unrelated
+  `/etc/systemd/system/memory_guardian.service`.
+- Committed and pushed to `rebroad/home-rebroad` branch
+  `codex/snapper-timeline-sleep-guard` as `fa151915`, a normal fast-forward
+  from the verified remote tip `50e72c5f`. The host service remains uninstalled
+  and unenabled; verify its live ordering and prove no resume catch-up starts a
+  scan after the reviewed Snapper build is deployed.
+- Refreshed upstream PR #1203 on 2026-10-18. It remains open at head
+  `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, based on
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; all seven CI checks pass and it
+  still has no review decision or submitted reviews. The exact Btrfs patch's
+  DCO sign-off remains pending.

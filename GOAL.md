@@ -208,9 +208,13 @@ quota-based cleanup must wait until the counters are consistent.
      signature, module selection, and initramfs. Prove an unmapped or failed
      build cannot silently boot stock Btrfs or leave package configuration
      broken; keep normal security upgrades available.
-   - At a planned reboot, activate the 7.2.6 candidate and verify the running
-     kernel, loaded module version/signature, and Btrfs qgroup behavior on the
-     host. Keep a tested route back to stock Btrfs.
+   - At the next planned reboot, select the one-boot GRUB entry for the
+     currently running `7.1.13+deb13-amd64` release and verify that its signed
+     candidate module is loaded. Leave the default next boot at 7.2.6
+     unchanged. Perform the qgroup host migration and acceptance workload only
+     after this exact-kernel module check passes. Keep a tested route back to
+     stock Btrfs. Booting 7.2.6 is a separate installed-kernel compatibility
+     check, not a substitute for acceptance on 7.1.13.
    - Verify the installed Snapper package after upgrade/reinstall and confirm
      every Kingston configuration retains the rescan window and hold settings.
      Restore quota cleanup limits only after accounting and cleanup are

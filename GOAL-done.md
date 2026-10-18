@@ -1011,3 +1011,10 @@ broader filesystem coverage and host rollout remain open.
   `kmod` and `mokutil` are installed. A persistent kernel-module deployment
   method, including Secure Boot signing and upgrade behavior, remains to be
   selected and verified.
+- Checked the latest-upstream checkout's Debian packaging. Its
+  `dists/debian/rules` passes `--disable-btrfs-quota`, while `configure.ac`
+  enables quota support by default. The existing external build tree was
+  configured with `ENABLE_BTRFS_QUOTA=1`; its Snapper 0.13.2 binary reports
+  `btrfs-quota` in its feature list. Therefore, an unmodified Debian package
+  build would not be a valid host package for this goal; the local package
+  build must explicitly preserve and verify quota support.

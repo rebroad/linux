@@ -2892,6 +2892,56 @@ specified in `GOAL.md`.
   rescans report the same measured nonempty counters in both tested operation
   orders. Live correlation and longer repeated cycles remain open.
 
+## Eight-round host-topology QEMU cycles (2026-10-19)
+
+- Ran fresh four-collective filesystems through eight snapshot rounds per
+  config (32 snapshots total, 16 on each filesystem), followed by an explicit
+  full rescan on each filesystem. Both root-first and home-first orders used
+  the exact `7.2.6+deb13-amd64` kernel and Snapper 0.13.2 executable hash
+  `917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f`.
+  The stock Btrfs module hash was
+  `9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`; the
+  candidate module hash was
+  `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`.
+  All runs completed successfully under QEMU TCG.
+- With the candidate module, both operation orders completed all 32 snapshots
+  with zero automatic scans and zero inconsistency warnings. The two explicit
+  final scans completed. For all four independent collectives, the counters
+  before and after those scans were unchanged at 10,633,216 referenced and
+  147,456 exclusive bytes. The captured p8 image's qgroup tree assigns the
+  `.snapshots` subvolume and eight snapshots to each snapshot group. Its extent
+  tree shows nine unique 16 KiB metadata blocks (`refs 1`) per group, totaling
+  147,456 bytes; the 10 MiB file payload plus this metadata totals the
+  reported 10,633,216 referenced bytes. This independently reconciles the
+  candidate's counters for this fixture.
+- With the stock module, both operation orders completed 30 automatic scans
+  before the two explicit final scans, for 32 completed scans total. The
+  counters for the collective belonging to the *last* snapshot in the order
+  were short immediately before the final scans: 9,568,256 referenced and
+  131,072 exclusive bytes, versus 10,633,216 and 147,456 afterward. The
+  shortfall was 1,064,960 referenced and 16,384 exclusive bytes. The other
+  collective already matched the post-rescan value. Reversing snapshot order
+  moved the shortfall from home to root on both filesystems. Thus the full scan
+  clears the inconsistency and accounts for the newest snapshot; this test
+  does not indicate a persistent post-rescan accounting error. It does show
+  that the stock path leaves the most recently snapshotted collective with
+  stale counters until the next full scan.
+- The stock harness's warning total is based on the current kernel `dmesg`
+  buffer, so its 25/26 count is not used as a total warning count. The scan
+  counts come from the completed-scan messages after the harness clears the
+  buffer at workload start. The operation-level serial lines confirm rescans
+  continue through the sequence.
+- The four serial logs are
+  `/var/tmp/linux.build/qgroup-repeated-20261019/candidate-root-home-run2.serial.log`,
+  `candidate-home-root-run2.serial.log`,
+  `stock-verified-root-home.serial.log`, and
+  `stock-verified-home-root.serial.log`. The tested initrd images and fresh
+  Btrfs disk images are preserved in the same directory. This longer sequence
+  supports the source-level explanation of the rescan cycle and demonstrates
+  candidate counter stability for the tested topology. Repeated cleanup and
+  deletion, hold/window behavior during this workload, and live-host
+  correlation remain unverified.
+
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 
 - The host's `apt upgrade` transaction (started at 22:27) installed and

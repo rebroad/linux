@@ -1,5 +1,11 @@
 # Goal: fix Snapper-triggered Btrfs qgroup inconsistency
 
+The host's intended and required Snapper runtime is the locally built version
+from our Snapper repository, based on the latest official upstream source and
+carrying our reviewed changes. A distribution-provided Snapper binary is only
+a diagnostic baseline during migration and must not be the host's final or
+active runtime.
+
 Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
 leave the host with a persistent fix that survives normal package upgrades.
 Preserve accurate accounting and expected cleanup behavior. Avoid unnecessary

@@ -34,13 +34,13 @@ quota-based cleanup must wait until the counters are consistent.
    kernel investigation and acceptance testing.
 
    The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
-   currently at `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0` against upstream
+   currently at `000d4fe0b57541e35fd5f4ce64114be16ddd489b` against upstream
    `master` `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. It has no review
-   decision. Codespell and five of six CI build/test checks pass. Tumbleweed
-   Clang failed before compilation on package-mirror timeouts. A local Clang
-   19.1.7 full compile and `make check` passed (30 passed, 2 skipped, 0
-   failed), but the failed CI check remains red and was not rerun. Keep this PR
-   paired with the kernel change through review.
+   decision. All seven CI checks for this updated head are queued. The prior
+   Tumbleweed Clang failure happened during package installation before
+   compilation and was on the previous head. The current local GCC build and
+   focused qgroup rescan limiter test passed. Keep this PR paired with the
+   kernel change through review.
    `QGROUP_RESCAN_HOLD_FILE` defers new automatic scans while a shared
    absolute-path marker has a future deadline; it does not cancel an
    already-running scan. Set `QGROUP_RESCAN_HOLD_FILE=/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`

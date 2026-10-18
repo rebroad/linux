@@ -1543,3 +1543,23 @@ specified in `GOAL.md`.
   exact in-use release and use upstream review/CI for the submission base.
 - The exact-release sanity tests passed in QEMU as recorded above. The
   replacement kernel patch remains gated on the user's DCO sign-off.
+
+## Latest-upstream Snapper PR formatting and rebuild (2026-10-18)
+
+- Reviewed the added C++ in Snapper PR #1203 against the repository's
+  `.editorconfig` and surrounding source. Corrected over-indented rescan and
+  hold-file blocks in the implementation and the new limiter tests. The
+  six-commit PR history contains no standalone fixup after autosquashing these
+  corrections into the final logical commit.
+- Synced the Snapper checkout into its existing sibling build tree with
+  `cpto --no-lngit`. The full configured GCC build completed, and
+  `make -C testsuite check TESTS=qgroup-rescan-limiter.test` passed (1 test,
+  0 failures).
+- The PR remains open without a review decision. Updated head is
+  `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, based on upstream master
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. All seven CI checks for this
+  head were queued at 2026-10-18 09:07 UTC; review and CI remain outstanding.
+- Staging through the local `git add` wrapper ran `ws --diff-only`, which
+  rewrote mixed tabs and spaces in ways that disagreed with nearby source
+  layout. After manually reviewing the intended indentation, the changes were
+  staged with the wrapper's explicit `AGENT_GIT_ADD_BYPASS=1` option.

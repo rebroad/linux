@@ -1047,6 +1047,16 @@ specified in `GOAL.md`.
   existing DKMS key therefore cannot yet be treated as trusted for loading a
   candidate module. Do not import/enroll it until the signing and recovery
   plan is reviewed.
+- Inspected the Debian `dkms` candidate package `3.2.2-1~deb13u1` without
+  installing it. Its `prepare_mok()` defaults to `/var/lib/dkms/mok.key` and
+  `/var/lib/dkms/mok.pub`, and can generate a missing key/certificate pair.
+  The automatic `update-secureboot-policy --enroll-key` call is in its Ubuntu
+  specific branch; Debian's default path does not enroll the generated or
+  existing certificate. Thus installing DKMS alone would not make a signed
+  Btrfs module trusted on this Secure Boot host. Its module-signing code calls
+  the selected kernel `sign-file` utility, but acceptance still requires
+  proving the installed module is signed by an enrolled key and is selected
+  from the initramfs and root filesystem after boot.
 - DKMS remains only a candidate deployment route. Verify module signing,
   trusted-key enrollment, initramfs selection, failed-build propagation, and
   a real kernel upgrade/reinstall before selecting it for host deployment.

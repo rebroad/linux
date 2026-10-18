@@ -918,6 +918,15 @@ broader filesystem coverage and host rollout remain open.
   No `Signed-off-by` trailer was added; the user's DCO sign-off for this exact
   replacement patch is still required before submission.
 
+- Checked current `torvalds/linux` master through the GitHub API on
+  2026-10-18 at `58161ead29e50d70a317ea26b472e0c7508e69da`. Its
+  `fs/btrfs/qgroup.c` still has the original same-parent-only quick-inherit
+  condition (`list->group->qgroupid != parentid`) and the
+  `parent->excl != parent->rfer` guard. It does not include the proposed
+  shared-parent optimization, so this change is not already present in that
+  mainline tip. This check does not replace checking the maintainer `for-next`
+  tip again immediately before resubmission.
+
 ## Post-resume Snapper timer audit (2026-10-18)
 
 - The active `snapper-timeline.timer` is an hourly `OnCalendar` timer and was

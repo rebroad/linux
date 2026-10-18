@@ -1120,3 +1120,11 @@ broader filesystem coverage and host rollout remain open.
 - This is QEMU evidence only. The host still has the stock Btrfs module and
   has not been switched to the locally built Snapper package. Deployment
   remains gated on upstream review and the full system acceptance plan.
+
+## Snapper PR description correction (2026-10-18)
+
+- Updated PR #1203's description after checking its text against the current
+  kernel-patch state. It now states that the stock Btrfs module still takes
+  the conservative rescan fallback for the reproduced snapshot-only layout,
+  and that the companion kernel optimization has been tested but is not yet
+  submitted. PR head and source code were unchanged.

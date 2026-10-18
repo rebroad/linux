@@ -1805,3 +1805,17 @@ specified in `GOAL.md`.
   `1574899662080c0445c0271170ef99d1767e4af7231ab76baff5fbbc200ffdb4`.
 - The updated Snapper PR head has all seven GitHub CI checks successful.
   Generated artifacts remain in the sibling build tree.
+
+## Live deployment gate rechecked (2026-10-18)
+
+- Read-only host checks confirm the running kernel remains
+  `7.1.13+deb13-amd64`. The active `snapper-timeline.timer` is enabled and
+  active, while `snapper-timeline-sleep-guard.service` is not installed and
+  the shared rescan-hold marker is absent. The locally built Snapper and its
+  shared configuration policy are therefore not active on the host yet.
+- The host still reports the distribution Snapper package as installed. This
+  is only current pre-deployment state; it does not meet the goal's required
+  runtime. Passwordless sudo is unavailable in this session, so the protected
+  `/etc/snapper/configs` policy values could not be refreshed. Keep deployment
+  gated until PR review, host-level access, and the remaining acceptance and
+  upgrade checks are resolved.

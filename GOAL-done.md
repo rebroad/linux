@@ -1094,3 +1094,26 @@ broader filesystem coverage and host rollout remain open.
   the intended final runtime remains our locally built Snapper based on latest
   upstream. Deployment is still gated on upstream review and full accounting
   acceptance.
+
+## Shared-tracker counter recheck (2026-10-18)
+
+- Rebuilt the QEMU initramfs overlay with the current Btrfs module from the
+  `7.1.13+deb13-amd64` build (`btrfs.ko` SHA-256
+  `5ee7596af036376fb4c874d9bf76b5c07de2858c9484b219b9899ab822e28be8`). The
+  test used the latest-upstream Snapper overlay, two independent quota
+  hierarchies, outside snapshots sharing source extents, tracker setup, three
+  later snapshot rounds, timeline cleanup, and a final full rescan.
+- Added diagnostic qgroup tables after tracker setup and each snapshot round,
+  plus before and after the final full rescan. The full-rescan comparison
+  produced no counter differences. The test ended with
+  `SNAPPER-QUOTA: PASS`; after the two expected tracker-setup scans, the later
+  snapshots, quota queries, and cleanup started no scans and marked no qgroups
+  inconsistent.
+- This verifies the current shared-tracker referenced and exclusive counters
+  against a full rescan for the tested workload. The suspected missing
+  nodesize adjustment was not reproduced; no kernel arithmetic change is
+  justified by this audit. Log:
+  `/var/tmp/qgroup-root-cause-7.1.13/accounting-audit.serial.log`.
+- This is QEMU evidence only. The host still has the stock Btrfs module and
+  has not been switched to the locally built Snapper package. Deployment
+  remains gated on upstream review and the full system acceptance plan.

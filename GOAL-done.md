@@ -1657,3 +1657,37 @@ specified in `GOAL.md`.
   `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; all seven CI checks pass and it
   still has no review decision or submitted reviews. The exact Btrfs patch's
   DCO sign-off remains pending.
+
+## Current upstream qgroup-inheritance recheck (2026-10-18)
+
+- Checked the live Btrfs maintainer refs: `for-next` remains
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`; its `master` is now
+  `70dd4ee72eb2d5793c62e71c14e3aba78e5a4e56`. The formal candidate remains
+  based on the unchanged `for-next` commit.
+- Fetched mainline Linux `master` at
+  `58161ead29e50d70a317ea26b472e0c7508e69da` and read its
+  `fs/btrfs/qgroup.c`. `qgroup_snapshot_quick_inherit()` still requires the
+  source and new parent to be the same single parent and otherwise returns the
+  rescan fallback. It contains neither the two-child shared-parent path nor
+  the candidate's counter derivation. The reported behavior is therefore not
+  already fixed in current Btrfs maintainer `master` or mainline `master`.
+- Rechecked Snapper PR #1203: it remains open at
+  `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, based on official upstream
+  `master` `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; all seven checks pass,
+  with no review decision or submitted reviews. No source checkout or patch
+  was changed during this recheck.
+
+## Goal-state refresh (2026-10-18)
+
+- Queried the official Snapper repository and PR API. `master` is still
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`, matching PR #1203's base.
+  PR #1203 remains open at
+  `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, with no reviews or review
+  decision and all seven CI checks successful.
+- The current host reports kernel `7.1.13+deb13-amd64`; `snapper --version`
+  reports Snapper `0.10.6`, libsnapper `7.2.0`, and Btrfs quota support, and
+  `dpkg-query` reports `snapper 0.10.6-1.2`. This confirms the locally built
+  latest-upstream Snapper has not yet become the host runtime.
+- The managed shell could not connect to the system D-Bus, so this check did
+  not establish the live timer or sleep-unit state. Do not treat timer status
+  as refreshed by this observation.

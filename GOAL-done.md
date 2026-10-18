@@ -2727,10 +2727,27 @@ specified in `GOAL.md`.
 - Source inspection narrows this warning to the transaction-commit path:
   `btrfs_run_qgroups()` writes each dirty qgroup's info item, and
   `update_qgroup_info_item()` returns `-ENOENT` when the qgroup info key is
-  absent. The current warning does not print the qgroup ID, so this does not
-  establish that the missing item belonged to a deleted snapshot. The next
-  diagnostic must identify the qgroup ID and determine why it is dirty while
-  its info item is absent.
+  absent. A diagnostic build that prints the ID identified the missing item
+  as qgroup `0/260` on both filesystems. In the guest's qgroup tree, `0/260`
+  is the first root snapshot subvolume, which timeline cleanup removed before
+  the redundant second full rescan. A follow-up diagnostic logged qgroup
+  object allocation and the failed update pointer; the failure uses the
+  original allocation pointer. It did not log the final qgroup-removal path,
+  but that alone does not prove removal was never attempted because
+  `btrfs_remove_qgroup()` has early exits. The remaining kernel investigation
+  is to trace entry and return paths for dropped-subvolume cleanup and every
+  early exit from qgroup removal, then establish how this deleted snapshot's
+  in-memory qgroup remains dirty while its info item is absent.
+- `~/bin/snapper-exponential-retention` was not used in this QEMU workload;
+  Snapper's built-in timeline cleanup and synchronous deletes reproduced the
+  warning without it. The script itself deletes snapshots with Snapper and
+  does not explicitly request a quota rescan. Its optional `btrfs filesystem
+  du` queries are read-only; its `btrfs quota rescan -s` report command only
+  queries scan status. Thus it is not necessary for the reproduced warning,
+  though its snapshot deletions could exercise the same Btrfs lifecycle on the
+  host. The inspected user's crontab and targeted cron/systemd paths contained
+  no invocation of this script; this does not rule out a manual invocation or
+  another scheduler outside those paths.
 - The guests reported `HOST-TOPOLOGY: COMPLETE` and `no rescan operation in
   progress` at the end. Logs, disposable disk images, and initrd overlays are
   in `/var/tmp/linux.build/qgroup-cleanup-20261018/`; the serial logs are

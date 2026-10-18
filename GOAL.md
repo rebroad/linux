@@ -102,9 +102,14 @@ quota-based cleanup must wait until the counters are consistent.
    groups showed only the 16 KiB `.snapshots` directory, while the source
    groups showed their measured source data. Still verify nonempty exclusive
    counters against independently derived expectations and confirm that later
-   snapshots preserve them. Diagnose why a second full rescan after the first
-   had cleared inconsistency logged `qgroup info item update error -2` on the
-   stock module. Record each case and its limits in `GOAL-done.md`.
+   snapshots preserve them. Continue diagnosing why a second full rescan after
+   the first had cleared inconsistency logged `qgroup info item update error
+   -2` on the stock module. The missing item is qgroup `0/260`, the first root
+   snapshot subvolume removed during timeline cleanup; determine which
+   dropped-subvolume/qgroup-removal path leaves its in-memory object dirty
+   after the item is deleted. The retention script was not needed to reproduce
+   the warning, though its snapshot deletions may exercise the same lifecycle.
+   Record each case and its limits in `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository

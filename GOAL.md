@@ -72,15 +72,19 @@ quota-based cleanup must wait until the counters are consistent.
    resubmitted; obtain the user's DCO sign-off for this exact patch before
    adding its `Signed-off-by` trailer or sending it.
    Kernel build and runtime acceptance remain on the exact in-use
-   `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's
-   `codex/upstream-qgroup-tracking-clean-pr3` branch as clean-history upstream
-   PR [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed
-   drafts #1201 and #1202. PR #1203 is ready for review; at the latest check
-   (2026-10-18), all CI checks passed and no review or maintainer feedback was
-   recorded. Keep it paired with the kernel change through review. Add a
-   documented `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting;
-   configure every host Snapper config sharing Kingston to `05:00-21:00`
-   local time, while retaining the per-filesystem rolling 24-hour cap.
+   `7.1.13+deb13-amd64` release. The Snapper companion is upstream PR
+   [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed
+   drafts #1201 and #1202. At the latest check (2026-10-18), its base matched
+   the official upstream tip, all CI checks passed, and no review or
+   maintainer feedback was recorded. Its current head also adds
+   `QGROUP_RESCAN_HOLD_FILE`, which lets Snapper defer a fresh automatic scan
+   while the configured absolute-path marker contains a future epoch
+   deadline. All configs sharing a filesystem must use the same marker path;
+   this hold does not cancel a scan that is already running. Keep PR #1203
+   paired with the kernel change through review. Configure the documented
+   `QGROUP_RESCAN_WINDOW=HH:MM-HH:MM` setting on every host Snapper config
+   sharing Kingston as `05:00-21:00` local time, while retaining the
+   per-filesystem rolling 24-hour cap.
 2. **Deploy and maintain our latest-upstream Snapper build.** Replace the
    host's currently installed Snapper with our locally built Snapper from the
    latest upstream baseline, including the reviewed qgroup fix. Debian
@@ -155,10 +159,14 @@ quota-based cleanup must wait until the counters are consistent.
    `snapper-timeline.timer` uses `OnCalendar`; systemd catches up calendar
    events that elapse during suspend when the system resumes. Prevent that
    catch-up run from accidentally starting a fresh qgroup scan, including
-   through Snapper's internal rescan path. The existing force-suspend marker
-   is not sufficient: the timeline wrapper's only marker check is inside its
-   disabled explicit-rescan block, and Snapper's limiter does not read it.
-   Verify the sleep/resume guard on the host. Restore the original
+   through Snapper's internal rescan path. PR #1203 now teaches Snapper's
+   internal limiter to honor the force-suspend marker through
+   `QGROUP_RESCAN_HOLD_FILE`; configure that option in every Kingston config
+   and verify the shared path. The committed sleep/resume guard stops the
+   timeline timer before sleep and refreshes an expired marker before
+   restarting it, but the service and Snapper config are not installed on the
+   host. Verify post-resume ordering and prove no catch-up invocation starts a
+   fresh scan. Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup
    behavior are verified.

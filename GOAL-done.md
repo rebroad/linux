@@ -1246,5 +1246,48 @@ specified in `GOAL.md`.
   was the packaged unattended-upgrades hook; there is no custom hook to renew
   the rescan hold after resume. The system bus was inaccessible in this
   sandbox, so the loaded timer state and actual resume/catch-up ordering were
-  not verified. No marker or unit file was changed. A host-side post-resume
-  guard remains to be implemented and tested with system privileges.
+  not verified. No marker or unit file was changed at the time of this audit.
+
+## Rescan hold and resume integration follow-up (2026-10-18)
+
+- The current Snapper PR #1203 head is
+  `bbccc0a4f62b4245031a521b310a2cec86122b44`, based on the current official
+  upstream `master` tip
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. GitHub reports the PR open,
+  with all seven CI checks successful and no review decision or reviews yet.
+  The local Snapper build uses this head, which is based on the latest
+  upstream source rather than a distribution source package.
+- This head adds `QGROUP_RESCAN_HOLD_FILE`. When qgroups are inconsistent and
+  no scan is already running, Snapper reads an absolute-path marker containing
+  a future epoch deadline and defers a new automatic scan. An absent marker
+  disables this hold. An already-running scan is not canceled by the hold.
+  All configurations sharing a filesystem must use the same marker path.
+- QEMU exercised the hold with the exact in-use kernel release
+  `7.1.13+deb13-amd64`: a future marker prevented a new scan while Snapper
+  displayed last-known quota values as stale and deferred quota cleanup; an
+  expired marker allowed the next eligible scan. The follow-up snapshot,
+  cleanup, and full-rescan counter comparison ended `SNAPPER-QUOTA: PASS`.
+  Serial log SHA-256 is
+  `ccc25bfc622e77c111625369c98cc65dfd2b8bdf03cd6aba2c11e62320ae2df0`.
+- Built uninstalled local Snapper 0.13.2 packages from PR head `bbccc0a4` in
+  `/mnt/kingston/builds/rebroad/src/snapper.build/`; Btrfs quota support is
+  enabled. The `snapper` package SHA-256 is
+  `3b7deeaa558dae32ecfa7faa244b001f4093d1c84ed5b03b0ac13699bc7ad81b`, and
+  the `libsnapper` package SHA-256 is
+  `f96831af49be95f0f78e289432dd1f24ff3b46971dcc17f44f3f03a24d6300cb`. The
+  full `make check` passed 30 tests with 2 optional skips and no failures.
+  `apt-get -s` planned to upgrade `snapper` to this local build, install its
+  matching packages, remove nothing, and leave the old library eligible for a
+  later autoremove. Nothing was installed on the host.
+- A live read-only check still reports kernel `7.1.13+deb13-amd64` and
+  `/usr/bin/snapper` 0.10.6 from package `0.10.6-1.2`. This is the current
+  migration baseline, not the target runtime. The host must ultimately run our
+  locally built Snapper based on the latest upstream source and carrying the
+  reviewed changes.
+- The sleep guard is committed and pushed in the home repository as
+  `e5ee5f77` (`systemd: renew qgroup hold on resume`). It stops the timeline
+  timer before sleep and refreshes an expired marker before restarting the
+  timer. The service and `QGROUP_RESCAN_HOLD_FILE` setting have not been
+  installed on the host, and actual post-resume/catch-up ordering remains
+  unverified. Host rollout stays gated on upstream review and system-level
+  accounting and resume checks.

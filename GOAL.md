@@ -21,8 +21,13 @@ Snapper or modified Btrfs module. Local use instead requires technical review,
 the exact-kernel acceptance workload, a valid Secure Boot signature from an
 enrolled key, and a tested rollback and kernel-upgrade path.
 
-Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
-leave the host with a persistent fix that survives normal package upgrades.
+Find out whether Snapper's root and home configurations sharing a snapshot
+QGROUP ID cause the observed qgroup inconsistency. The immediate priority is a
+controlled Snapper QEMU investigation; do not treat the kernel module change as
+necessary or migrate the host's qgroups until that investigation establishes
+what causes the inconsistency and whether a Snapper-only fix is sufficient.
+Once the cause is established, leave the host with a persistent fix that
+survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
 p8-home, Kingston-root, and Kingston-home. Each Snapper config must keep its
 own snapshot QGROUP so its exclusive-space total remains separately visible;
@@ -43,8 +48,38 @@ quota-based cleanup must wait until the counters are consistent.
 
 ## Next steps
 
-1. **Complete the paired upstream contributions — 70% done.** Develop and validate the
-   Snapper fix against the latest revision in the official upstream repository
+1. **Continue the shared-ID Snapper QEMU investigation — 40% done.** Use the
+   latest built Snapper from this repository and disposable QEMU filesystems.
+   Compare root and home using one shared snapshot QGROUP ID with the same
+   configs using distinct IDs. Start every case from fresh quota state, and
+   make the qgroup membership and parent hierarchy match the intended
+   configuration before creating snapshots; changing only a config's
+   `QGROUP` string after quota setup is not sufficient evidence. Keep the
+   kernel module, Snapper build, source data, snapshot sequence, cleanup
+   behavior, and rescan policy identical within each comparison.
+
+   Exercise root-only and home-only snapshots, then both orders (root followed
+   by home and home followed by root). Record the first operation that sets
+   qgroup inconsistency, Snapper's rescan behavior, qgroup membership and
+   parent relationships, and counters before and after a full rescan. Repeat
+   cases that produce different outcomes. First use the stock module for the
+   running kernel; use the candidate module only as a paired comparison where
+   it helps distinguish a Snapper layout problem from a kernel accounting
+   problem. The existing shared-versus-distinct QEMU results are suggestive
+   but do not settle this question: they used different module conditions and
+   snapshot layouts, and the shared-ID case's qgroup setup must be validated
+   against the host's actual topology.
+
+   Decide from these results whether sharing the root/home ID causes the
+   inconsistency, contributes through Snapper's tracking hierarchy, or is
+   unrelated. Only if fresh, correctly configured distinct-ID cases still
+   become inconsistent should the kernel companion remain a required fix.
+   Keep host qgroup migration and production module activation paused until
+   this decision is supported by reproducible QEMU evidence. Record each
+   completed case and its limits in `GOAL-done.md`.
+
+   Then continue developing and validating the Snapper fix against the latest
+   revision in the official upstream repository
    (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
    new work. Do not use a distribution package source or older downstream
    branch as the development base. The host's required Snapper runtime is our
@@ -56,17 +91,12 @@ quota-based cleanup must wait until the counters are consistent.
    The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
    based on the latest official `openSUSE/snapper` master. It is open, all
    seven CI checks pass, and upstream review is pending. Keep PR #1203 active
-   while validating the accounting design. Exact-release QEMU testing shows
-   that distinct per-config QGROUPs with the current Snapper become
-   inconsistent on the stock module, while the candidate module keeps four
-   independent groups consistent. The tested Snapper-only alternatives cannot
-   keep accurate snapshot-only counters without rescanning. Treat the kernel
-   companion as required for this Snapper design on
-   `7.1.13+deb13-amd64`; it remains gated on local safety and upgrade checks.
-   The shared root/home QGROUP tracker mismatch is a separate Snapper bug and
-   distinct groups remain required for the four collectives. Results and
-   limits are recorded in `GOAL-done.md`; refresh upstream state before
-   rebasing or starting new work.
+   while validating the accounting design, but its status and implementation
+   must follow the QEMU investigation above. Do not describe the kernel
+   companion as required unless the controlled tests establish that
+   distinct-ID accounting still fails independently of the shared-ID
+   configuration. Results and limits are recorded in `GOAL-done.md`; refresh
+   upstream state before rebasing or starting new work.
 
    **PR description practice:** Follow the target repository's PR template and
    conventions. Keep the description focused on the current implementation,
@@ -90,35 +120,24 @@ quota-based cleanup must wait until the counters are consistent.
    filesystem; a mismatch or unverifiable policy defers the scan and preserves
    stale status. An already-running scan is still waited for.
 
-   Kingston already assigns root to `1/100` and home to `1/101`. On p8, both
-   configs still use `1/100`; that group currently contains 79 root snapshots,
-   28 home snapshots, and both `.snapshots` subvolumes. Migrate p8 so root and
-   home have distinct snapshot QGROUPs, accounting for existing as well as
-   future snapshots and keeping a separate source-plus-snapshot tracker for
-   each config. Then verify p8-root, p8-home, Kingston-root, and Kingston-home
-   independently against a full rescan. Root and home must not be combined
-   into one snapshot QGROUP. Both filesystems currently report inconsistent
-   qgroup data, so their stored byte counters are stale until rescanned.
-   QEMU reproduced the p8 layout: the root snapshot stayed consistent, then
-   the home snapshot in the shared root group logged `qgroup inherit needs a
-   rescan`, even with the candidate module. After moving existing home
-   snapshots to their own group, pairing that group and the live home source
-   under a separate tracker, and rescanning, new root/home snapshots remained
-   consistent and the exclusive counters matched a full rescan. This confirms
-   the shared p8 group/tracker mismatch as a cause on p8. The host migration
-   must wait until the candidate module is active. Run the migration's
-   required full rescan inside the configured window; the disabled daily limit
-   allows repeated rescans during investigation. Keep the hold path configured
-   for `force-suspend`, which creates a temporary marker only when needed.
+   The host's p8 root and home configs currently share `1/100`; Kingston uses
+   root `1/100` and home `1/101`. Both filesystems report inconsistent qgroup
+   data, so their displayed counters are stale. Preserve the requirement for
+   four independently queryable collectives, but do not migrate host qgroup
+   membership or activate the candidate module until the QEMU matrix above
+   identifies the cause and the appropriate fix. Previous shared-to-distinct
+   migration and candidate-module results remain in `GOAL-done.md`; they are
+   not a reason to skip this investigation. Keep the rescan hold and time
+   window configured while testing; the investigation configs have the daily
+   limit disabled.
 
-   The tested Snapper tracking layout gives each config a separate level-1
-   snapshot QGROUP and pairs that QGROUP with its live source under a tracker.
-   On stock `7.1.13`, inherited snapshots mark qgroups inconsistent and a
-   later full rescan changes stale exclusive counters. The candidate Btrfs
-   fast path avoids those marks in the four-group QEMU workload and the
-   counters then match a full rescan. Preserve the conservative fallback for
-   layouts the fast path cannot prove safe. See `GOAL-done.md` for the
-   controlled comparison and the tested Snapper-only alternatives.
+   The candidate kernel fast path has passed the documented four-group QEMU
+   workload, while stock-module runs marked qgroups inconsistent. Treat this
+   as comparative evidence, not proof that the kernel companion is needed.
+   Retain the conservative fallback in any candidate code, and decide whether
+   to keep or deploy the kernel change only after shared-ID and distinct-ID
+   cases have been compared with matched Snapper builds, module versions, and
+   qgroup topologies. See `GOAL-done.md` for the results and limitations.
 
    The kernel companion is based on the Btrfs maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).

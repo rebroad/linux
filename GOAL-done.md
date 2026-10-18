@@ -2469,3 +2469,81 @@ specified in `GOAL.md`.
   accounting implementation and is outside the required Snapper QGROUP
   interface. Public upstream submission and host rollout remain separate
   gates.
+
+## Live pre-reboot module and Snapper audit (2026-10-18)
+
+- The host is running `7.1.13+deb13-amd64` with Secure Boot enabled. The
+  `modinfo`-selected Btrfs module is the signed candidate at
+  `/lib/modules/7.1.13+deb13-amd64/updates/dkms/btrfs.ko.xz`, SHA-256
+  `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`, vermagic
+  `7.1.13+deb13-amd64 SMP preempt mod_unload`, signer `Rebroad's module
+  signing key`. The matching 7.1.13 initramfs contains the same module hash.
+- The loaded module is still the stock build ID
+  `059c7530edfb1e54ce3b71e44d1f4aa3a4216e17`. No boot setting was changed and
+  no reboot was initiated. The verified one-shot GRUB entry for the running
+  kernel is
+  `gnulinux-7.1.13+deb13-amd64-advanced-d09493d6-16e4-4253-83b7-a5334dd892c7`.
+  Activate the candidate only at the next planned reboot, using that one-shot
+  entry, then confirm its loaded build ID before the qgroup migration.
+- `/usr/bin/snapper` is package
+  `snapper 0.13.2-1+local1.20261018183503.g017efa146426`; the local source
+  checkout is commit `017efa1464260504f2781f383758f72ebe743449`. The live
+  executable SHA-256 is
+  `d3579b4ebdf75b2f45aea66f0a125415f4b53d4fa539fe6cf85550d49af9016a`; the
+  loaded `libsnapper.so.8.2.0` SHA-256 is
+  `a792a8c13937aaec4d91526aeb54311e51c50393e5f15970c93f8d3b36889b77`.
+- No qgroup rescan is running. Both `/` and `/mnt/kingston` still report
+  `qgroup data inconsistent`; their displayed counters are stale and must not
+  be treated as current measurements. p8 root and home still share `1/100`.
+  Kingston root uses `1/100` and home uses `1/101`. Both filesystems have the
+  `05:00-21:00` rescan window and shared hold path configured; the daily limit
+  is disabled on p8 and no hold marker currently exists. No qgroup membership,
+  counter, or host configuration was changed during this audit.
+
+## Reversed-order shared-ID QEMU comparison (2026-10-18)
+
+- Ran the same fresh two-filesystem Snapper workload twice under the exact
+  `7.1.13+deb13-amd64` kernel image: once with the stock Btrfs module
+  (`6ba4e90c38b021af552252af72fb5b0ed56ce027e348a422604feb1c2661ecfc`) and
+  once with the candidate module
+  (`0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`). Both
+  runs used the same Snapper executable and library hashes
+  `3e1e9bab1e82c7e5a77b45e965cd5e746e78c6ba77ae9c3b0f5245812fa70402` and
+  `8290bbb047da6344e621193261a52666d16a810724d7341d3a1ec80e273cab3e`.
+  Each run started from newly formatted QEMU filesystems with no snapshots,
+  clean qgroup state, and zero inconsistency flags. The p8 configs used one
+  shared snapshot QGROUP (`1/0`); Kingston used separate root and home groups
+  (`1/0` and `1/1`). The workload created the home snapshot first on both
+  filesystems, then the root snapshot, and recorded qgroup trees before and
+  after a full rescan.
+- With the stock module, the first home snapshot marked p8 (`vda`) inconsistent
+  and the first Kingston-home snapshot also marked Kingston (`vdb`)
+  inconsistent. Thus the shared root/home ID is not necessary for the stock
+  module's qgroup inconsistency in this workload. The subsequent root snapshot
+  caused no new p8 warning; Kingston-root did mark Kingston inconsistent.
+- With the candidate module, neither first home snapshot marked qgroups
+  inconsistent. The following p8-root snapshot marked p8 inconsistent, while
+  Kingston-root did not produce a warning. Before that p8-root snapshot,
+  Snapper had placed the home source and shared snapshot QGROUP under one
+  tracker. The root source had no parent, so this second config reused a
+  snapshot QGROUP already tracked with the home source; the inheritance then
+  caused `qgroup inherit needs a rescan`. This shows a shared-ID/tracker
+  interaction that depends on which config first establishes the tracker.
+- After full rescans, p8 root and home displayed the same shared-QGROUP value,
+  while Kingston root and home retained distinct values. The shared-ID layout
+  therefore still cannot provide independently queryable p8-root and p8-home
+  exclusive totals, even in cases where it avoids an inconsistency warning.
+- The shared p8 ID was configured after `setup-quota` had initially allocated
+  separate level-1 groups; the unused `1/1` qgroup remained present. The test
+  began with fresh filesystems and no tracker parents, and Snapper built the
+  runtime tracker hierarchy during the home-first snapshot sequence. This
+  probes the configuration transition and order-dependent tracker behavior,
+  but it does not reproduce every detail of the host's existing qgroup tree.
+  Root-first cases are recorded in the earlier paired QGROUP comparison; this
+  run does not add root-only or cleanup-path coverage beyond those fixtures.
+- Serial logs and fresh filesystem images are in
+  `linux.build/qgroup-shared-home-first-stock-20261018/` and
+  `linux.build/qgroup-shared-home-first-20261018/`. Both QEMU runs completed
+  and both full rescans cleared the inconsistency flags. Continue the remaining
+  root-only and topology-matched cases before deciding whether the kernel
+  companion is required for the host's intended distinct-group layout.

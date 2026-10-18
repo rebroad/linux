@@ -3387,6 +3387,19 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	return 0;
 }
 
+#ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
+int btrfs_test_qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
+					     u64 srcid, u64 parentid)
+{
+	int ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	ret = qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	spin_unlock(&fs_info->qgroup_lock);
+	return ret;
+}
+#endif
+
 /*
  * Copy the accounting information between qgroups. This is necessary
  * when a snapshot or a subvolume is created. Throwing an error will

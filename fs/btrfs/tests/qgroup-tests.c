@@ -459,6 +459,227 @@ static int test_multiple_refs(struct btrfs_root *root,
 	return 0;
 }
 
+#define TEST_QGROUP(level, id) (((u64)(level) << BTRFS_QGROUP_LEVEL_SHIFT) | (id))
+
+static struct btrfs_qgroup *find_test_qgroup(struct btrfs_fs_info *fs_info,
+					     u64 qgroupid)
+{
+	struct rb_node *node;
+
+	for (node = rb_first(&fs_info->qgroup_tree); node; node = rb_next(node)) {
+		struct btrfs_qgroup *qgroup = rb_entry(node, struct btrfs_qgroup, node);
+
+		if (qgroup->qgroupid == qgroupid)
+			return qgroup;
+	}
+	return NULL;
+}
+
+static int create_test_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
+{
+	int ret = btrfs_create_qgroup(trans, qgroupid);
+
+	if (ret)
+		test_err("couldn't create test qgroup %llu: %d", qgroupid, ret);
+	return ret;
+}
+
+static int add_test_qgroup_relation(struct btrfs_trans_handle *trans,
+				    u64 src, u64 dst)
+{
+	struct btrfs_qgroup_list *prealloc;
+
+	prealloc = kzalloc_obj(*prealloc, GFP_NOFS);
+	if (!prealloc) {
+		test_err("failed to allocate test qgroup relation");
+		return -ENOMEM;
+	}
+	return btrfs_add_qgroup_relation(trans, src, dst, prealloc);
+}
+
+static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
+					     u32 nodesize)
+{
+	struct btrfs_fs_info *fs_info = root->fs_info;
+	struct btrfs_trans_handle trans;
+	const u64 srcid = TEST_QGROUP(0, 10000);
+	const u64 parentid = TEST_QGROUP(1, 10000);
+	const u64 shared_parentid = TEST_QGROUP(2, 10000);
+	struct btrfs_qgroup *src;
+	struct btrfs_qgroup *parent;
+	struct btrfs_qgroup *shared_parent;
+	int ret;
+
+	test_msg("running shared-parent snapshot quick-inherit test");
+	btrfs_init_dummy_trans(&trans, fs_info);
+	ret = create_test_qgroup(&trans, srcid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, srcid, shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, parentid, shared_parentid);
+	if (ret)
+		return ret;
+
+	src = find_test_qgroup(fs_info, srcid);
+	parent = find_test_qgroup(fs_info, parentid);
+	shared_parent = find_test_qgroup(fs_info, shared_parentid);
+	if (!src || !parent || !shared_parent) {
+		test_err("test qgroups disappeared from the qgroup tree");
+		return -ENOENT;
+	}
+
+	/* Model a source and snapshot parent with overlapping referenced bytes. */
+	src->rfer = 4 * nodesize;
+	src->rfer_cmpr = 2 * nodesize;
+	src->excl = 3 * nodesize;
+	src->excl_cmpr = nodesize;
+	parent->rfer = 2 * nodesize;
+	parent->rfer_cmpr = nodesize;
+	parent->excl = nodesize;
+	parent->excl_cmpr = nodesize / 2;
+	shared_parent->rfer = 4 * nodesize;
+	shared_parent->rfer_cmpr = 2 * nodesize;
+	shared_parent->excl = 3 * nodesize;
+	shared_parent->excl_cmpr = nodesize;
+
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	if (ret) {
+		test_err("shared-parent quick inherit failed: %d", ret);
+		return ret < 0 ? ret : -EINVAL;
+	}
+	if (btrfs_verify_qgroup_counts(fs_info, parentid, 4 * nodesize,
+				       2 * nodesize) ||
+	    btrfs_verify_qgroup_counts(fs_info, shared_parentid, 5 * nodesize,
+				       4 * nodesize) ||
+	    parent->rfer_cmpr != 2 * nodesize ||
+	    parent->excl_cmpr != nodesize / 2 + nodesize ||
+	    shared_parent->rfer_cmpr != 3 * nodesize ||
+	    shared_parent->excl_cmpr != 2 * nodesize) {
+		test_err("shared-parent quick inherit produced incorrect counters");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
+{
+	struct btrfs_fs_info *fs_info = root->fs_info;
+	struct btrfs_trans_handle trans;
+	const u64 srcid = TEST_QGROUP(0, 10010);
+	const u64 parentid = TEST_QGROUP(1, 10010);
+	const u64 src_parentid = TEST_QGROUP(2, 10011);
+	const u64 parent_parentid = TEST_QGROUP(2, 10012);
+	const u64 second_src_parentid = TEST_QGROUP(2, 10013);
+	const u64 single_srcid = TEST_QGROUP(0, 10020);
+	const u64 multi_parentid = TEST_QGROUP(1, 10020);
+	const u64 shared_parentid = TEST_QGROUP(2, 10020);
+	const u64 other_parentid = TEST_QGROUP(2, 10021);
+	const u64 extra_memberid = TEST_QGROUP(0, 10021);
+	int ret;
+
+	test_msg("running snapshot quick-inherit fallback tests");
+	btrfs_init_dummy_trans(&trans, fs_info);
+	ret = create_test_qgroup(&trans, srcid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, src_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, parent_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, second_src_parentid);
+	if (ret)
+		return ret;
+
+	/* A different source and snapshot parent must retain the rescan path. */
+	ret = add_test_qgroup_relation(&trans, srcid, src_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, parentid, parent_parentid);
+	if (ret)
+		return ret;
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	if (ret != 1) {
+		test_err("different-parent topology unexpectedly returned %d", ret);
+		return -EINVAL;
+	}
+
+	/* A source with multiple parents must also retain the rescan path. */
+	ret = add_test_qgroup_relation(&trans, srcid, parent_parentid);
+	if (ret)
+		return ret;
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	if (ret != 1) {
+		test_err("multiple-source-parent topology unexpectedly returned %d", ret);
+		return -EINVAL;
+	}
+
+	ret = add_test_qgroup_relation(&trans, srcid, second_src_parentid);
+	if (ret)
+		return ret;
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	if (ret != 1) {
+		test_err("three-source-parent topology unexpectedly returned %d", ret);
+		return -EINVAL;
+	}
+
+	/* A target with multiple parents is not eligible for the fast path. */
+	ret = create_test_qgroup(&trans, single_srcid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, multi_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, shared_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, other_parentid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, extra_memberid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, single_srcid, shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, multi_parentid, shared_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, multi_parentid, other_parentid);
+	if (ret)
+		return ret;
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, single_srcid,
+						       multi_parentid);
+	if (ret != 1) {
+		test_err("multiple-target-parent topology unexpectedly returned %d", ret);
+		return -EINVAL;
+	}
+
+	/* A shared parent with any additional child must use the rescan path. */
+	ret = add_test_qgroup_relation(&trans, extra_memberid, shared_parentid);
+	if (ret)
+		return ret;
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, single_srcid,
+						       multi_parentid);
+	if (ret != 1) {
+		test_err("extra shared-parent member topology unexpectedly returned %d", ret);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 int btrfs_test_qgroups(u32 sectorsize, u32 nodesize)
 {
 	struct btrfs_fs_info *fs_info = NULL;
@@ -543,6 +764,12 @@ int btrfs_test_qgroups(u32 sectorsize, u32 nodesize)
 	if (ret)
 		goto out;
 	ret = test_multiple_refs(root, sectorsize, nodesize);
+	if (ret)
+		goto out;
+	ret = test_qgroup_shared_parent_inherit(root, nodesize);
+	if (ret)
+		goto out;
+	ret = test_qgroup_inherit_parent_fallbacks(root);
 out:
 	btrfs_free_dummy_root(root);
 	btrfs_free_dummy_fs_info(fs_info);

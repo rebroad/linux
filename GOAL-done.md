@@ -1499,3 +1499,31 @@ specified in `GOAL.md`.
   decide whether the QEMU cases are sufficient for upstream review or add a
   maintainable regression test for the shared-parent success case and the
   differing/multiple-parent fallback cases.
+
+## Exact-release Btrfs qgroup selftests (2026-10-18)
+
+- Added in-tree qgroup sanity tests to the in-use `7.1.13+deb13-amd64`
+  checkout. The shared-parent case checks referenced, exclusive, and
+  compressed counters after quick inheritance. Fallback cases cover different
+  source/target parents, multiple source parents, a target with multiple
+  parents, and an additional child under the shared parent. The test wrapper
+  takes `qgroup_lock`, matching the production caller.
+- Built a test-only Btrfs module against the exact release headers and symbol
+  table. `BTRFS_FS_RUN_SANITY_TESTS` is a bool depending on `BTRFS_FS`; the
+  exact Debian config builds Btrfs as a module, so `olddefconfig` disables the
+  test option. For this isolated test build only, temporarily enabled the
+  generated config macro and restored the generated config afterward. The
+  module vermagic is `7.1.13+deb13-amd64`; its SHA-256 is
+  `304d144be3beb800a7d7441ad70c077b855e08d435e642b44c4d71abab5ad3d9`.
+- Booted the test module in QEMU using the exact Debian kernel image. The
+  kernel banner reports `7.1.13+deb13-amd64`. Qgroup sanity tests ran at all
+  five nodesizes from 4 KiB through 64 KiB; the shared-parent and fallback
+  markers appeared for each size, and module initialization completed with
+  `QGROUP-SANITY: PASS`. The unsigned test module tainted this QEMU guest only;
+  no host module or initramfs was changed.
+- Serial log:
+  `/var/tmp/qgroup-root-cause-7.1.13/qgroup-sanity-retry1-20261018/qemu-lockfix.log`,
+  SHA-256 `01ad48903fc8b04b0e11a1cf8760986505e1031cdf6b35a302ce25e815dfec1d`.
+  The test coverage still needs to be ported to the current Btrfs `for-next`
+  submission base. The user's DCO sign-off for the revised kernel patch also
+  remains pending; do not resubmit it before that gate.

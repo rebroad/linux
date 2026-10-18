@@ -116,12 +116,12 @@ quota-based cleanup must wait until the counters are consistent.
    Snapper build as the primary acceptance target and the exact
    `7.1.13+deb13-amd64` kernel. Existing QEMU coverage and results are in
    `GOAL-done.md`. After upstream review, rerun the full acceptance workload
-   against the final paired source. The Btrfs in-tree qgroup selftest currently
-   does not exercise snapshot quick-inherit. Before resubmitting the kernel
-   patch, establish whether the exact-release QEMU tests are sufficient for
-   this change or add maintainable regression coverage for the shared-parent
-   fast path and the differing/multiple-parent fallbacks. Add coverage only
-   for Btrfs layouts needed by the patch or not already covered.
+   against the final paired source. The exact-release checkout now has
+   maintainable qgroup selftests for the shared-parent fast path and the
+   differing/multiple-parent fallbacks; they passed in QEMU on the exact
+   kernel. Before resubmitting the kernel patch, port this coverage to the
+   current Btrfs `for-next` submission base and rerun it there. Add coverage
+   only for Btrfs layouts needed by the patch or not already covered.
 5. **Preserve temporary host containment, including after resume.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in

@@ -61,7 +61,10 @@ quota-based cleanup must wait until the counters are consistent.
    fallback coverage. Standard `checkpatch.pl --strict` reports only the
    missing `Signed-off-by` trailer. The patch has not been resubmitted; obtain
    the user's DCO sign-off for this exact patch before adding that trailer or
-   sending it.
+   sending it. The mail-formatted draft against this `for-next` base is
+   `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`
+   (SHA-256 `b3175a799058e29ee377566ce1c733af32083232ddf0d4456529a4e31e284390`);
+   it intentionally has no sign-off trailer.
 2. **Deploy and maintain our latest-upstream Snapper build.** Install our
    locally built Snapper from the latest upstream baseline, including the
    reviewed qgroup fix, as the host's active Snapper runtime. Debian packaging

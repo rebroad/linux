@@ -1564,6 +1564,41 @@ specified in `GOAL.md`.
   layout. After manually reviewing the intended indentation, the changes were
   staged with the wrapper's explicit `AGENT_GIT_ADD_BYPASS=1` option.
 
+## Kernel submission patch prepared for DCO review (2026-10-18)
+
+- Reconstructed the tested qgroup implementation and sanity tests as one
+  mail-formatted patch against Btrfs `for-next`
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`. The artifact is in the sibling
+  build tree at
+  `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`;
+  SHA-256 is
+  `b3175a799058e29ee377566ce1c733af32083232ddf0d4456529a4e31e284390`.
+- Verified the patch applies to a clean archive of that exact `for-next` base,
+  `git diff --check` passes, and
+  `checkpatch.pl --strict --no-tree --no-signoff` reports zero errors or
+  warnings across 377 lines. It contains the qgroup implementation and the
+  shared-parent and conservative-fallback selftests.
+- The patch intentionally has no `Signed-off-by` trailer. The exact patch is
+  ready for the user's DCO review; do not add the trailer or submit it until
+  that sign-off is confirmed.
+
+## Current latest-upstream Snapper package build (2026-10-18)
+
+- Ran the committed local package recipe from
+  `codex/local-debian-package-builder` (`49876e92e1308f4caa2b1e27c20fee200efcd293`)
+  against PR #1203 head `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, after
+  confirming it contains the current official upstream `master` tip. The
+  build and all test suites completed: 30 passed, 2 skipped, 0 failed.
+- The 11 generated Debian packages are under
+  `linux.build/local-package-builds/0.13.2-000d4fe0b575-20261018T092215Z/`.
+  The packaged binary reports Snapper 0.13.2 with `btrfs-quota`; the package
+  version is `0.13.2-1+local1.20261018092242.g000d4fe0b575`.
+- The APT simulation proposes one upgrade and ten new packages, with no
+  removals and four unrelated packages not upgraded. No package was installed;
+  `dpkg-query` still reports the pre-migration host package. Generated files
+  remained in the Snapper sibling build tree, and the source checkout stayed
+  clean. Host deployment remains gated on review and acceptance.
+
 ## Snapper PR CI and `ws` tab-stop correction (2026-10-18)
 
 - Rechecked upstream master and PR #1203 at 09:13 UTC. The base remains

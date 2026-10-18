@@ -2101,11 +2101,33 @@ specified in `GOAL.md`.
   root config repository's configured remote. Committed the Kingston config
   changes as `56484aa`; that repository has no configured remote. An unrelated
   staged deletion in the Kingston repository was left untouched.
-- At 17:47 BST, `btrfs qgroup show -re` still warned that both `/` and
+- At 17:47 BST, `btrfs qgroup show -re` warned that both `/` and
   `/mnt/kingston` had inconsistent qgroup data, while `btrfs quota rescan -s`
   reported no scan in progress on either filesystem. The restored hourly
-  timer's next run was due at 18:00 BST; no post-restoration timeline run had
-  completed yet.
+  timeline service then completed its scheduled 18:00 BST run successfully.
+- That run created three `timeline` snapshots for each of the host `root` and
+  `home` configs between 18:00:01 and 18:00:05. The host root `/` and
+  `/mnt/p8/@` have the same Btrfs subvolume ID 262; `/home` and
+  `/mnt/p8/@home` both have ID 263. The `/mnt/p8` filesystem-root config path
+  and its `@/etc/snapper/configs` path both led the wrapper to those same
+  targets. Thus the hourly wrapper had been creating redundant snapshots
+  through multiple views of the same Btrfs subvolumes. This explains the
+  duplicate snapshots, but is not yet proof of the underlying qgroup
+  inconsistency cause.
+- Updated the root-repo timeline wrapper to record each target by its device,
+  Btrfs subvolume ID, and Snapper config before creating a snapshot. The
+  external-root loop now retains that state across mountpoints and config
+  directories. A no-side-effect check against live paths selected `/` and
+  `/home` once, skipped `/mnt/p8/@` and `/mnt/p8/@home` as duplicates, and kept
+  `/mnt/kingston/@` and `/mnt/kingston/@home` eligible as distinct targets.
+  `sh -n` passed. Installed wrapper SHA-256:
+  `e82b938e2b90fb4758692e331067fd5cadad6804814e686340ec0ee36d1d9070`.
+  Committed and pushed to the `/` repo as `19f05f689`. Confirm the next
+  scheduled run creates one snapshot per config/subvolume and still snapshots
+  the separate Kingston filesystem.
+- After the 18:00 run, both filesystems still warned that qgroup data was
+  inconsistent, and neither had a rescan in progress. The shared hold was
+  active, so this run is not evidence that accounting recovered.
 - The first scheduled cleanup is still pending at 21:41 BST. Verify its logs
   show no empty-limit parse warnings, and that inconsistent qgroups cause the
   quota-aware cleanup pass to be skipped without suppressing count/time-based

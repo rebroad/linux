@@ -210,10 +210,16 @@ quota-based cleanup must wait until the counters are consistent.
    in-use release; do not build or boot a different kernel for acceptance.
    Add coverage only for Btrfs layouts needed by the patch or not already
    covered.
-5. **Preserve temporary host containment, including after resume — 90% done.** The
+5. **Preserve temporary host containment, including after resume — 92% done.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in
-   `GOAL-done.md`. This wrapper is one rescan initiator;
+   `GOAL-done.md`. The 18:00 run exposed duplicate hourly snapshots: `/` and
+   `/mnt/p8/@` resolve to the same Btrfs subvolume IDs, and the mounted config
+   tree was discovered twice. The root repo wrapper now deduplicates by device,
+   subvolume ID, and config; its live-target check passed, but the next
+   scheduled run still needs to confirm one snapshot per target. This removes
+   redundant snapshot triggers, but does not yet prove the qgroup
+   inconsistency's underlying cause. This wrapper is one rescan initiator;
    Snapper's quota-query and snapshot-tracking code can independently start a
    rescan when it finds inconsistent qgroups. Btrfs snapshot inheritance can
    mark qgroups inconsistent, but does not itself start a rescan. Keep those

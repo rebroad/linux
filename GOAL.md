@@ -115,9 +115,13 @@ quota-based cleanup must wait until the counters are consistent.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
    automatically apply/build and activate the Btrfs fix on every kernel
-   upgrade or reinstall, and ensure an upgrade cannot silently leave or boot
-   an unpatched module; Snapper package upgrades/reinstalls must also retain
-   its fix. For Snapper, the host runtime must remain our locally built and
+   upgrade or reinstall. At all times, every installed kernel version under
+   `/lib/modules` must have its matching signed Btrfs module selected for that
+   version and included in its initramfs. This includes the running kernel,
+   older installed kernels, and any newly installed kernel intended for the
+   next reboot. An upgrade must not silently leave or boot an unpatched module;
+   Snapper package upgrades/reinstalls must also retain its fix. For Snapper,
+   the host runtime must remain our locally built and
    maintained version based on latest upstream; do not switch it back to a
    distribution-provided Snapper binary. For the kernel/module, prefer reviewed
    Debian/upstream packages when available; if locally maintained packages are
@@ -143,14 +147,14 @@ quota-based cleanup must wait until the counters are consistent.
    of the candidate for both kernels. A follow-up lifecycle revision also
    removes stale DKMS registrations from prior versioned source directories;
    package upgrade, clean DKMS status, removal rollback, and reinstall all pass.
-   Neither candidate module has been booted. The current APT backports candidate
-   is kernel `7.2.6+deb13-amd64`; a compile-only probe showed that the current
-   7.1.13 Btrfs source does not build against its changed internal APIs. The
-   7.2.6 kernel is not installed. Debian's kernel hook chain propagates DKMS
-   build failures from image post-install, so validate an upgrade path that
-   neither leaves APT
-   failing nor permits booting an unpatched Btrfs module when a future kernel
-   build is unsupported.
+   Neither candidate module has been booted. A compile-only probe against
+   kernel `7.2.6+deb13-amd64` showed that the current 7.1.13 Btrfs source does
+   not build against its changed internal APIs; 7.2.6 is not installed. The
+   current APT indexes now offer 7.2.9, so assess the newest candidate too.
+   Debian's kernel hook chain propagates DKMS build failures from image
+   post-install; validate an upgrade path that neither leaves APT failing nor
+   permits booting an unpatched Btrfs module when a future kernel build is
+   unsupported.
 
    **Next steps for safe local production use:**
    - Completed for all currently installed kernels: build, sign, and install
@@ -158,13 +162,14 @@ quota-based cleanup must wait until the counters are consistent.
      initramfs inclusion, package upgrade cleanup, and stock-module rollback.
      The host has not booted either candidate module yet. Evidence and hashes
      are in `GOAL-done.md`.
-   - Port or regenerate the paired Btrfs source for the next APT kernel version
-     before upgrading to it. The 7.1.13 DKMS source fails to compile against
-     the available 7.2.6 headers due to Btrfs internal API changes. Verify
-     automatic DKMS signing and initramfs ordering for the next installed
-     kernel, then prove an unsupported build cannot silently boot an unpatched
-     module or leave kernel package configuration broken. Preserve normal
-     security upgrades.
+   - Port or regenerate the paired Btrfs source for each newly supported APT
+     kernel version before installing it. The 7.1.13 DKMS source fails to
+     compile against the tested 7.2.6 headers due to Btrfs internal API
+     changes; check the current 7.2.9 candidate as well. Verify automatic DKMS
+     signing and initramfs ordering for every installed kernel, including the
+     next kernel intended for reboot, then prove an unsupported build cannot
+     silently boot an unpatched module or leave kernel package configuration
+     broken. Preserve normal security upgrades.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.

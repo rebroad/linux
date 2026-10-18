@@ -75,9 +75,15 @@ quota-based cleanup must wait until the counters are consistent.
    upstream baseline, including the reviewed qgroup fix. Keep deployment
    gated until the Snapper change and, if required, its
    paired kernel change have review and the full accounting/quota checks pass.
-   The upstream Debian packaging rules explicitly disable Btrfs quota
-   support; the host package must be built with quota support enabled and
-   that feature verified in the resulting binary/package.
+   Build and maintain a repeatable local Debian package from the Snapper
+   checkout based on latest upstream. The repository's Debian packaging
+   cannot be used unchanged: it disables Btrfs quota support, and its install
+   manifests do not match the current build's file paths. Build the package
+   with quota enabled, verify that feature in the resulting binary, and test
+   it through an APT simulation. Keep the build recipe and its packaging
+   changes in the Snapper source checkout, and put generated package and
+   build files in its sibling build tree. The first uninstalled local package
+   build and its remaining recipe work are recorded in `GOAL-done.md`.
    Keep the timeline wrapper's explicit rescan block
    disabled and `SPACE_LIMIT` empty during investigation.
 3. **Make the fix durable across APT upgrades.** Prefer a Snapper-only

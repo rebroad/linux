@@ -1018,3 +1018,37 @@ broader filesystem coverage and host rollout remain open.
   `btrfs-quota` in its feature list. Therefore, an unmodified Debian package
   build would not be a valid host package for this goal; the local package
   build must explicitly preserve and verify quota support.
+
+## Uninstalled local Snapper Debian package (2026-10-18)
+
+- Verified that the Snapper checkout remains clean on
+  `codex/upstream-qgroup-tracking-clean-pr3` at
+  `bfdccd031b16988e132c609205ca6367e1dbfaaf`, with the current official
+  upstream `master` (`5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`) as an
+  ancestor. Generated an upstream source package from the external build
+  sibling and prepared its Debian packaging in an isolated copy under
+  `/mnt/kingston/builds/rebroad/src/snapper.build/`.
+- The repository's Debian rules disable Btrfs quota. In addition, the Debian
+  install manifests expect old cron, documentation, and PAM module paths.
+  The local package copy enabled quota and aligned those manifests with the
+  paths produced by the current Debian configure options. No Snapper source
+  files were changed, and the host was not modified.
+- Built local packages as version `0.13.2-1+rebroad1`. The extracted
+  `snapper --version` reports `btrfs-quota` enabled, with Btrfs support and
+  the repository's Debian-selected feature set. `apt-get -s install` plans
+  to upgrade `snapper` 0.10.6 to the local build and install its matching
+  libraries and companion packages; it proposes no removals. The old
+  `libsnapper7t64` becomes eligible for later autoremove. Package files and
+  SHA-256 hashes are in the `local-package-0.13.2-rebroad1-clean` directory
+  under that build sibling. They have not been installed.
+- The local `testsuite` run passed all 20 tests, including `qgroup1` and
+  `qgroup-rescan-limiter`, after the required UTF-8 locales were generated
+  under `/var/tmp/snapper-locales-2026-10-18`. The final package emission used
+  `DEB_BUILD_OPTIONS=nocheck` because the separate zypp-plugin suite needs
+  Ruby and ruby-dbus, which are absent. Upstream PR CI remains green. The
+  host installation path is still gated on review and accounting acceptance.
+- This proves that a quota-enabled local Debian package can be produced and
+  selected by APT simulation; it does not yet provide a source-controlled,
+  repeatable build/update recipe or prove behavior after installing it. Add
+  that recipe to the Snapper source checkout, include and verify its test
+  dependencies, and exercise package upgrade/reinstall before host rollout.

@@ -2981,7 +2981,38 @@ specified in `GOAL.md`.
   cleanup and synchronous deletion across the four independent groups and
   both operation orders in these QEMU cases. The separate qgroup-removal patch
   review, durable in-kernel regression coverage, and live-host cleanup
-  validation remain open.
+  validation were open at the time; the first two are covered by the next
+  section.
+
+## Qgroup removal rescan-fallback regression test (2026-10-19)
+
+- Reviewed the qgroup-removal patch against its callers. The on-disk relation
+  deletion helpers return zero or negative errors; the positive
+  rescan-required result comes from `quick_update_accounting()`. The helper
+  sets `relation_removed` only after the in-memory relation is deleted.
+  `btrfs_del_qgroup_relation()` still returns the positive rescan request to
+  its caller, while `btrfs_remove_qgroup()` suppresses it only after that
+  relation was actually removed so it can finish qgroup teardown.
+- Added an in-tree Btrfs sanity case that creates a qgroup with a parent,
+  makes its referenced count differ from its exclusive count, and removes it.
+  This forces the positive rescan-required path and asserts that removal
+  succeeds, the qgroup leaves the tree, and the parent no longer has the
+  relation. The test-enabled external module compiled against the exact
+  `/usr/src/linux-headers-7.2.6+deb13-amd64` headers.
+- Booted the exact Debian `7.2.6+deb13-amd64` kernel in QEMU under TCG with the
+  test-enabled module. The test ran at all five configured metadata node
+  sizes (4, 8, 16, 32, and 64 KiB); each run continued through the remaining
+  Btrfs sanity suite, module load, and the four-group eight-round
+  snapshot/cleanup/deletion workload. The guest confirmed compressed module
+  SHA-256
+  `773594aa80f25060fb434d4b90107ca43207c427e77d68bf735a2e81dfd962bd` and
+  reached `HOST-TOPOLOGY: CLEANUP-COMPLETE`. No
+  `qgroup info item update error -2` appeared.
+- The serial log is
+  `/var/tmp/linux.build/qgroup-removal-7.2.6/test-enabled-qgroup-sanity-rerun.serial.log`;
+  the module build and overlay are in
+  `/var/tmp/linux.build/qgroup-removal-7.2.6/`. This validates the regression
+  and paired workload in QEMU. Live-host cleanup validation remains open.
 
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 

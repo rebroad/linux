@@ -1,10 +1,11 @@
 # Goal: fix Snapper-triggered Btrfs qgroup inconsistency
 
-The required host runtime is the locally built Snapper from our repository,
-based on the latest official upstream source and carrying our reviewed
-changes. The host has not yet completed that migration; its currently installed
-distribution package is a pre-migration state to replace, not the desired
-runtime. All deployment and acceptance work must target our built Snapper.
+The required and accepted host runtime is the locally built Snapper from our
+repository, based on the latest official upstream source and carrying our
+reviewed changes. Any mention of the currently installed distribution version
+describes historical pre-migration status only; it is not an acceptable target
+runtime or an acceptance state. All deployment and acceptance work must target
+our built Snapper.
 
 Find and fix the cause of Snapper-triggered Btrfs qgroup inconsistency, and
 leave the host with a persistent fix that survives normal package upgrades.

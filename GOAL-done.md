@@ -2802,6 +2802,57 @@ specified in `GOAL.md`.
   production-kernel validation. The patched workload still had six automatic
   snapshot-creation scans, so the ordinary fallback issue remains open.
 
+## Port and test shared-parent quick inherit on 7.2.6 (2026-10-19)
+
+- Ported the snapshot quick-inherit path for the required four-group
+  hierarchy to the exact v7.2.6 source checkout, alongside the qgroup-removal
+  fix above. The fast path applies only when the source and snapshot qgroups
+  have one common parent with exactly those two members. It preflights all
+  four counters on the updated group and its ancestors before changing any
+  counters; other parent layouts and overflow retain the full-rescan path.
+- Added in-tree Btrfs sanity coverage for the eligible shared-parent case,
+  different and multiple parent topologies, extra shared-parent members, and
+  overflow in each counter on an ancestor. The complete external module built
+  against `/usr/src/linux-headers-7.2.6+deb13-amd64` with
+  `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` enabled. QEMU booted the exact Debian
+  `7.2.6+deb13-amd64` kernel under TCG. Its module-load log ran the qgroup
+  sanity cases at all five configured node sizes and proceeded to the
+  workload, showing the tests returned successfully. The guest-confirmed
+  compressed module hash is
+  `d1767f4363941786aacfd4629c1af42f0e449e1b8422b16a7880bf742e85d623`.
+- In the same four-config QEMU workload, the candidate module produced zero
+  automatic scans and zero inconsistency warnings across eight snapshots,
+  timeline cleanup, and synchronous deletion. The paired exact-source
+  baseline module, which included the deletion fix but not shared-parent
+  quick inherit, produced six automatic scans across those snapshots. Neither
+  module started additional scans or warnings during cleanup/deletion. The
+  candidate's four later scans were explicit full-rescan controls. Both
+  modules completed with no scan in progress; the candidate's final qgroup
+  tree showed 16,384 bytes for each empty snapshot group and 4,210,688 bytes
+  for each source group. The test-enabled module is in
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-removal-7.2.6/`.
+- Added a forced full-rescan comparison before cleanup in both root-first and
+  home-first order. Before and after the rescan, each snapshot collective on
+  both filesystems reported 4,243,456 referenced and 49,152 exclusive bytes;
+  the scan reported no inconsistency warning. Thus the fast-path values
+  matched full-rescan accounting for this nonempty two-snapshot workload.
+  The paired stock-module runs in both operation orders also finished their
+  full rescans with those same counters for each snapshot collective. The
+  generated payload independently totals 4 MiB per source: a 2 MiB `stable`
+  file plus two 1 MiB `change-*` files, so the reported 4,243,456-byte
+  referenced total is the 4 MiB payload plus 49,152 bytes of filesystem
+  metadata. The exact metadata extent total has not yet been independently
+  reconciled against the Btrfs extent/tree data.
+  The final source's comparison logs are
+  `/var/tmp/linux.build/qgroup-id-trace/removal-current-patch/candidate-final.serial.log`
+  and `candidate-final-home-root.serial.log` in the same directory.
+- This demonstrates rescan avoidance for the tested hierarchy while
+  preserving explicit fallback cases. It does not establish incorrect stock
+  counters: the stock path still completes rescans. Longer repeated cycles
+  and independent metadata extent reconciliation remain before deciding
+  whether the optimization is safe to retain. The separate qgroup deletion
+  regression still needs durable coverage.
+
 ## APT kernel upgrade to 7.2.9 and DKMS verification (2026-10-18)
 
 - The host's `apt upgrade` transaction (started at 22:27) installed and

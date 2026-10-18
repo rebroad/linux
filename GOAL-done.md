@@ -1958,3 +1958,23 @@ specified in `GOAL.md`.
   the 7.1.13 source. The new kernel was not installed or booted. This proves
   the current DKMS source cannot yet carry the fix across the next backports
   kernel update; its source must be ported or regenerated before that upgrade.
+
+## Debian 7.2.9 DKMS source compatibility probe (2026-10-18)
+
+- APT indexes now offer Debian backports kernel `7.2.9-1~bpo13+1`. Downloaded
+  its `linux-source-7.2`, exact amd64/common headers, and `linux-kbuild` packages
+  into `linux.build/upgrade-probe-7.2.9`; nothing was installed on the host.
+- Applying the current qgroup patch from the `v7.1.13` baseline to the Debian
+  7.2.9 Btrfs source succeeded for `fs/btrfs/qgroup.c`, `qgroup.h`, and
+  `tests/qgroup-tests.c`. The full external Btrfs module then built against
+  the exact Debian 7.2.9 headers with sanity-test objects disabled. The
+  resulting module reports vermagic `7.2.9+deb13-amd64 SMP preempt mod_unload`
+  and SHA-256
+  `8ce39bc95187781985ff8cd65411a6f5abd10f0ef51d5d7d1c266de6b192231c`.
+- As a control, the currently packaged 7.1.13 DKMS source was built against
+  those same 7.2.9 headers and failed with the expected Btrfs tracepoint API
+  and `btrfs_log_ctx` errors. Thus the patch can be carried to a matching 7.2
+  source tree, but the installed DKMS package still cannot build the 7.2.9
+  module. Kernel-release-matched source selection and package integration,
+  signing, installation, initramfs inclusion, and boot verification remain
+  outstanding. The 7.2.9 kernel was not installed or booted.

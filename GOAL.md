@@ -147,10 +147,12 @@ quota-based cleanup must wait until the counters are consistent.
    of the candidate for both kernels. A follow-up lifecycle revision also
    removes stale DKMS registrations from prior versioned source directories;
    package upgrade, clean DKMS status, removal rollback, and reinstall all pass.
-   Neither candidate module has been booted. A compile-only probe against
-   kernel `7.2.6+deb13-amd64` showed that the current 7.1.13 Btrfs source does
-   not build against its changed internal APIs; 7.2.6 is not installed. The
-   current APT indexes now offer 7.2.9, so assess the newest candidate too.
+   Neither candidate module has been booted. The packaged 7.1.13 DKMS source
+   fails to build against both 7.2.6 and the current 7.2.9 headers because of
+   Btrfs internal API changes. Separately, applying the qgroup patch to the
+   matching 7.2.9 Btrfs source and building it against the exact 7.2.9 headers
+   succeeded. This source has not yet been integrated into the DKMS package,
+   signed, installed, or booted; evidence is in `GOAL-done.md`.
    Debian's kernel hook chain propagates DKMS build failures from image
    post-install; validate an upgrade path that neither leaves APT failing nor
    permits booting an unpatched Btrfs module when a future kernel build is
@@ -162,14 +164,13 @@ quota-based cleanup must wait until the counters are consistent.
      initramfs inclusion, package upgrade cleanup, and stock-module rollback.
      The host has not booted either candidate module yet. Evidence and hashes
      are in `GOAL-done.md`.
-   - Port or regenerate the paired Btrfs source for each newly supported APT
-     kernel version before installing it. The 7.1.13 DKMS source fails to
-     compile against the tested 7.2.6 headers due to Btrfs internal API
-     changes; check the current 7.2.9 candidate as well. Verify automatic DKMS
-     signing and initramfs ordering for every installed kernel, including the
-     next kernel intended for reboot, then prove an unsupported build cannot
-     silently boot an unpatched module or leave kernel package configuration
-     broken. Preserve normal security upgrades.
+   - Integrate kernel-release-matched Btrfs sources into the APT-managed DKMS
+     package so it can build 7.1.8 and 7.1.13 modules from the tested 7.1
+     source and build a 7.2.9 module from the successfully probed 7.2 source.
+     Verify automatic DKMS signing and initramfs ordering for every installed
+     kernel, including the next kernel intended for reboot, then prove an
+     unsupported build cannot silently boot an unpatched module or leave
+     kernel package configuration broken. Preserve normal security upgrades.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.

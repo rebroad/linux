@@ -1978,3 +1978,52 @@ specified in `GOAL.md`.
   module. Kernel-release-matched source selection and package integration,
   signing, installation, initramfs inclusion, and boot verification remain
   outstanding. The 7.2.9 kernel was not installed or booted.
+
+## Release-matched DKMS sources and 7.2.6 APT upgrade (2026-10-18)
+
+- Added a source map to the DKMS package. It selects the committed 7.1.13
+  source for `7.1.8+deb13-amd64` and `7.1.13+deb13-amd64`, and exact sources
+  for `7.2.6+deb13-amd64` and `7.2.9+deb13-amd64`. The build script checks
+  that every installed kernel has a source mapping, applies the qgroup patch
+  to additional source trees, and fingerprints the mapping and sources in the
+  local package version. The DKMS pre-build selector fails clearly when an
+  exact kernel release is absent from the packaged map.
+- The exact Debian `7.2.6-1~bpo13+1` source accepted the qgroup patch in
+  `fs/btrfs/qgroup.c`, `qgroup.h`, and `tests/qgroup-tests.c`, then built
+  against the exact `7.2.6+deb13-amd64` headers. The module reports matching
+  vermagic. A build from the source selected out of the generated package
+  also completed against those headers. The corresponding 7.2.9 source
+  variant was likewise patched and built against 7.2.9 headers.
+- APT simulation showed `linux-image-amd64` and `linux-headers-amd64` would
+  move to 7.2.6, with 5 upgrades, 7 new packages, and no removals. The 7.2.9
+  source and headers were available, but no 7.2.9 image candidate was offered.
+- Built and installed package
+  `7.1.13+rebroad1.z20261018.154420.g29a221f567b0.m87a66389.s3a8cfb46`,
+  SHA-256 `ca7718763394f360b7d8087e05f66b46b6d14ab8fb08e8a7c609ac49277d2beb`.
+  The `z` timestamp segment makes future local package versions sort after the
+  previous commit-hash-only version under dpkg's version rules.
+- The actual APT upgrade to backports kernel 7.2.6 completed successfully.
+  Its header post-install hook ran DKMS, selected the 7.2.6 source variant,
+  built and signed Btrfs, and installed it under
+  `/lib/modules/7.2.6+deb13-amd64/updates/dkms/`. The image post-install then
+  generated the matching initramfs and GRUB entry. APT reported 5 upgraded,
+  7 newly installed, and 0 removed packages; `dpkg --audit` is empty.
+- DKMS reports the current package installed for all three kernel releases:
+  `7.1.8+deb13-amd64`, `7.1.13+deb13-amd64`, and `7.2.6+deb13-amd64`.
+  `modprobe --show-depends` selects each release's `updates/dkms/btrfs.ko.xz`;
+  each module's vermagic matches its kernel and its signer is `Rebroad's
+  module signing key`, with sig_key
+  `79:BC:F6:D4:0C:64:F7:5A:78:CB:ED:BE:1F:4C:E8:1A:53:22:DE:29`. The compressed
+  module SHA-256 values are:
+
+  - 7.1.8: `396da85c29d4a5b2798dd573bb67eca25cbd22145984bec317d5e02345fd8304`
+  - 7.1.13: `0b9ff5e9ac2531ecf25fc5ef2c7c7c5df0a107501d33aa20141674b50c5509f5`
+  - 7.2.6: `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`
+
+  Full initramfs listings contain the corresponding module path for all three
+  releases.
+- The running kernel remains `7.1.13+deb13-amd64`; no reboot was performed.
+  `/vmlinuz` now points to 7.2.6, making that the default next-boot kernel.
+  Thus the new module is installed and signed for next boot, but it has not
+  been loaded or exercised on the host. Repeat stock-module rollback coverage
+  for 7.2.6 and boot-verify the candidate at a planned reboot.

@@ -115,11 +115,12 @@ quota-based cleanup must wait until the counters are consistent.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
    automatically apply/build and activate the Btrfs fix on every kernel
-   upgrade or reinstall. At all times, every installed kernel version under
-   `/lib/modules` must have its matching signed Btrfs module selected for that
-   version and included in its initramfs. This includes the running kernel,
-   older installed kernels, and any newly installed kernel intended for the
-   next reboot. An upgrade must not silently leave or boot an unpatched module;
+   upgrade or reinstall. At all times, every kernel version installed under
+   `/lib/modules` must have its matching signed Btrfs module built, selected,
+   and included in that kernel's initramfs. This covers the running kernel,
+   every older kernel retained for rollback, and each newly installed kernel
+   before it can be selected for boot. An upgrade must not silently leave or
+   boot an unpatched module;
    Snapper package upgrades/reinstalls must also retain its fix. For Snapper,
    the host runtime must remain our locally built and
    maintained version based on latest upstream; do not switch it back to a
@@ -137,48 +138,43 @@ quota-based cleanup must wait until the counters are consistent.
    succeeded and resolved ahead of the packaged module in a synthetic module
    tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
    exact-kernel QEMU testing with Secure Boot and signature enforcement
-   enabled. The reviewed local DKMS package recipe is committed, built, and
-   installed for the running kernel; it is also built and installed for every
-   kernel currently present on the host: `7.1.8+deb13-amd64` and
-   `7.1.13+deb13-amd64`. Both module files are signed by the enrolled key,
-   selected by `modprobe` for their respective kernel releases, and included
-   under `updates/dkms` in their matching initramfs images. Package removal and
-   reinstall have now verified restoration of the stock module and reselection
-   of the candidate for both kernels. A follow-up lifecycle revision also
-   removes stale DKMS registrations from prior versioned source directories;
-   package upgrade, clean DKMS status, removal rollback, and reinstall all pass.
-   Neither candidate module has been booted. The packaged 7.1.13 DKMS source
-   fails to build against both 7.2.6 and the current 7.2.9 headers because of
-   Btrfs internal API changes. Separately, applying the qgroup patch to the
-   matching 7.2.9 Btrfs source and building it against the exact 7.2.9 headers
-   succeeded. This source has not yet been integrated into the DKMS package,
-   signed, installed, or booted; evidence is in `GOAL-done.md`.
-   Debian's kernel hook chain propagates DKMS build failures from image
-   post-install; validate an upgrade path that neither leaves APT failing nor
-   permits booting an unpatched Btrfs module when a future kernel build is
-   unsupported.
+   enabled. The APT-managed DKMS package now carries release-matched source
+   variants: the 7.1 source for installed releases 7.1.8 and 7.1.13, plus
+   exact 7.2.6 and 7.2.9 sources. The current APT image candidate was 7.2.6.
+   Its exact source accepted the qgroup patch and built against its matching
+   headers. The package was upgraded before performing the APT kernel upgrade;
+   DKMS's real 7.2.6 header hook selected that source, built and signed the
+   module, and the kernel post-install included it in the new initramfs. All
+   three installed kernel versions now have a signed module selected by
+   `modprobe` and present in the matching initramfs. The default next boot is
+   7.2.6; the machine is still running 7.1.13 and has not rebooted. The package
+   also maps 7.2.9 in case that image release becomes available. Package build,
+   module hashes, APT result, and per-kernel verification are in
+   `GOAL-done.md`. The source selector deliberately fails for an unmapped
+   release. Prepare and test source support before installing each new APT
+   kernel candidate, and prove an unsupported build cannot silently boot an
+   unpatched module or leave kernel package configuration broken while
+   preserving security updates.
 
    **Next steps for safe local production use:**
-   - Completed for all currently installed kernels: build, sign, and install
-     the candidate for 7.1.8 and 7.1.13; verify per-kernel module selection,
-     initramfs inclusion, package upgrade cleanup, and stock-module rollback.
-     The host has not booted either candidate module yet. Evidence and hashes
-     are in `GOAL-done.md`.
-   - Integrate kernel-release-matched Btrfs sources into the APT-managed DKMS
-     package so it can build 7.1.8 and 7.1.13 modules from the tested 7.1
-     source and build a 7.2.9 module from the successfully probed 7.2 source.
-     Verify automatic DKMS signing and initramfs ordering for every installed
-     kernel, including the next kernel intended for reboot, then prove an
-     unsupported build cannot silently boot an unpatched module or leave
-     kernel package configuration broken. Preserve normal security upgrades.
+   - Completed on disk for all three currently installed releases: build, sign, and
+     install for 7.1.8, 7.1.13, and the APT-upgraded 7.2.6; verify per-kernel
+     selection and initramfs inclusion. The 7.2.6 module has not been booted.
+     The earlier stock-module rollback test covered 7.1.8 and 7.1.13; repeat
+     rollback coverage for 7.2.6. Evidence and hashes are in `GOAL-done.md`.
+   - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
+     actual 7.2.6 header and image hooks passed. Before any later kernel
+     release is installed, add its matching source and verify its DKMS build,
+     signature, module selection, and initramfs. Prove an unmapped or failed
+     build cannot silently boot stock Btrfs or leave package configuration
+     broken; keep normal security upgrades available.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.
-   - Simulate and perform the relevant kernel APT upgrade/reinstall path.
-     Verify DKMS rebuild and signing for the new kernel, initramfs selection,
-     and booted module; also prove a failed/unsupported build cannot silently
-     boot the stock unpatched module or leave kernel package configuration
-     broken. Preserve normal kernel security upgrades.
+   - APT simulation and installation of backports kernel 7.2.6 are complete;
+     the DKMS header hook and initramfs generation passed. After review, boot
+     7.2.6 at a planned reboot and verify the loaded module signature and
+     qgroup behavior on the host. Keep a tested route back to stock Btrfs.
    - Install the locally built latest-upstream Snapper package only after the
      same review of its package contents, config migration, and rollback path.
      Verify the active binary and library are the locally built versions,

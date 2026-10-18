@@ -45,7 +45,11 @@ quota-based cleanup must wait until the counters are consistent.
    absolute-path marker has a future deadline; it does not cancel an
    already-running scan. Set `QGROUP_RESCAN_HOLD_FILE=/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`
    and the same `QGROUP_RESCAN_WINDOW=05:00-21:00` on every Kingston Snapper
-   config, retaining the rolling 24-hour per-filesystem cap.
+   config, retaining the rolling 24-hour per-filesystem cap. The limiter
+   shares its reservation by filesystem UUID but reads the time window from
+   the calling config; it does not enforce equality across configs. Verify
+   every config on the filesystem has the same window before deployment, since
+   a mismatched config could widen the effective window.
 
    The Snapper-only candidate does not keep qgroups consistent with the stock
    module in the reproduced snapshot workload. The paired Btrfs change avoids

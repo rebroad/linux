@@ -108,8 +108,10 @@ quota-based cleanup must wait until the counters are consistent.
    PR #1203. It keeps generated files in the Snapper sibling build tree. The
    successful build, package installation, and runtime evidence are in
    `GOAL-done.md`. Keep the timeline wrapper's explicit rescan block disabled
-   and `SPACE_LIMIT` empty during investigation. Recheck the shared rescan
-   window and hold marker after package configuration migrations.
+   and set `SPACE_LIMIT="1.0"` to disable quota-aware cleanup during
+   investigation; an empty value leaves Snapper's default `0.5` limit active.
+   Recheck the shared rescan window and hold marker after package configuration
+   migrations.
 3. **Make the fix durable across APT upgrades — 75% done.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
    If a kernel/module change is required, choose and document a maintainable,

@@ -270,14 +270,17 @@ specified in `GOAL.md`.
 
 ## Temporary host containment (2026-10-17)
 
-- `snapper-cleanup.timer` is enabled and active; the cleanup service was
+- `snapper-cleanup.timer` was enabled and active; the cleanup service was
   inactive at inspection. The system and Kingston `root`/`home` configs all
   had `SPACE_LIMIT="0.5"`, which lets quota-aware cleanup call Snapper's
-  rescan-and-wait query. To keep that path from starting new scans during this
-  investigation, `SPACE_LIMIT` is temporarily empty in all four configs.
+  rescan-and-wait query. An empty value was then used in an attempt to pause
+  quota cleanup; later source review found that empty parsing retains the
+  default `0.5`, so this did not disable the quota-aware pass. See the
+  correction recorded below.
 - Snapshot creation, `QGROUP`, `FREE_LIMIT="0.2"`, and timeline cleanup remain
-  configured. Quota-based space cleanup is paused. Restore `SPACE_LIMIT="0.5"`
-  in these four files after the accounting fix is verified:
+  configured. `SPACE_LIMIT="0.5"` was intended to be restored after the
+  accounting fix, but the later explicit-disable correction below supersedes
+  this interim plan:
   `/etc/snapper/configs/{root,home}` and
   `/mnt/kingston/@/etc/snapper/configs/{root,home}`.
 - Kingston already had a rescan running before the config changes. Its status
@@ -409,13 +412,14 @@ specified in `GOAL.md`.
 - The live timeline wrapper still creates Snapper timeline snapshots, while
   its Kingston qgroup rescan block remains commented out. Both
   `snapper-timeline.timer` and `snapper-cleanup.timer` are enabled and active.
-- `SPACE_LIMIT` is currently empty in all four system and Kingston root/home
-  configs, so the cleanup timer's quota-based space-limit query is not active;
-  `FREE_LIMIT="0.2"` remains configured. Snapper `QGROUP` values are
+- At this 2026-10-18 pre-correction inspection, `SPACE_LIMIT` was empty in all
+  four system and Kingston root/home configs. It was believed to disable the
+  cleanup timer's quota-based space-limit query; source review below showed
+  that belief was wrong. `FREE_LIMIT="0.2"` remained configured. Snapper
+  `QGROUP` values were
   `1/100` for both system configs, and `1/100` / `1/101` for Kingston root/home.
-- `btrfs quota rescan -s /mnt/kingston` reports no rescan operation in
-  progress. Keep `SPACE_LIMIT` empty until patched Snapper is deliberately
-  deployed and verified.
+- `btrfs quota rescan -s /mnt/kingston` reported no rescan operation in
+  progress at that inspection.
 
 ## Kernel control and tracker-recovery verification (2026-10-17)
 
@@ -2081,3 +2085,28 @@ specified in `GOAL.md`.
   candidate, restoring hash
   `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10` and its
   initramfs entry. The running 7.1.13 module was untouched.
+
+## Explicit quota-cleanup disable during investigation (2026-10-18)
+
+- Source review found that empty `SPACE_LIMIT` is not a disable setting in
+  Snapper 0.13.2. The cleanup parameter starts with its default `0.5`; parsing
+  an empty string logs a parse error and leaves that default unchanged.
+  `MaxUsedLimit::is_enabled()` disables quota-aware cleanup when the fraction
+  is at least `1.0`.
+- Changed `SPACE_LIMIT` to `"1.0"` in the host root/home configs and the
+  mounted Kingston root/home configs. Owners and mode `0640` were preserved;
+  the shared rescan window and hold path and the configured `FREE_LIMIT` were
+  unchanged. No cleanup was run while making this change.
+- Committed the host config correction as `d2b3d529f` and pushed it to the
+  root config repository's configured remote. Committed the Kingston config
+  changes as `56484aa`; that repository has no configured remote. An unrelated
+  staged deletion in the Kingston repository was left untouched.
+- At 17:47 BST, `btrfs qgroup show -re` still warned that both `/` and
+  `/mnt/kingston` had inconsistent qgroup data, while `btrfs quota rescan -s`
+  reported no scan in progress on either filesystem. The restored hourly
+  timer's next run was due at 18:00 BST; no post-restoration timeline run had
+  completed yet.
+- The first scheduled cleanup is still pending at 21:41 BST. Verify its logs
+  show no empty-limit parse warnings, and that inconsistent qgroups cause the
+  quota-aware cleanup pass to be skipped without suppressing count/time-based
+  retention cleanup.

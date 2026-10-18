@@ -195,7 +195,7 @@ sort -o "$source_fingerprints" "$source_fingerprints"
 source_hash=$(sha256sum "$source_fingerprints" | cut -c1-8)
 
 package_release=$(date -u +%Y%m%d.%H%M%S)
-dkms_version="${kernel_base}+rebroad1.${package_release}.g${source_commit:0:12}.m${mapping_hash}.s${source_hash}"
+dkms_version="${kernel_base}+rebroad1.z${package_release}.g${source_commit:0:12}.m${mapping_hash}.s${source_hash}"
 package_version=$dkms_version
 installed_version=$(dpkg-query -W -f='${Version}' btrfs-qgroup-dkms 2>/dev/null || true)
 if [[ -n $installed_version ]] &&

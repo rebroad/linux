@@ -1918,5 +1918,43 @@ specified in `GOAL.md`.
   package is `7.1.13+rebroad1.g2c0473752cda`.
 - This verifies package install/rollback and next-load module selection, not
   live use: the currently loaded module remains the stock module until reboot.
-  A planned boot, host qgroup workload, and a real or safe simulated kernel
-  APT upgrade/reinstall path remain outstanding. No reboot was performed.
+  A planned boot, host qgroup workload, and a full kernel APT upgrade/reinstall
+  path remain outstanding. No reboot was performed.
+
+## DKMS coverage for every installed kernel (2026-10-18)
+
+- Updated the package lifecycle to build the module for every version under
+  `/lib/modules` before installing any of them, sign and install the module for
+  each version with matching headers, refresh each kernel's initramfs, then
+  remove stale DKMS registrations whose versioned source symlink no longer
+  exists. This prevents a package upgrade from leaving the previous version
+  registered as broken.
+- Built package version `7.1.13+rebroad1.gdec6cc4831f2` from source commit
+  [`dec6cc4831f2`](https://github.com/rebroad/linux/commit/dec6cc4831f2ee1b869a4f96f16a44f6329b3d35).
+  Package SHA-256:
+  `ec8ccc85f1f44c0a64dbdbdd8776634158e6e694803f304c8f385ccf59d365e6`.
+- Installed the package with `sudo dpkg -i`. DKMS completed signed builds for
+  both installed kernels, `7.1.8+deb13-amd64` and `7.1.13+deb13-amd64`. The
+  compressed modules have SHA-256 values
+  `70b84bb8423610039f985f80994510a44f9d959b956caf8b4f80267ce68c53fd` and
+  `93010ea930e36b4c920c820300e99cc9b43ce5d75411dec59b42789ad37793f4`,
+  respectively. Each reports signer `Rebroad's module signing key`, the
+  enrolled key ID, and vermagic matching its kernel release. `modprobe`
+  selects `updates/dkms/btrfs.ko.xz` for both versions.
+- Full `lsinitramfs` listings completed successfully and confirmed each image
+  contains the corresponding `usr/lib/modules/<release>/updates/dkms/btrfs.ko.xz`
+  entry. DKMS status contains only the current package version, installed for
+  both kernels; the prior broken registrations are gone.
+- Tested `sudo dpkg -r` rollback across both kernels. DKMS restored the original
+  packaged Btrfs module for each version, `modprobe` selected the stock module,
+  and both refreshed initramfs images contained their stock module path. Then
+  reinstalled the candidate package and repeated the per-kernel checks. No
+  reboot occurred; the running `7.1.13+deb13-amd64` kernel still has the module
+  loaded from before these on-disk changes.
+- APT simulation with `-t trixie-backports` selects kernel
+  `7.2.6+deb13-amd64` and its headers. A build-only probe using the downloaded
+  Debian 7.2.6 headers failed with source/API mismatches, including changed
+  Btrfs tracepoint signatures and `struct btrfs_log_ctx` being incomplete for
+  the 7.1.13 source. The new kernel was not installed or booted. This proves
+  the current DKMS source cannot yet carry the fix across the next backports
+  kernel update; its source must be ported or regenerated before that upgrade.

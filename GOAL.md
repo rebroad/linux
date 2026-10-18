@@ -139,27 +139,32 @@ quota-based cleanup must wait until the counters are consistent.
    `7.1.13+deb13-amd64`. Both module files are signed by the enrolled key,
    selected by `modprobe` for their respective kernel releases, and included
    under `updates/dkms` in their matching initramfs images. Package removal and
-   reinstall previously verified restoration and reselection of the stock
-   module. Upgrading the DKMS package left a stale broken registration for the
-   old version because its versioned source directory was removed; update the
-   package lifecycle to clean that stale state after the new signed modules
-   and initramfs images have been installed, then repeat upgrade/removal tests.
-   This does not prove behavior after booting the installed module or a future
-   kernel APT upgrade. Debian's kernel hook chain propagates DKMS build failures
-   from image post-install, so validate an upgrade path that neither leaves APT
+   reinstall have now verified restoration of the stock module and reselection
+   of the candidate for both kernels. A follow-up lifecycle revision also
+   removes stale DKMS registrations from prior versioned source directories;
+   package upgrade, clean DKMS status, removal rollback, and reinstall all pass.
+   Neither candidate module has been booted. The current APT backports candidate
+   is kernel `7.2.6+deb13-amd64`; a compile-only probe showed that the current
+   7.1.13 Btrfs source does not build against its changed internal APIs. The
+   7.2.6 kernel is not installed. Debian's kernel hook chain propagates DKMS
+   build failures from image post-install, so validate an upgrade path that
+   neither leaves APT
    failing nor permits booting an unpatched Btrfs module when a future kernel
    build is unsupported.
 
    **Next steps for safe local production use:**
-   - Completed for all kernels currently installed: build, sign, and install
-     the candidate for 7.1.8 and 7.1.13; verify per-kernel module selection and
-     initramfs inclusion. The host has not booted either candidate module yet.
-     Evidence and hashes are in `GOAL-done.md`.
-   - Rebuild and reinstall the lifecycle update that removes the prior broken
-     DKMS registration only after all current modules and initramfs images are
-     successfully updated. Repeat package-upgrade and removal rollback checks.
-     Fail clearly if an installed bootable kernel lacks matching headers or
-     cannot build the patched module.
+   - Completed for all currently installed kernels: build, sign, and install
+     the candidate for 7.1.8 and 7.1.13; verify per-kernel module selection,
+     initramfs inclusion, package upgrade cleanup, and stock-module rollback.
+     The host has not booted either candidate module yet. Evidence and hashes
+     are in `GOAL-done.md`.
+   - Port or regenerate the paired Btrfs source for the next APT kernel version
+     before upgrading to it. The 7.1.13 DKMS source fails to compile against
+     the available 7.2.6 headers due to Btrfs internal API changes. Verify
+     automatic DKMS signing and initramfs ordering for the next installed
+     kernel, then prove an unsupported build cannot silently boot an unpatched
+     module or leave kernel package configuration broken. Preserve normal
+     security upgrades.
    - After review, activate the candidate at a planned reboot and verify the
      running kernel, loaded module version/signature, and Btrfs qgroup behavior
      on the host. Keep a tested route back to the stock module.

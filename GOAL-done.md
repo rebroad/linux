@@ -1295,6 +1295,35 @@ specified in `GOAL.md`.
   unverified. Host rollout stays gated on upstream review and system-level
   accounting and resume checks.
 
+## Kingston-independent suspend marker (2026-10-18)
+
+- Live mount inspection showed `/var/tmp` is a symlink to
+  `/mnt/kingston/@/var/tmp` on `/dev/sdb1`. `force-unmount-kingston.sh`
+  unmounts nested mountpoints before `/mnt/kingston`, so the old marker path
+  could disappear when the user unmounted Kingston before `force-suspend`.
+  The old script did not stop when its marker write failed.
+- Changed `force-suspend` and `snapper-timeline-sleep` to share
+  `/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`, on the local
+  NVMe-backed home filesystem. `force-suspend` creates the directory, writes
+  a temporary file with mode 0644, and atomically renames it into place. It
+  now refuses to suspend if this hold cannot be written. The fix is pushed in
+  home-repository commit `50e72c5fe62b6307d46f5a985798836ca5766f2d`.
+- Shell syntax checks passed. A mocked-command exercise verified that an
+  inaccessible marker path prevents any suspend call, a writable path stores
+  a future epoch deadline readable by Snapper, and the post-resume helper
+  refreshes an expired deadline before restarting the timer. No real suspend
+  or host service change was performed.
+- `systemd-analyze --root=... verify` accepted the committed
+  `snapper-timeline-sleep.service`; `systemctl --root=... enable` created its
+  `sleep.target.requires` link in a temporary root. On the live host,
+  `/usr/lib/systemd/system-sleep` contains only the packaged
+  unattended-upgrades hook, `/etc/systemd/system-sleep` is absent, and no
+  Snapper sleep service is installed. Unprivileged system-bus access failed,
+  and `/usr/bin/sudo -n` requires a password, so live activation and resume
+  ordering remain unverified. The currently installed Snapper also does not
+  honor the hold marker; deploy the locally built Snapper and shared config
+  before enabling this guard.
+
 ## Later-kernel qgroup fix recheck (2026-10-18)
 
 - Fetched the current official kernel.org refs: Linux mainline

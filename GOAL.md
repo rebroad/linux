@@ -41,10 +41,10 @@ quota-based cleanup must wait until the counters are consistent.
    failed), but the failed CI check remains red and was not rerun. Keep this PR
    paired with the kernel change through review.
    `QGROUP_RESCAN_HOLD_FILE` defers new automatic scans while a shared
-   absolute-path marker has a future deadline;
-   it does not cancel an already-running scan. Set the same
-   `QGROUP_RESCAN_WINDOW=05:00-21:00` and hold-file path on every Kingston
-   Snapper config, retaining the rolling 24-hour per-filesystem cap.
+   absolute-path marker has a future deadline; it does not cancel an
+   already-running scan. Set `QGROUP_RESCAN_HOLD_FILE=/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`
+   and the same `QGROUP_RESCAN_WINDOW=05:00-21:00` on every Kingston Snapper
+   config, retaining the rolling 24-hour per-filesystem cap.
 
    The Snapper-only candidate does not keep qgroups consistent with the stock
    module in the reproduced snapshot workload. The paired Btrfs change avoids
@@ -130,12 +130,14 @@ quota-based cleanup must wait until the counters are consistent.
    catch-up run from accidentally starting a fresh qgroup scan, including
    through Snapper's internal rescan path. PR #1203 now teaches Snapper's
    internal limiter to honor the force-suspend marker through
-   `QGROUP_RESCAN_HOLD_FILE`; configure that option in every Kingston config
-   and verify the shared path. The committed sleep/resume guard stops the
-   timeline timer before sleep and refreshes an expired marker before
-   restarting it, but the service and Snapper config are not installed on the
-   host. Verify post-resume ordering and prove no catch-up invocation starts a
-   fresh scan. Restore the original
+   `QGROUP_RESCAN_HOLD_FILE`; configure the shared local-home marker path in
+   every Kingston config. `force-suspend` and its resume helper now use this
+   path because `/var/tmp` resolves inside Kingston and is unmounted by
+   `force-unmount-kingston.sh`; the suspend command now fails closed if it
+   cannot write the hold. The sleep/resume service is committed in the home
+   repository but is not installed or enabled on the host. Install it with
+   the built Snapper configuration, then verify post-resume ordering and prove
+   no catch-up invocation starts a fresh scan. Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup
    behavior are verified.

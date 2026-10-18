@@ -22,9 +22,11 @@ quota-based cleanup must wait until the counters are consistent.
    new work. Do not use a distribution package source or older downstream
    branch as the development base. The durable host fix must install the
    modified Snapper built from that latest upstream baseline, replacing the
-   currently installed Snapper package. The intended host runtime is our
-   locally built and maintained Snapper, not a distribution-provided Snapper
-   binary. The host currently runs kernel
+   currently installed Snapper package. The distribution-installed Snapper is
+   only the current-state baseline for diagnosis and migration; it is not the
+   intended or acceptable final host runtime. The host must run our locally
+   built and maintained Snapper based on the latest upstream source. The host
+   currently runs kernel
    release `7.1.13+deb13-amd64`; use that exact release for all remaining
    kernel investigation and acceptance testing. The stock-module and
    candidate-module QEMU comparisons use that release. Testing other kernel
@@ -33,12 +35,12 @@ quota-based cleanup must wait until the counters are consistent.
    follow-up is committed and pushed (`9d9c8820` and `46fcfbea`) and QEMU-tested
    on the recorded Snapper baselines. No qgroup counter corruption has been demonstrated;
    a full rescan agrees with incrementally maintained counters. On the stock
-   kernel, the reproduced snapshot-only tracker layout takes the conservative
-   rescan fallback; the exact two-member tracker optimization avoids those
+   kernel, the reproduced snapshot-only qgroup layout takes the conservative
+   rescan fallback; the exact two-member shared-parent optimization avoids those
    snapshot-triggered scans while preserving the existing same-parent
    exclusivity guard and passing quota cleanup. The kernel change is an
    optimization for this proven topology, not a repair for demonstrated bad
-   accounting. The tracker is created only by the candidate Snapper
+   accounting. The shared parent is created only by the candidate Snapper
    `prepareQGroupTracking()` change; the stock Snapper baseline leaves the
    source and configured snapshot qgroup without a shared level-2 parent. The
    kernel's no-parent rescan fallback is expected for that baseline, so the
@@ -47,8 +49,12 @@ quota-based cleanup must wait until the counters are consistent.
    paired Snapper/kernel path only if the kernel change is necessary for
    correct accounting or to meet the daily rescan ceiling. The RFC,
    differential results, correction, and
-   formal kernel patch have been sent to `linux-btrfs`. No maintainer response
-   is recorded yet; continue with review feedback and requested checks. The
+   formal kernel patch have been sent to `linux-btrfs`. Maintainer feedback
+   arrived on 2026-10-18: clarify the qgroup layouts and opt-in policy, avoid
+   unsupported tracker terminology, disclose AI assistance, and test the
+   different-parent fallback. That fallback now passes a QEMU check on the
+   exact in-use kernel; prepare a concise corrected patch and response for
+   review before sending another mailing-list message. The
    narrowed patch was checked against current upstream source and compiled
    against `v7.3-rc7`, but runtime acceptance remains on the exact in-use
    `7.1.13+deb13-amd64` release. The Snapper companion is on the fork's

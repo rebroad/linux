@@ -3267,10 +3267,10 @@ static int qgroup_auto_inherit(struct btrfs_fs_info *fs_info,
 }
 
 /*
- * Check if we can skip rescan when inheriting qgroups.  This is possible when
- * the source already belongs to the target parent, or when a tracking parent
- * contains only the source and target parent and lets us derive the target's
- * counters exactly.
+ * Check if qgroup counters can be updated without a rescan.  This is possible
+ * when the source already belongs to the target parent, or when the source
+ * and target parent have exactly one common parent containing only those two
+ * qgroups.  Other hierarchies use the full rescan path.
  *
  * Return <0 for fatal errors (like srcid/parentid has no qgroup).
  * Return 0 if a quick inherit is done.
@@ -3281,7 +3281,7 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 {
 	struct btrfs_qgroup *src;
 	struct btrfs_qgroup *parent;
-	struct btrfs_qgroup *tracker;
+	struct btrfs_qgroup *shared_parent;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
 	LIST_HEAD(qgroup_list);
@@ -3290,8 +3290,8 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	u64 new_excl_cmpr;
 	int nr_parents = 0;
 	int nr_members = 0;
-	bool tracker_has_src = false;
-	bool tracker_has_parent = false;
+	bool shared_parent_has_src = false;
+	bool shared_parent_has_parent = false;
 
 	if (btrfs_qgroup_mode(fs_info) != BTRFS_QGROUP_MODE_FULL)
 		return 0;
@@ -3310,14 +3310,16 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	if (list_empty(&src->groups))
 		return 1;
 
-	list_for_each_entry(list, &src->groups, next_group)
-		nr_parents++;
-	if (nr_parents != 1)
-		return 1;
-	tracker = list_first_entry(&src->groups, struct btrfs_qgroup_list,
-				   next_group)->group;
+	list_for_each_entry(list, &src->groups, next_group) {
+		/* More than one parent makes the accounting ambiguous. */
+		if (++nr_parents > 1)
+			return 1;
+	}
+	shared_parent = list_first_entry(&src->groups,
+					 struct btrfs_qgroup_list,
+					 next_group)->group;
 
-	if (tracker == parent) {
+	if (shared_parent == parent) {
 		/*
 		 * The parent already contains the source.  The snapshot only adds
 		 * its new root node to the parent. Keep the existing exclusivity
@@ -3329,49 +3331,45 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		qgroup_iterator_add(&qgroup_list, parent);
 	} else {
 		/*
-		 * A tracking qgroup can account for a snapshot-only parent when it
-		 * contains exactly that parent and the source.  Before the snapshot,
-		 * the union of those groups is the same set of extents as the
-		 * snapshot parent will contain afterwards, except that the source
-		 * root is replaced by the new snapshot root.  The source's exclusive
-		 * extents are the part of the tracker that must not be charged to
-		 * the snapshot-only parent.
+		 * A snapshot-only parent can be updated without a rescan when the
+		 * source and that parent share exactly one parent, and that common
+		 * parent contains only those two qgroups.  Different or multiple
+		 * parents remain on the full-rescan path.
 		 */
 		if (!list_is_singular(&parent->groups) ||
 		    list_first_entry(&parent->groups, struct btrfs_qgroup_list,
-				     next_group)->group != tracker)
+				     next_group)->group != shared_parent)
 			return 1;
 
-		list_for_each_entry(list, &tracker->members, next_member) {
+		list_for_each_entry(list, &shared_parent->members, next_member) {
 			nr_members++;
 			if (list->member == src)
-				tracker_has_src = true;
+				shared_parent_has_src = true;
 			else if (list->member == parent)
-				tracker_has_parent = true;
+				shared_parent_has_parent = true;
 			else
 				return 1;
 		}
-		if (nr_members != 2 || !tracker_has_src || !tracker_has_parent ||
-		    tracker->rfer > U64_MAX - nodesize ||
-		    tracker->rfer_cmpr > U64_MAX - nodesize ||
+		if (nr_members != 2 || !shared_parent_has_src ||
+		    !shared_parent_has_parent ||
+		    shared_parent->rfer > U64_MAX - nodesize ||
+		    shared_parent->rfer_cmpr > U64_MAX - nodesize ||
 		    parent->excl > U64_MAX - nodesize ||
 		    parent->excl_cmpr > U64_MAX - nodesize)
 			return 1;
 
 		/*
-		 * The source remains outside the snapshot-only parent after the
-		 * snapshot is created.  Its data is therefore not exclusive to the
-		 * snapshot parent, including extents already shared with snapshots.
-		 * Keep the existing exclusive count and add only the new root node.
+		 * The source remains outside the snapshot-only parent, so only the
+		 * new snapshot root is added to that parent's exclusive count.
 		 */
 		new_excl = parent->excl + nodesize;
 		new_excl_cmpr = parent->excl_cmpr + nodesize;
-		parent->rfer = tracker->rfer;
-		parent->rfer_cmpr = tracker->rfer_cmpr;
+		parent->rfer = shared_parent->rfer;
+		parent->rfer_cmpr = shared_parent->rfer_cmpr;
 		parent->excl = new_excl;
 		parent->excl_cmpr = new_excl_cmpr;
 		qgroup_dirty(fs_info, parent);
-		qgroup_iterator_add(&qgroup_list, tracker);
+		qgroup_iterator_add(&qgroup_list, shared_parent);
 	}
 
 	list_for_each_entry(qgroup, &qgroup_list, iterator) {

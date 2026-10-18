@@ -923,3 +923,26 @@ broader filesystem coverage and host rollout remain open.
   `/var/tmp/snapper-pr1203-dbus/`; the serial log is `serial.log`. This
   closes the live Snapper daemon/client method-path check. Host deployment,
   system-bus activation/policy, and APT-upgrade persistence remain open.
+
+## Kernel maintainer feedback and different-parent check (2026-10-18)
+
+- Btrfs maintainer review asked for a plain-language qgroup hierarchy, a
+  statement of qgroups' opt-in policy, standard child/parent terminology,
+  disclosure of AI assistance, and tests for differing and multiple
+  source/snapshot parents. The review also noted that the loop should stop
+  once it finds more than one parent.
+- Updated the candidate kernel code to use `shared_parent` terminology and
+  return to the full-rescan fallback as soon as a source has multiple parents.
+  The reviewer’s example, with source `0/256` under `1/101` and new snapshot
+  under `1/102`, plus a source assigned to two parents before snapshotting into
+  a third, were exercised in QEMU using kernel `7.1.13+deb13-amd64` and the
+  current candidate Btrfs module. Both layouts marked qgroups inconsistent,
+  the fallback rescans cleared that state, and subsequent full rescans left
+  the reported qgroup counters unchanged. The guest printed
+  `DIFFERENT-PARENT: PASS`.
+- Fixture and serial log: `/var/tmp/qgroup-review-different-parent/`,
+  `overlay/rootcause-init`, and `serial.log`. This verifies the conservative
+  fallback for the maintainer's topology; it does not establish corruption or
+  prove that this optimization is required for the Snapper fix.
+- A concise revised hierarchy explanation and mailing-list response remain to
+  be prepared and reviewed before any further reply is sent.

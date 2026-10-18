@@ -1557,9 +1557,24 @@ specified in `GOAL.md`.
   0 failures).
 - The PR remains open without a review decision. Updated head is
   `000d4fe0b57541e35fd5f4ce64114be16ddd489b`, based on upstream master
-  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. All seven CI checks for this
-  head were queued at 2026-10-18 09:07 UTC; review and CI remain outstanding.
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. The seven CI checks were
+  queued at 09:07 UTC; their final results are recorded below.
 - Staging through the local `git add` wrapper ran `ws --diff-only`, which
   rewrote mixed tabs and spaces in ways that disagreed with nearby source
   layout. After manually reviewing the intended indentation, the changes were
   staged with the wrapper's explicit `AGENT_GIT_ADD_BYPASS=1` option.
+
+## Snapper PR CI and `ws` tab-stop correction (2026-10-18)
+
+- Rechecked upstream master and PR #1203 at 09:13 UTC. The base remains
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`, and the PR head remains
+  `000d4fe0b57541e35fd5f4ce64114be16ddd489b`. All seven checks pass: Debian,
+  Fedora, Leap, Ubuntu, Tumbleweed GCC, Tumbleweed Clang, and Codespell. The PR
+  remains open with no review decision.
+- Traced the bad indentation from `ws`'s output-tab-size override: it treated
+  EditorConfig `indent_size=4` as a tab stop despite `tab_width=8`. Removed
+  that override; an isolated Git fixture now converts an eight-column indent
+  to one tab, and the script passes a Python syntax check. The fix is committed
+  locally in `/home/rebroad` as `6f03ace4`; it is not yet pushed because the
+  remote branch advanced while unrelated unstaged changes in that checkout
+  prevent a safe rebase.

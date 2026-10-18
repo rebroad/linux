@@ -1393,5 +1393,8 @@ specified in `GOAL.md`.
   of Snapper PR #1203. The amended head is
   `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0`; the correction is whitespace
   only (`git diff --ignore-all-space` is empty and `git diff --check` passes).
-  Codespell passed after the push; the six build/test checks were still running
-  at the latest status check. The PR remains open and has no review decision.
+  After the push, Codespell and five of six build/test checks passed. Tumbleweed
+  Clang failed during package installation: openSUSE metadata requests timed
+  out and zypper could not find `clang`, before compilation began. A targeted
+  rerun was refused because the GitHub account lacks repository-admin rights.
+  The PR remains open and has no review decision.

@@ -2025,5 +2025,59 @@ specified in `GOAL.md`.
 - The running kernel remains `7.1.13+deb13-amd64`; no reboot was performed.
   `/vmlinuz` now points to 7.2.6, making that the default next-boot kernel.
   Thus the new module is installed and signed for next boot, but it has not
-  been loaded or exercised on the host. Repeat stock-module rollback coverage
-  for 7.2.6 and boot-verify the candidate at a planned reboot.
+  been loaded or exercised on the host. Boot-verify the candidate at a planned
+  reboot.
+
+## Host Snapper runtime, scheduling, and installed-kernel coverage (2026-10-18)
+
+- The host now runs locally built Snapper
+  `0.13.2-1+local1.20261018133430.g476f0814f665` and matching libsnapper from
+  the PR #1203 source. `snapper --version` reports Snapper 0.13.2, libsnapper
+  8.2.0, and `btrfs-quota` support.
+- Root-repo commit `99d432f` added the rescan-window and hold settings but
+  removed the installed timeline and cleanup unit files. The remaining
+  `/etc/cron.hourly/snapper.upstream` name contains a dot, so
+  `run-parts --test /etc/cron.hourly` excludes it; the timer symlinks were
+  dangling. The hourly service stopped resolving after the package upgrade.
+- Restored host scheduling with local units under `/etc/systemd/system`.
+  The timeline timer is enabled for `OnCalendar=hourly`, and its service runs
+  `/usr/local/sbin/snapper-timeline-all-roots`. That wrapper now creates
+  default root/home snapshots with the installed Snapper CLI instead of the
+  removed `/usr/lib/snapper/systemd-helper`, and retains the external-root
+  loop. Its explicit Btrfs rescan block remains commented out. Cleanup is
+  enabled daily at 21:41, with a dry-run helper covering the configured
+  number, timeline, and empty-pre-post algorithms for root and home. The boot
+  snapshot timer is enabled for the next boot and was not manually run.
+- The host root/home configs and mounted Kingston root/home configs all use
+  `QGROUP_RESCAN_WINDOW="05:00-21:00"` and the shared
+  `/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until` marker.
+  Kingston's root and home qgroups are `1/100` and `1/101`; the marker is set
+  to epoch `1792378800`, which is 2026-10-19 04:00 BST. The systemd timer's
+  next timeline run is at 18:00 BST and the next cleanup run at 21:41 BST.
+  No snapshot or cleanup service was manually run during deployment.
+- Enabled a sleep.target service and a system-sleep hook that share one
+  root-owned timer controller under `/usr/local/libexec`. It refreshes an
+  expired marker by invoking the root-owned hold writer as `rebroad`, then
+  restarts the timer only if it was active before sleep. A delegated refresh
+  while the marker was still in the future left its SHA-256 unchanged. The
+  two Btrfs filesystems both report `no rescan operation in progress`. A real
+  suspend/resume and its catch-up ordering are still unverified.
+- Committed and pushed these local scheduler and resume changes to the root
+  config repository as `e6f893c8c` (`Restore Snapper schedules and sleep
+  guard`). The staged diff was limited to Snapper units/helpers and passed
+  `git diff --cached --check` plus a redacted scan for common credential and
+  private-key patterns.
+- Fresh host inspection found exactly three installed kernel-image/header
+  releases: `7.1.8+deb13-amd64`, `7.1.13+deb13-amd64`, and
+  `7.2.6+deb13-amd64`. DKMS reports the current signed package installed for
+  all three. For each release, `modinfo -k` selects
+  `updates/dkms/btrfs.ko.xz`, reports matching vermagic, and signer
+  `Rebroad's module signing key`; each matching initramfs contains that module
+  path. Secure Boot is enabled. The running kernel is 7.1.13; 7.2.6 remains
+  the default next boot and has not been booted.
+- Tested reversible stock-module rollback for 7.2.6: removing its DKMS
+  registration restored the stock module, which `modprobe` selected with the
+  matching vermagic. Reinstalling the DKMS package rebuilt and signed the
+  candidate, restoring hash
+  `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10` and its
+  initramfs entry. The running 7.1.13 module was untouched.

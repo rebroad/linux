@@ -1373,3 +1373,25 @@ specified in `GOAL.md`.
 - This unit coverage verifies limiter calculations and coordination. It does
   not replace host verification that every Kingston Snapper config uses the
   shared state directory and time window, or the QEMU and post-resume checks.
+
+## Host timeline containment and Snapper PR formatting (2026-10-18)
+
+- Rechecked the live `snapper-timeline.timer`: it is active, with the last
+  trigger at 07:00 BST and the next scheduled run at 08:00 BST. Its service
+  override invokes `/usr/local/sbin/snapper-timeline-all-roots`; that wrapper
+  still creates timeline snapshots, while its explicit Kingston rescan block
+  remains commented out. The independent timer run can still enter Snapper's
+  own qgroup logic, so the wrapper alone is not full containment.
+- The host's `/usr/bin/snapper --version` reports 0.10.6. This is the current
+  pre-migration state only; the required host runtime remains our locally
+  built Snapper from latest upstream with the reviewed fix. The root/home
+  configs could not be read in this inspection, so their rescan-window and
+  hold-file settings remain unverified. `btrfs quota rescan -s /mnt/kingston`
+  returned `Operation not permitted` in this command context; current scan
+  state was therefore not established.
+- Corrected the indentation defects found in the new production C++ portions
+  of Snapper PR #1203. The amended head is
+  `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0`; the correction is whitespace
+  only (`git diff --ignore-all-space` is empty and `git diff --check` passes).
+  Codespell passed after the push; the six build/test checks were still running
+  at the latest status check. The PR remains open and has no review decision.

@@ -83,8 +83,12 @@ quota-based cleanup must wait until the counters are consistent.
    `7.1.13+deb13-amd64` release. The Snapper companion is upstream PR
    [#1203](https://github.com/openSUSE/snapper/pull/1203), replacing closed
    drafts #1201 and #1202. At the latest check (2026-10-18), its base matched
-   the official upstream tip, all CI checks passed, and no review or
-   maintainer feedback was recorded. Its current head also adds
+   the official upstream tip and no review decision was recorded. After a
+   formatting-only amendment, PR #1203 is at
+   `1d26f1890c0742bfbc04f56d4f1d1d9c8a256fe0`, still based on upstream `master`
+   at `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`; Codespell has passed and its
+   six build/test checks are running again. The amendment changes indentation
+   only. Its current head also adds
    `QGROUP_RESCAN_HOLD_FILE`, which lets Snapper defer a fresh automatic scan
    while the configured absolute-path marker contains a future epoch
    deadline. All configs sharing a filesystem must use the same marker path;

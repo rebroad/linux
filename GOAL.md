@@ -20,93 +20,27 @@ contributions; they are not prerequisites for installing the locally built
 Snapper or modified Btrfs module. Local use instead requires technical review,
 the exact-kernel acceptance workload, a valid Secure Boot signature from an
 enrolled key, and a tested rollback and kernel-upgrade path.
+For any future PR, follow the target repository's template and keep the text to
+the current implementation, validation, and limitations. Include historical
+material only when the repository asks for it; make commit references clickable
+and avoid duplicate URLs. See `GOAL-done.md` for the closed PR history.
 
-Determine and fix the source of Snapper-triggered qgroup rescans. Controlled
-QEMU tests show that sharing the root and home snapshot QGROUP is not required
-for the stock kernel's conservative rescan fallback, and a shared QGROUP
-cannot provide independently queryable root and home totals. The host's p8
-groups have therefore been split; do not treat that change or the candidate
-kernel fast path as proof that the root cause is fixed. Continue tracing which
-Snapper/Btrfs operations set inconsistency, whether completed full scans
-restore correct counters, and whether a Snapper-only change can meet the
-accounting and operating requirements. Distinguish a conservative fallback
-from incorrect counters and from a Snapper tracking/configuration error.
-The 2026-10-19 02:24 BST live audit found Kingston's qgroup flag set and stale
-counters. A controlled full scan cleared the flag and corrected those
-counters; a later diagnostic scan adjusted the home collective by 180,224
-exclusive bytes while no inconsistency was reported. The original onset time
-remains unknown. Historical logs now directly show the repeated stock-kernel
-cycle on Kingston: a scan completes, the hourly Snapper timeline job resumes
-and creates snapshots, Btrfs marks qgroups inconsistent during snapshot
-inheritance, and the wrapper starts another scan. A preserved Kingston config
-pair shows distinct root/home QGROUPs (`1/100` and `1/101`) during a later
-instance of this cycle, so a shared root/home snapshot group is not required
-for it. On the 7.2.6 host, the loaded shared-parent fast-path module completed
-the 11:00, 12:00, 13:00, and 14:00 hourly cycles without a scan. A forced
-Kingston rescan after the first three cycles and before the 14:00 run changed
-none of the four snapshot/tracker counters.
-The two earlier 09:47:09 and 10:23:32 scan completions came from explicit
-diagnostic `btrfs quota rescan -w /mnt/kingston` commands logged at 09:35:08
-and 10:12:22; the 10:00 Snapper timer finished at 10:00:02 and initiated
-neither. These diagnostic scans are separate from the historical automatic
-stock-kernel cycle. The diagnostic Kingston scan at 13:27:42 completed at
-13:40:24 with all four qgroup counters unchanged. The diagnostic p8 scan at
-13:42:31 completed at 13:58:06 with the inconsistency flag clear, but its
-counters differed between live reads during the scan and continued changing
-after filesystem sync and the 14:00 snapshots through 14:01:53. Because p8
-was active throughout, this is not evidence of incorrect accounting;
-quiescent/independent reconciliation is still required. The 14:00 hourly run
-created snapshots on all four roots without a scan, with both inconsistency
-flags clear. A later 14:11 sample still showed both flags clear and no scans,
-while p8 totals continued moving under live activity; it is a baseline, not a
-quiescent accounting check. Longer current-kernel observation, p8 live
-reconciliation, and the original onset remain open. The running Btrfs module
-remains build ID `258e41d2`; the installed, signed 7.2.6 DKMS module is
-`46d21507` and is included in the initramfs. The new teardown backport needs a
-reboot before live validation. See `GOAL-done.md`.
-For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
-identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
-because its quick path does not handle source and snapshot groups as siblings
-under a common tracker. Before the next Snapper snapshot, `prepareQGroupTracking`
-checks the existing hierarchy and calls `quota_rescan_if_needed`. If the flag
-is clear, Snapper syncs and proceeds without scanning; if it is set, Snapper
-may start and wait for a scan, subject to its configured policy. The new stock
-snapshot then sets the flag again. The four-snapshot-per-
-filesystem workload's six stock scans match three scans per filesystem after
-the first snapshot. The previous-boot Kingston journal now directly confirms
-the same scan/snapshot feedback cycle on stock 7.1.13, while the current 7.2.6
-candidate host has had two post-rescan hourly cycles with no new scan. Continue
-longer current-kernel observation and counter validation; this evidence does
-not establish that every past inconsistency involved incorrect counters or
-identify the original onset. Eight-round QEMU snapshot and cleanup/deletion
-cycles confirm the scan and counter behavior with stock and candidate modules;
-see `GOAL-done.md` for the source and log evidence.
-The upstream Btrfs qgroup documentation describes hierarchical groups and a
-tracking qgroup for calculating exclusive space at snapshot creation; the
-current separate snapshot-group plus common-parent layout follows that model.
-The same source tree's `qgroup_account_snapshot()` comment acknowledges a
-remaining race window if the source tree changes between flushing delayed refs
-and qgroup inheritance. A paired exact-7.2.6 QEMU run now exercised 32 snapshots
-per module with four concurrent source writers. The stock module marked each
-snapshot accounting inconsistent and its group counters changed on the full
-rescan; the candidate module stayed consistent and all snapshot/tracker
-counters were unchanged across the rescans. Offline `btrfs check --qgroup-report`
-matched the stored and independently computed qgroup values for both modules.
-This did not reproduce the source-accounting race; it does not prove that race
-impossible or explain the earlier live Kingston inconsistency. The scripts,
-counter comparisons, hashes, and limits are recorded in `GOAL-done.md`.
-**Provisional module decision:** retain the shared-parent fast path as the
-candidate for the required current-and-accurate four-group accounting. In the
-matched exact-7.2.6 workload, stock exceeds the one-rescan-per-day operating
-ceiling (six automatic scans in eight snapshots), while the candidate completes
-the repeated snapshot and cleanup workloads without automatic scans and matches
-the independent offline qgroup report. Snapper's daily gate can cap scans, but
-leaves qgroup accounting marked inconsistent and values stale between scans;
-that is an operational fallback, not a root-cause fix. This supports a kernel
-optimization for the tested hierarchy, not a claim of a general Btrfs bug.
-Keep this decision provisional until the installed signed module is activated,
-live accounting and rollback are verified, and the p8 live counters can be
-reconciled without concurrent filesystem activity.
+The reproducible stock-kernel cycle is identified for the tested hierarchy:
+Btrfs marks qgroup accounting inconsistent during snapshot inheritance, and
+Snapper's next quota-tracked operation checks that state and may start a full
+scan. Distinct root/home snapshot QGROUPs still encounter the fallback, so
+sharing their ID is not the cause. QEMU workload, source, and scan-attribution
+evidence is in `GOAL-done.md`.
+
+The host currently runs the shared-parent fast path on `7.2.6+deb13-amd64`
+(build ID `258e41d2`). Its 11:00-14:00 hourly runs created all four snapshots
+without a scan; a Kingston full rescan after the first three cycles changed no
+qgroup counters. The p8 diagnostic scan and subsequent live counter readings
+are inconclusive because filesystem activity continued during measurement. The
+newer signed DKMS modules for installed 7.2.6 and 7.2.9 are not active; reboot,
+live accounting validation, and rollback checks remain open. The first-ever
+onset of the historical Kingston inconsistency is unknown. See `GOAL-done.md`
+for the complete chronology and evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -133,223 +67,17 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-1. **Complete the host-topology Snapper QEMU investigation — 95% done.** Use the
-   latest built Snapper from this repository and disposable QEMU filesystems.
-   Compare root and home using one shared snapshot QGROUP ID with the same
-   configs using distinct IDs. Start every case from fresh quota state, and
-   make the qgroup membership and parent hierarchy match the intended
-   configuration before creating snapshots; changing only a config's
-   `QGROUP` string after quota setup is not sufficient evidence. Keep the
-   kernel module, Snapper build, source data, snapshot sequence, cleanup
-   behavior, and rescan policy identical within each comparison.
+1. **Finish root-cause and live-accounting validation — 95% done.** The
+   controlled QEMU matrix and source trace are complete; results are in
+   `GOAL-done.md`. The provisional module decision above is for the tested
+   hierarchy and does not claim a general Btrfs correctness bug.
 
-   Exercise root-only and home-only snapshots, then both orders (root followed
-   by home and home followed by root). Record the first operation that sets
-   qgroup inconsistency, Snapper's rescan behavior, qgroup membership and
-   parent relationships, and counters before and after a full rescan. Repeat
-   cases that produce different outcomes. First use the stock module for the
-   running kernel; use the candidate module only as a paired comparison where
-   it helps distinguish a Snapper layout problem from a kernel accounting
-   problem. The manually configured stock-kernel matrix covers fresh shared
-   and distinct root/home groups, root-only and home-only repeats, both
-   operation orders, explicit-rescan controls, and a rate-limited follow-up
-   snapshot. The host-shaped four-group workload has now also been run with
-   both stock and candidate modules on the exact current 7.2.6 kernel. Stock
-   triggered six automatic scans in eight snapshots; the candidate triggered
-   none. The shared-parent fast path is now ported into the exact 7.2.6 source
-   tree with Btrfs sanity tests for its eligible topology, fallback cases,
-   and counter-overflow handling. A test-enabled module built against the
-   installed headers passed those tests at load and completed the same
-   workload with zero automatic scans and no inconsistency warnings; the
-   matched baseline module with only the qgroup-deletion fix had six
-   automatic scans. This supports keeping the fast path as a rescan-avoidance
-   optimization for the tested hierarchy, not as evidence that stock
-   accounting becomes incorrect after a full scan. Cleanup and synchronous
-   deletion were then exercised for all four configs under the same topology.
-   Neither operation added scans or warnings
-   with either module. This confirms the shared ID is not required for stock's
-   conservative fallback, while the candidate fast path avoids it for the
-   tested four-group layout. Eight-round repeated QEMU operation and
-   source-data/counter reconciliation now pass in both operation orders with
-   the candidate; matched stock runs show that the last snapshot's collective
-   remains short until a full rescan, and the shortfall moves with snapshot
-   order. Eight-round timeline cleanup and synchronous deletion pass in both
-   snapshot orders with the candidate and the qgroup-removal-only baseline.
-   Live Kingston accounting after three hourly cycles now matches a full
-   rescan under the loaded fast-path module. The p8 live comparison,
-   hold/window host checks, and broader root-cause reconciliation remain. With
-   the candidate module,
-   a forced full rescan immediately after snapshots left nonempty qgroup
-   counters unchanged in both root-first and home-first order: each snapshot
-   group reported 4,243,456 referenced and 49,152 exclusive bytes. The
-   49,152-byte metadata component is now reconciled against three unique
-   16 KiB metadata tree blocks belonging to the `.snapshots` root and its two
-   snapshots. The eight-round test now confirms the same relationship with
-   ten MiB of payload and nine unique metadata blocks per snapshot collective;
-   the independent extent-tree reconciliation is recorded in `GOAL-done.md`.
-   QEMU verified the production `05:00-21:00` window and hold together on the
-   stock 7.2.6 module: while held or outside the window, `snapper list`
-   displayed the last-known 16 KiB value as stale and started no scan; after
-   the marker expired and the window opened, one scan cleared stale status.
-   The repeated-cycle QEMU check has now passed for all four configs, with two
-   hold/recovery cycles per config. No scan started during a hold or closed
-   window, and each release started exactly one scan. The same guest completed
-   the eight-round cleanup/deletion workload. Live-host validation and broader
-   root-cause reconciliation remain; evidence and test limits are in
-   `GOAL-done.md`.
+   Remaining: after the installed signed module is activated, validate
+   sustained four-root snapshot/accounting behavior on the host. Reconcile p8
+   counters against an independent report without concurrent updates; the
+   current live sample is inconclusive. The reproducible stock-kernel cycle is
+   understood, but the first-ever Kingston onset remains unknown.
 
-   Decide from these results whether sharing the root/home ID causes the
-   inconsistency, contributes through Snapper's tracking hierarchy, or is
-   unrelated. For every stock-kernel rescan, determine whether Btrfs is taking
-   its conservative fallback for a hierarchy it cannot update incrementally,
-   whether Snapper is invoking the rescan on the next snapshot, and whether a
-   full rescan restores correct counters. A distinct-ID case that requests a
-   rescan does not by itself prove a kernel defect or make the companion a
-   correctness fix. Keep the companion only if the measured rescan frequency
-   or user-visible behavior cannot meet the required accounting and operating
-   constraints with the stock kernel; describe it as a fast-path optimization
-   when that is what the evidence supports.
-   Continue the host-matched four independent group workload (p8-root,
-   p8-home, Kingston-root, Kingston-home). The exact 7.2.6 QEMU cleanup test
-   changed source data before snapshots and exercised timeline cleanup plus
-   synchronous deletion for every config; the evidence and limits are in
-   `GOAL-done.md`. After the first full rescan, all four now-empty snapshot
-   groups showed only the 16 KiB `.snapshots` directory, while the source
-   groups showed their measured source data. The candidate's nonempty
-   snapshot-group counters matched a forced full rescan in both operation
-   orders, and the eight-round repeated-cycle checks now also match in both
-   orders. The repeated eight-round timeline cleanup and synchronous deletion
-   passed with the candidate and baseline modules, without additional scans or
-   stale-qgroup errors; see `GOAL-done.md`. The qgroup teardown failure is
-   already fixed in the Btrfs maintainer `for-next` branch; do not file a
-   duplicate upstream report. Stable 7.2.6 and 7.2.9-7.2.11 still contain the
-   affected code. The exact 7.2.6 checkout now backports both upstream
-   teardown fixes and has sanity coverage for the rescan-required and missing
-   info-item paths; both pass at all five node sizes in QEMU. Port and verify
-   these fixes in every release-matched DKMS source variant before relying on
-   them across installed kernels. Live-host cleanup validation and broader
-   root-cause reconciliation remain.
-   The second-rescan `qgroup info item update error
-   -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
-   accounting inconsistent and returns a positive “rescan required” result,
-   which caused `btrfs_remove_qgroup()` to exit after deleting the info item
-   but before freeing the in-memory qgroup. The maintainer `for-next` branch
-   already contains the reviewed fix and a follow-up for leaking a tolerated
-   `-ENOENT`; neither appears in stable 7.2.6 or 7.2.9-7.2.11. Both are now
-   backported and tested in this exact 7.2.6 source checkout. The in-kernel
-   cases verify that positive rescan status still frees the qgroup and that a
-   missing on-disk item does not leak as the return value. Keep this teardown
-   fix separate from the six ordinary snapshot-creation fallback scans, which
-   remain unresolved. Port the backport to every release-matched DKMS source
-   variant and verify the installed modules. Do not raise a duplicate upstream
-   report; evidence and source references are in `GOAL-done.md`.
-
-   Then continue developing and validating the Snapper fix against the latest
-   revision in the official upstream repository
-   (`openSUSE/snapper`), checking the upstream tip before rebasing or starting
-   new work. Do not use a distribution package source or older downstream
-   branch as the development base. The host's required Snapper runtime is our
-   locally built and maintained version from latest upstream with our fix;
-   install and verify that build after the local safety and acceptance gates.
-   The host has since rebooted into `7.2.6+deb13-amd64`; use that exact
-   in-use release for all remaining kernel investigation and acceptance
-   testing.
-
-   Snapper PR [#1203](https://github.com/openSUSE/snapper/pull/1203) was closed
-   without merge on 2026-10-19. The maintainer's stated concern is that qgroup
-   values may be incorrect after a single snapshot, so a rescan is required for
-   accurate values regardless of how recently the last scan ran; they saw no
-   advantage in the gate patch and recommended disabling qgroups if necessary.
-   Disabling qgroups does not meet the required four independent exclusive-space
-   totals. Treat the hold and daily-limit gates as operational deferrals, not an
-   accounting fix, and compare the maintainer's claim with the recorded QEMU
-   counter reconciliation: the stock module's counters changed on rescans,
-   while the candidate matched the offline qgroup report for the tested
-   topology; the concurrent source race remains unreproduced. Keep the local
-   Snapper behavior available for stale-status reporting, quota-cleanup safety,
-   and urgent suspend, but do not describe PR #1203 as active or resolved. Decide
-   whether a concise evidence-based upstream follow-up is justified after the
-   newest installed kernel module is activated and live accounting is checked.
-   The official master currently matches PR #1203's base. Review its latest tip
-   before any rebase or new submission; details are in `GOAL-done.md`.
-
-   **PR description practice:** Follow the target repository's PR template and
-   conventions. Keep the description focused on the current implementation,
-   current validation, and current limitations. Include prior revisions,
-   superseded failures, or historical test comparisons only when the
-   repository's PR template or guidance asks for them. Keep project history in
-   `GOAL-done.md` or linked evidence. When a commit reference is needed, use a
-   concise descriptive Markdown link to the exact commit in its repository,
-   rather than displaying a bare full hash.
-
-   Keep `QGROUP_RESCAN_HOLD_FILE` configurable (empty disables the hold) and
-   add `QGROUP_RESCAN_DAILY_LIMIT` (default `yes`, `no` disables the rolling
-   24-hour cap). For the investigation host, keep the shared hold path enabled
-   so `force-suspend` can pause new scans until its deadline, and set the daily
-   limit to `no`. The hold is inactive unless the marker exists; it must not
-   prevent scans during the investigation otherwise. Use
-   `FORCE_SUSPEND_RESCAN_RESUME_TIME` in
-   `/etc/default/force-suspend` to configure the hold deadline time (default
-   `04:00`). Retain `QGROUP_RESCAN_WINDOW=05:00-21:00`. Before scanning, Snapper
-   must verify all three policy values agree across configs sharing a
-   filesystem; a mismatch or unverifiable policy defers the scan and preserves
-   stale status. An already-running scan is still waited for.
-
-   The p8 host now has separate groups: root `1/100` under tracker `2/0`, and
-   home `1/101` under tracker `2/1`. All 15 existing home snapshots and its
-   `.snapshots` directory were moved, the home Snapper config was updated, and
-   a full rescan completed with consistent accounting. Kingston remains root
-   `1/100` and home `1/101`. Keep the four independent collectives and the
-   rescan hold/window configuration; the investigation configs have the daily
-   limit disabled. The candidate module is active on the current
-   `7.2.6+deb13-amd64` kernel.
-
-   On 2026-10-19, our diagnostic `btrfs quota rescan -w /mnt/kingston` commands
-   started scans at 09:35 and 10:12, completing at 09:47 and 10:23. At 09:34:56
-   the qgroup flag was set but the rescan status said none was running; before
-   the 10:12 command, the flag was clear and again no scan was running. The
-   `-w` commands therefore started both scans; neither is evidence of a
-   Snapper-initiated scan or automatic scan frequency. The 09:47 scan cleared
-   Kingston's inconsistency flag and corrected its stale
-   counters. The 10:00 hourly run created all four
-   configured snapshots; p8 and Kingston both still had clear inconsistency
-   flags and Snapper did not start a rescan. A separate diagnostic full scan
-   manually started on Kingston at 10:12 completed at 10:23 and adjusted the
-   `1/101` and `2/0` exclusive counters by 180,224 bytes even though no
-   inconsistency was reported before the scan. The 11:00 and 12:00 hourly runs
-   each created Kingston root and home snapshots; both filesystems still had
-   clear inconsistency flags, and neither had a scan in progress or a new
-   kernel rescan event. The 12:00 cycle used the previously loaded fast-path
-   module (build ID `258e41d2`), not the newly installed module (build ID
-   `46d21507`). This is a third observed live snapshot cycle after Kingston's
-   reconciliation, not proof that the condition stays fixed over longer
-   operation or that it explains when Kingston first became inconsistent.
-   See `GOAL-done.md`.
-
-   The candidate kernel fast path has passed the documented four-group QEMU
-   workload on both the former 7.1.13 release and current 7.2.6 release. On
-   7.2.6, matched stock-module runs triggered repeated scans on distinct groups,
-   while the candidate run did not. Treat this as evidence for the fast path's
-   rescan-avoidance benefit, not as proof of incorrect stock accounting after
-   a completed scan. Cleanup and deletion coverage is recorded in
-   `GOAL-done.md`; verify the scan and accounting behavior against live-host
-   operations, then decide whether the fast path is needed to meet the
-   operating constraints. See `GOAL-done.md` for results and limits.
-
-   The shared-parent fast-path kernel companion is based on the Btrfs
-   maintainer tree's
-   [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
-   The separate qgroup teardown fix is already present in that branch; the
-   shared-parent fast path is not. Its exact-release QEMU tests, including
-   ancestor-counter overflow fallback, and current patch checks are recorded
-   in `GOAL-done.md`. The current code diff applies to the latest `for-next`
-   tip and passes `checkpatch`; the local unsigned mail draft was refreshed
-   from that tested implementation. The fast-path patch has not been
-   submitted. Obtain the user's DCO sign-off before adding a
-   `Signed-off-by` trailer or sending it to the mailing list; this
-   public-submission gate does not block local testing or deployment. The
-   draft is
-   `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
 2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
    now runs our locally built Snapper from the current PR head
    `7d4db17085ce`; package version

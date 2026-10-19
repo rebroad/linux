@@ -3199,3 +3199,37 @@ specified in `GOAL.md`.
   `ssh-askpass` cannot open the sandbox display. The packages were not
   installed; daemon restart, post-install config verification, and live
   Snapper acceptance remain open in `GOAL.md`.
+
+## Repeated rescan-hold cycles across four configs (2026-10-19)
+
+- Ran the latest-upstream Snapper build in QEMU with the exact Debian
+  `7.2.6+deb13-amd64` kernel and the baseline Btrfs module from
+  `/lib/modules/7.2.6+deb13-amd64/updates/dkms/` (compressed module SHA-256
+  `9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`). The
+  test used disposable copies of the p8 and Kingston Btrfs images and the
+  distinct four-group layout.
+- For each of `root`, `home`, `kingston-root`, and `kingston-home`, completed
+  two cycles. Each cycle created a snapshot, confirmed `snapper list` displayed
+  last-known used-space values while the hold marker was active, confirmed the
+  closed `05:00-21:00` window continued to defer scans after marker expiry, and
+  then opened the window. Both deferrals kept quota values visible, reported
+  stale status, and started no scan; opening the window completed exactly one
+  scan. The guest reported
+  `RESCAN-HOLD-CYCLES: PASS cycles=8 configs=4 scans=9` (including the initial
+  recovery scan) and `HOST-TOPOLOGY: CLEANUP-COMPLETE` after the existing
+  eight-round timeline cleanup and synchronous-deletion workload. QEMU exited
+  successfully with empty stderr; the serial log contains no `FAIL:` marker or
+  qgroup info-item `-ENOENT` error.
+- This validates repeated hold/window transitions and cleanup behavior in this
+  QEMU scenario; it is not a Secure Boot test or live-host validation. The
+  pre-full-rescan counters for p8-home and Kingston-home increased when the
+  full rescan reconciled the last-snapshot shortfall, as seen in earlier stock
+  runs; independent counter reconciliation and host correlation remain open.
+- Artifacts are under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-rescan-hold-cycles-20261019/`.
+  The serial log SHA-256 is
+  `52df308808bb6966c3e1a733b3aa044a2bd97dadb9775c31745c367a483cc07e`; the
+  test initrd SHA-256 is
+  `21205c8983e2861557e89194031c2dc0d23cff6caea955a16e084b9f1f24b8bf`; and
+  the test harness SHA-256 is
+  `4534f65d38a1b97d1fc124237d9e94c6145ccb937cc827a7a61782a22874189e`.

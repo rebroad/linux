@@ -121,8 +121,11 @@ quota-based cleanup must wait until the counters are consistent.
    stock 7.2.6 module: while held or outside the window, `snapper list`
    displayed the last-known 16 KiB value as stale and started no scan; after
    the marker expired and the window opened, one scan cleared stale status.
-   Repeat this across the four configs and multiple hold cycles, then validate
-   the accounting against live-host operations. The test and limits are in
+   The repeated-cycle QEMU check has now passed for all four configs, with two
+   hold/recovery cycles per config. No scan started during a hold or closed
+   window, and each release started exactly one scan. The same guest completed
+   the eight-round cleanup/deletion workload. Live-host validation and broader
+   root-cause reconciliation remain; evidence and test limits are in
    `GOAL-done.md`.
 
    Decide from these results whether sharing the root/home ID causes the

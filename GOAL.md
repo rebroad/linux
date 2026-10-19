@@ -408,10 +408,19 @@ quota-based cleanup must wait until the counters are consistent.
    that versioned image, modules, and headers can be denied while exact
    supported releases remain candidates, provided allowlist records precede
    the broad deny rule. It denied the Debian 6.12 fallback and retained 7.2.6
-   and 7.2.9. This was tested with APT 3.0.3; a full isolated transaction
-   simulation proving an unsupported kernel is visibly held while unrelated
-   security updates proceed remains open. The installed APT version also needs
-   reconciling with the previously requested 3.1.8 before deploying the policy.
+   and 7.2.9. An isolated transaction simulation with APT 3.0.3 now confirms
+   that an unsupported versioned kernel image/module is not installable, its
+   meta-packages are visibly kept back, and an unrelated security update still
+   proceeds. The no-pin control would install the unsupported image and
+   modules. No production pin has been installed; test details are in
+   `GOAL-done.md`.
+
+   The live system still has APT 3.0.3 installed and as its Trixie candidate.
+   The previously requested 3.1.8 was a Debian testing version, not available
+   from the configured Trixie sources ([Debian package tracker](https://tracker.debian.org/news/1675790/apt-318-migrated-to-testing/);
+   [Trixie package page](https://packages.debian.org/source/stable/apt)). Decide
+   whether to install that historical out-of-suite version before deploying a
+   production pin; do not add a testing source implicitly.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, initramfs inclusion, and exact-release

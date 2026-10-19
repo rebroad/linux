@@ -3624,3 +3624,36 @@ specified in `GOAL.md`.
   live host activation and qgroup behavior remain unverified. Boot 7.2.6
   explicitly afterward to verify that release's newly installed module and
   rollback path. No reboot was initiated during this audit.
+
+## Isolated APT kernel-pin transaction simulation (2026-10-19)
+
+- The live host has APT `3.0.3` installed and selected as its candidate from
+  Trixie. Its kernel meta-package candidate is `7.2.9-1~bpo13+1`; the Debian
+  `6.12` security and stable candidates remain visible. No kernel package is
+  held and no production kernel preference file is installed.
+- To test the proposed fail-safe without changing host APT state, an isolated
+  local repository and dpkg status database modeled installed kernel
+  `7.2.9-1` and a new, unsupported `7.3.0-1` release, plus an unrelated
+  `security-demo` update. With exact supported versioned image, modules,
+  binary, base, and headers names allowlisted before the broad negative pin,
+  APT 3.0.3 assigned the supported image priority `990` and the unsupported
+  image/modules priority `-1`; the unsupported packages had no installation
+  candidate. The simulated upgrade visibly kept back the kernel meta-packages
+  while upgrading `security-demo` from `1.0` to `2.0`. An explicit simulated
+  install of the unsupported kernel image failed with “no installation
+  candidate.”
+- The no-pin control simulated installing the unsupported image, modules,
+  binary, and base packages. This confirms the pin's effect on APT's
+  transaction resolver and that an unrelated upgrade can proceed. The test
+  used a synthetic package graph based on the live Debian kernel dependency
+  shape; it does not validate every future package naming change or an actual
+  Debian repository transaction. The test repository and status database are
+  under `/var/tmp/kernel-pin-sim.TIW8w3/`; no host package or APT configuration
+  was changed.
+- The previously requested APT `3.1.8` was a Debian testing version; it is not
+  available from this host's configured Trixie sources. Debian's tracker
+  records its migration to testing on 2025-10-07, while the Trixie source
+  package remains `3.0.3` ([tracker entry](https://tracker.debian.org/news/1675790/apt-318-migrated-to-testing/),
+  [Trixie package page](https://packages.debian.org/source/stable/apt)). Do not
+  add a testing source as part of the kernel-pin deployment without an explicit
+  decision about that cross-suite APT upgrade.

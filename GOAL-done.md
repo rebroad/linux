@@ -3657,3 +3657,20 @@ specified in `GOAL.md`.
   [Trixie package page](https://packages.debian.org/source/stable/apt)). Do not
   add a testing source as part of the kernel-pin deployment without an explicit
   decision about that cross-suite APT upgrade.
+
+## Current unsigned qgroup kernel patch draft (2026-10-19)
+
+- Verified the remote Btrfs `for-next` tip is
+  `2789b2c034d7c0c8687355921a38c5ac41a565fa`. The latest tested
+  shared-parent patch applies to that tree with
+  `git apply --check`.
+- Refreshed
+  `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`
+  from the tested implementation. The earlier draft omitted the current
+  preflight of affected qgroup ancestors and its overflow coverage. The new
+  draft includes the ancestor preflight and tests for ambiguous, extra-member,
+  and overflow layouts. `checkpatch.pl --no-signoff --strict` reports zero
+  errors, warnings, or checks; the diff touches only `qgroup.c`, `qgroup.h`,
+  and `qgroup-tests.c`.
+- The patch has a `base-commit` footer for the verified `for-next` tip and has
+  no `Signed-off-by` trailer. It remains a local draft and was not sent.

@@ -304,11 +304,13 @@ quota-based cleanup must wait until the counters are consistent.
    The separate qgroup teardown fix is already present in that branch; the
    shared-parent fast path is not. Its exact-release QEMU tests, including
    ancestor-counter overflow fallback, and current patch checks are recorded
-   in `GOAL-done.md`. The fast-path patch has not been submitted. Review its
-   exact diff and obtain the user's DCO sign-off before adding a
+   in `GOAL-done.md`. The current code diff applies to the latest `for-next`
+   tip and passes `checkpatch`; the local unsigned mail draft was refreshed
+   from that tested implementation. The fast-path patch has not been
+   submitted. Obtain the user's DCO sign-off before adding a
    `Signed-off-by` trailer or sending it to the mailing list; this
-   public-submission gate does not block local testing or deployment.
-   The unsigned mail-formatted draft is
+   public-submission gate does not block local testing or deployment. The
+   draft is
    `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
 2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
    now runs our locally built Snapper from the current PR head

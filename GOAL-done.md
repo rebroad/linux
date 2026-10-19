@@ -3774,3 +3774,20 @@ specified in `GOAL.md`.
   included. The guard intentionally delays kernel updates until a matching
   module build is prepared, while the synthetic transaction showed unrelated
   upgrades proceed.
+
+## Kingston live qgroup status and scan timing (2026-10-19 13:10 BST)
+
+- Read-only host checks confirmed `/mnt/kingston` is `/dev/sda1`, mounted
+  read-write as Btrfs. Its sysfs qgroup inconsistency flag was `0`, and
+  `btrfs quota rescan -s /mnt/kingston/@` reported no rescan in progress.
+- The kernel journal records qgroup scan completions at 09:47:09 and 10:23:32.
+  Kingston root and home timeline snapshots were created at 09:00:03 and
+  10:00:02; the hourly Snapper service ran at 10:00:01-10:00:02 and then
+  finished. The 10:23 completion followed the 10:00 snapshots, but neither the
+  journal nor process state records the rescan start or its initiating
+  process, so the timeline is correlation rather than proof of the trigger.
+  Snapshots at 11:00, 12:00, and 13:00 were also present; there was no active
+  scan at the audit.
+- This refreshes the earlier sandbox-limited audit. Kingston was consistent
+  and not scanning at 13:10 BST; the causes of the two earlier scans remain
+  unidentified.

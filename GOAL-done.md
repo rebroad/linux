@@ -3405,6 +3405,40 @@ specified in `GOAL.md`.
   became inconsistent before the 09:34 diagnostic scan or prove long-term
   stability.
 
+## Historical Kingston snapshot/rescan feedback loop on stock Btrfs (2026-10-16/17)
+
+- The retained previous-boot journal identifies the running kernel as stock
+  Debian `7.1.13+deb13-amd64`. It maps both `/dev/sda1` and, after device
+  renumbering, `/dev/sdb1` to Kingston UUID
+  `ee36ee29-e720-4f55-a7a7-abc0e7a8185e`.
+- At 18:07:52 on Oct 16, the kernel logged that Kingston's qgroup scan had
+  completed and cleared the inconsistency flag. The waiting
+  `snapper-timeline.service` then finished and immediately started again;
+  `snapper-timeline-all-roots` ran the home and root timelines. One second
+  later, Btrfs logged `qgroup marked inconsistent, qgroup inherit needs a
+  rescan`. The wrapper observed no scan in progress and logged `quota rescan
+  started` at 18:07:55.
+- The same sequence repeated at 19:37:59/19:38:01. At 21:38:51, a further
+  scan completed, the timeline job ran, and Btrfs marked qgroups inconsistent
+  again; the wrapper deferred the next scan because the 21:30-04:00 suspend
+  window had begun. These ordered kernel, systemd, and wrapper messages show
+  that the scan itself was not setting the inconsistency flag: a subsequent
+  Snapper timeline snapshot triggered Btrfs's snapshot-inheritance fallback,
+  and the wrapper then started another full scan. The log names both home and
+  root timeline commands but does not identify which individual snapshot
+  operation emitted the kernel warning.
+- A privileged copy of Kingston's configs was saved at 10:34 on Oct 17,
+  before the 11:16 timeline run. It shows root `QGROUP="1/100"` and home
+  `QGROUP="1/101"`. At 11:16:47, Kingston's scan completed and the timer
+  service restarted; the wrapper ran home and root timelines, and Btrfs logged
+  the same inheritance warning at 11:16:49. Thus this behavior occurred with
+  separate root/home snapshot groups, not only with a shared ID.
+- This is direct host evidence for the stock-kernel snapshot/rescan loop and
+  rules out shared root/home IDs as a necessary cause of that loop. It does
+  not prove the counters were wrong after a completed scan. The journal does
+  not reveal the original first transition to inconsistent state, and these
+  events were on 7.1.13; current-kernel acceptance remains on 7.2.6.
+
 ## Qgroup tracking layout and snapshot race source review (2026-10-19)
 
 - The upstream Btrfs documentation says qgroups can form hierarchies and

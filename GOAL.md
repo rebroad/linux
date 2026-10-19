@@ -31,13 +31,19 @@ Snapper/Btrfs operations set inconsistency, whether completed full scans
 restore correct counters, and whether a Snapper-only change can meet the
 accounting and operating requirements. Distinguish a conservative fallback
 from incorrect counters and from a Snapper tracking/configuration error.
-The 2026-10-19 02:24 BST live sysfs audit shows p8's inconsistency flag clear,
-but Kingston's set; Kingston groups `1/100` and `1/101` have exclusive counters
-larger than referenced counters and must be treated as stale. The loaded
-7.2.6 Btrfs build ID matches the selected DKMS module, and no qgroup-rescan
-worker was visible. Determine when Kingston became inconsistent and reconcile
-its counters after a controlled full scan before drawing conclusions from its
-totals. The read-only evidence is in `GOAL-done.md`.
+The 2026-10-19 02:24 BST live audit found Kingston's qgroup flag set and stale
+counters. A controlled full scan cleared the flag and corrected those
+counters; a later diagnostic scan adjusted the home collective by 180,224
+exclusive bytes while no inconsistency was reported. The original onset time
+remains unknown. Historical logs now directly show the repeated stock-kernel
+cycle on Kingston: a scan completes, the hourly Snapper timeline job resumes
+and creates snapshots, Btrfs marks qgroups inconsistent during snapshot
+inheritance, and the wrapper starts another scan. A preserved Kingston config
+pair shows distinct root/home QGROUPs (`1/100` and `1/101`) during a later
+instance of this cycle, so a shared root/home snapshot group is not required
+for it. The current 7.2.6 host has completed two more hourly cycles after
+reconciliation without a scan; longer current-kernel observation and the
+original onset remain open. See `GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings
@@ -45,11 +51,14 @@ under a common tracker. Before the next Snapper snapshot, `prepareQGroupTracking
 checks the existing hierarchy and calls `quota_rescan_if_needed`, which scans
 and waits; the new snapshot then sets the flag again. The four-snapshot-per-
 filesystem workload's six stock scans match three scans per filesystem after
-the first snapshot. This is established for that fixture; verify it against
-the remaining live and longer-cycle cases before treating every observed host
-rescan as explained. Eight-round QEMU snapshot and cleanup/deletion cycles
-now confirm the scan and counter behavior with stock and candidate modules;
-live-host cases remain. See `GOAL-done.md` for the source and log evidence.
+the first snapshot. The previous-boot Kingston journal now directly confirms
+the same scan/snapshot feedback cycle on stock 7.1.13, while the current 7.2.6
+candidate host has had two post-rescan hourly cycles with no new scan. Continue
+longer current-kernel observation and counter validation; this evidence does
+not establish that every past inconsistency involved incorrect counters or
+identify the original onset. Eight-round QEMU snapshot and cleanup/deletion
+cycles confirm the scan and counter behavior with stock and candidate modules;
+see `GOAL-done.md` for the source and log evidence.
 The upstream Btrfs qgroup documentation describes hierarchical groups and a
 tracking qgroup for calculating exclusive space at snapshot creation; the
 current separate snapshot-group plus common-parent layout follows that model.

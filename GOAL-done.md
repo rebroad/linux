@@ -3849,3 +3849,20 @@ specified in `GOAL.md`.
   explicitly at 13:42:31. The only Kingston scan that day completed at
   13:40:24 after the explicit diagnostic command at 13:27:42. Neither was
   initiated by the 14:00 timeline service.
+
+## Live four-config qgroup and policy audit (2026-10-19 14:06 BST)
+
+- The installed Snapper is 0.13.2 with Btrfs quota support. The default
+  `snapper list-configs` reports only the installed p8 `root` and `home`
+  configs. The hourly wrapper separately discovers the Kingston configs under
+  `/mnt/kingston/@/etc/snapper/configs` and runs them with that root, so all
+  four configured roots are covered.
+- The p8 root/home configs use distinct snapshot qgroups `1/100` and `1/101`;
+  the Kingston root/home configs also use distinct `1/100` and `1/101` on
+  their separate filesystem. All four currently agree on
+  `QGROUP_RESCAN_DAILY_LIMIT=no`, `QGROUP_RESCAN_WINDOW=05:00-21:00`, and the
+  same configured hold-file path.
+- At this check, both filesystem inconsistency flags were `0`, and
+  `btrfs quota rescan -s` reported no scan in progress on either filesystem.
+  This confirms the live mapping and policy configuration, not long-term
+  counter correctness or suspend/resume behavior.

@@ -68,8 +68,10 @@ For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings
 under a common tracker. Before the next Snapper snapshot, `prepareQGroupTracking`
-checks the existing hierarchy and calls `quota_rescan_if_needed`, which scans
-and waits; the new snapshot then sets the flag again. The four-snapshot-per-
+checks the existing hierarchy and calls `quota_rescan_if_needed`. If the flag
+is clear, Snapper syncs and proceeds without scanning; if it is set, Snapper
+may start and wait for a scan, subject to its configured policy. The new stock
+snapshot then sets the flag again. The four-snapshot-per-
 filesystem workload's six stock scans match three scans per filesystem after
 the first snapshot. The previous-boot Kingston journal now directly confirms
 the same scan/snapshot feedback cycle on stock 7.1.13, while the current 7.2.6

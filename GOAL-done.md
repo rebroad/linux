@@ -3889,3 +3889,24 @@ specified in `GOAL.md`.
   to the 14:01 read while both flags remained clear, confirming its live
   counters continued to move. The system was active, so this sample does not
   establish whether p8 accounting matches an independent full report.
+
+## Snapper rescan trigger source audit (2026-10-19 14:13 BST)
+
+- In the current local Snapper source (`7d4db17085ce`),
+  `Btrfs::prepareQGroupTracking()` calls `quota_rescan_if_needed()` before
+  creating a quota-tracked snapshot. That helper first reads Btrfs scan and
+  inconsistency status. When no scan is running and the inconsistency flag is
+  clear, it calls `sync(fd)` and returns `Consistent`; it does not issue the
+  rescan ioctl. When the flag is set and policy permits, it issues
+  `BTRFS_IOC_QUOTA_RESCAN` and waits for completion. A pre-existing scan is
+  waited on instead of starting a second one.
+- Snapper's quota query uses the same helper. Thus Snapper does not initiate a
+  full scan unconditionally on each hourly run: it initiates one only after
+  seeing the Btrfs inconsistency flag, subject to the hold/window/daily policy.
+  The stock-kernel feedback cycle therefore starts when snapshot inheritance
+  sets that flag; the next Snapper operation reacts to it. The clean-status
+  `sync(fd)` can flush ordinary pending filesystem work, so live qgroup counter
+  changes around snapshots or quota queries cannot be attributed to the
+  rescan without a quiescent comparison.
+- Source reviewed at `snapper/Btrfs.cc:343-406`,
+  `snapper/Btrfs.cc:420-455`, and `snapper/BtrfsUtils.cc:894-1018`.

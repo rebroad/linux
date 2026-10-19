@@ -57,6 +57,9 @@ measurement. A fresh live query found retained Snapper snapshot 2176 (`verify
 var-tmp symlink exclusion`, created 2026-08-16) missing from p8-root's
 snapshot-only qgroup. It has now been assigned to `1/100`, and a full p8
 rescan completed with all four collectives reporting consistent accounting.
+At 17:46, a manual run of the installed timeline service added one snapshot
+to each collective on the still-loaded 7.2.6 build (`258e41d2`); all four
+reports remained `CONSISTENT`, with no scan or warning in the kernel log.
 Independent quiescent counter validation remains open. The newer signed DKMS
 modules for installed 7.2.6 and 7.2.9 are not active; reboot, live accounting
 validation, and rollback checks remain open. The onset of the historical

@@ -366,19 +366,17 @@ quota-based cleanup must wait until the counters are consistent.
    selected by `modprobe` and present in their matching initramfs. A later APT
    upgrade installed 7.2.9; its DKMS build succeeded, the signed candidate is
    selected by `modprobe`, and the module is in its initramfs. The host is
-   still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed,
-   but host boot and rollback verification remain. Package build, module
-   hashes, APT result, and per-kernel verification are in
-   `GOAL-done.md`. A 2026-10-19 live package audit finds the signed DKMS
-   modules selected for both installed releases, but their hashes still match
-   the pre-teardown-backport builds. A new versioned DKMS package is staged
-   with the updated 7.2.6 source and the 7.2.9 teardown backport; both source
-   selectors and exact-header production builds pass, and the 7.2.9 regression
-   tests pass in QEMU at all five node sizes. The package has not been
-   installed. Install it, then verify signed builds, module selection,
-   initramfs inclusion, and host operation for both releases. The installed
-   selector passes for a supported release and
-   returns an explicit error for an unmapped release. However, source
+   still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed.
+   The updated DKMS package is now installed, with signed release-matched
+   modules selected and present in both installed releases' initramfs images.
+   A fresh exact-7.2.9 Secure Boot QEMU run passed the full Snapper workload.
+   The host still has the earlier Btrfs module loaded: its sysfs build ID
+   differs from the installed 7.2.6 module, so the new teardown fix is not
+   active until reboot. Verify its loaded build ID after boot, then test
+   host operation and rollback. Package build, module hashes, QEMU log, and
+   per-kernel checks are in `GOAL-done.md`. The installed selector passes for
+   a supported release and returns an explicit error for an unmapped release.
+   However, source
    inspection shows that this failure propagates through DKMS and Debian's
    `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore
    leave the kernel image package unconfigured. This is not an acceptable
@@ -388,25 +386,19 @@ quota-based cleanup must wait until the counters are consistent.
    make any temporarily withheld kernel update visible. Keep preparing exact
    source support before each new APT kernel candidate and test both the
    supported and unsupported paths end to end.
-   A live audit at 10:28 BST confirms that both currently installed kernels
-   still select signed DKMS modules, while the installed DKMS package remains
-   the older 7.1.13 build. No APT kernel holds or custom pre-install gate are
-   configured. The staged 7.2.6 DKMS package's `postinst` explicitly builds
-   for every installed kernel and exits on an unmapped release; verify a
-   kernel-only visible hold or equivalent guard before the next unsupported
-   candidate can enter dpkg.
+   The live audit confirms there are no held packages or custom pre-install
+   guard; `dpkg --audit` is clean. DKMS's standard kernel hooks are present,
+   but the package's build failure for an unmapped release can leave the
+   kernel package unconfigured. Design and verify a visible, kernel-specific
+   pre-install policy before an unsupported candidate enters dpkg.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, and initramfs inclusion are verified for
-     all four installed releases: 7.1.8, 7.1.13, 7.2.6, and 7.2.9. Stock-module
-     rollback and reinstall were verified for 7.2.6. The 7.2.9 DKMS build was
-     triggered by the real APT kernel upgrade; its signed module is in the
-     initramfs and passed exact-release Secure Boot QEMU acceptance. Host boot
-     and rollback verification remain. The post-reboot
-     audit confirms the candidate is loaded; the p8 group split and a full
-     rescan are complete. Final accounting and live-host cleanup acceptance
-     remain outstanding. Evidence and hashes are in
-     `GOAL-done.md`.
+     the currently installed 7.2.6 and 7.2.9 releases. Exact 7.2.9 Secure Boot
+     QEMU acceptance passes. The host is still running 7.2.6 with the previous
+     Btrfs module loaded; reboot and verify the new build ID, host accounting,
+     and rollback path. Final accounting and live-host cleanup acceptance
+     remain outstanding. Evidence and hashes are in `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
      actual 7.2.6 header and image hooks passed. Maintain matching modules for
      every installed kernel, including the currently running release and

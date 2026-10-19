@@ -3167,6 +3167,45 @@ specified in `GOAL.md`.
   package installation, DKMS build/sign, initramfs verification, and host
   runtime checks remain open in `GOAL.md`.
 
+## Updated DKMS installation and 7.2.9 Secure Boot acceptance (2026-10-19)
+
+- Installed `btrfs-qgroup-dkms` version
+  `7.2.6+rebroad1.z20261019.g89f68effaaf87`. `dpkg --audit` is empty and DKMS
+  reports successful installs for the currently installed
+  `7.2.6+deb13-amd64` and `7.2.9+deb13-amd64` releases. For each release,
+  `modprobe --show-depends -S` selects
+  `/lib/modules/<release>/updates/dkms/btrfs.ko.xz`, with matching vermagic
+  and signer `Rebroad's module signing key`. The compressed module hashes are
+  `8d3c3c14834cc820fe4ba59004eb3041caeb0e91b3b8256f76d10d9736899f75` for
+  7.2.6 and `2b94d9a03652ad61fdf8c019fa15b85581121680304ada9dc594be7ff8837e4a`
+  for 7.2.9. Full `lsinitramfs` listings completed successfully with no
+  stderr and contain each matching DKMS module.
+- At 11:41 BST the host was still running `7.2.6+deb13-amd64`. Its loaded
+  Btrfs build-ID note was `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`, while
+  the installed 7.2.6 module's build ID was
+  `46d2150765693e6b09846490c74ebdf710c0661b`. The updated 7.2.6 module is
+  therefore installed and selected for the next load, but is not yet active in
+  the running kernel. Reboot and compare the loaded build ID before claiming
+  the teardown backport is active on the host.
+- A first Secure Boot QEMU attempt reused a filesystem image containing the
+  `root` and `home` subvolumes, so the init script stopped at
+  `Could not create subvolume: File exists`; it did not reach the workload.
+  Recreated a disposable 1 GiB Btrfs image and reran the exact Debian
+  7.2.9 kernel under OVMF Secure Boot. The guest loaded the 7.2.9 DKMS module
+  with hash above, confirmed `module.sig_enforce=1`, rejected an unsigned
+  Btrfs module, exercised hold/expiry, stale quota display, cleanup, repeated
+  snapshots, and full-rescan counter comparison, and ended
+  `SNAPPER-QUOTA: PASS`. The serial log is
+  `/var/tmp/linux.build/qgroup-prod-validation-729-dkms-20261019-freshfs/secureboot-dkms-serial.log`
+  (SHA-256 `2a20b0f40161997587dda9444fa45e9a9900b16735f54478ee510a2d54c39d47`).
+- At the same live audit, both filesystem inconsistency flags were `0` and
+  Kingston had no rescan in progress. No APT package holds or custom kernel
+  pre-install guard are configured; `dpkg --audit` is clean. An unmapped DKMS
+  release still fails through Debian's kernel package hooks and can leave the
+  image package unconfigured. The pre-install update-safety policy, host boot
+  of the new module, host rollback, accounting validation, and real
+  suspend/resume remain open in `GOAL.md`.
+
 ## Current Snapper package build and host runtime audit (2026-10-19)
 
 - The official Snapper `master` fetched for this audit is

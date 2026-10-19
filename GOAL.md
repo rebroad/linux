@@ -165,16 +165,15 @@ with the alternate root. The current source/config match is recorded in
    rescan has completed. Remaining: complete the p8 independent accounting
    comparison, live cleanup and rollback checks under the paired host runtime,
    and verify the counters
-   remain accurate through repeated snapshots and deletion. Kingston has no
-   scheduled cleanup path: its alternate-root configs enable built-in cleanup,
-   but the 21:41 helper runs only the host `root` and `home` configs. The
-   exponential-retention tool has no scheduled invocation; its current dry-run
-   proposes deleting 60 Kingston snapshots. The configs select built-in
-   Snapper cleanup, and the exact-kernel four-config QEMU run exercises
-   alternate-root timeline cleanup. Extend the host cleanup path to invoke
-   those configured algorithms for Kingston, then verify live deletion and
-   counters before claiming four-root cleanup coverage. Keep the unscheduled
-   exponential tool out of that path. Restore the normal quota-cleanup limit
+   remain accurate through repeated snapshots and deletion. The installed
+   21:41 helper now discovers mounted alternate-root configs, applies their
+   enabled built-in cleanup algorithms, and skips duplicate p8 aliases by
+   Btrfs root ID. Its dry-run includes Kingston root and home. The exact-kernel
+   four-config QEMU run exercises alternate-root timeline cleanup. The
+   exponential-retention tool remains unscheduled; its preview proposes
+   deleting 60 Kingston snapshots, so keep it out of the service. Verify the
+   first live Kingston cleanup and post-cleanup counters before claiming
+   four-root cleanup coverage. Restore the normal quota-cleanup limit
    (`SPACE_LIMIT="0.5"`) only after accounting and cleanup pass.
 
 5. **Preserve temporary host containment, including after resume — 94% done.**

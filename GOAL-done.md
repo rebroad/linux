@@ -4803,3 +4803,43 @@ specified in `GOAL.md`.
   kernel APT transaction. The source-controlled hook, exact incoming header
   package extraction, real DKMS-tree prebuild, failure cleanup, and boot and
   initramfs gates remain unimplemented and unverified.
+
+## Source-controlled APT DKMS preflight (2026-10-19)
+
+- Added `scripts/local-btrfs-qgroup-apt-preflight` and its APT configuration
+  snippet. The hook requires APT protocol v3, skips non-kernel transactions,
+  validates the exact image and header package metadata, and fails closed when
+  matching headers or kbuild files are missing. It extracts incoming arch,
+  common, and kbuild packages under `/var/tmp`, rewrites Debian's staged
+  absolute header paths, then calls the DKMS helper before dpkg runs.
+- Extended `scripts/local-btrfs-qgroup-dkms-preflight` with a prepare mode for
+  an already registered DKMS source. It stages a signed, uncompressed module
+  in the target DKMS tree without installing it into `/lib/modules`. When a
+  new build fails, it removes only the newly created release subtree; it
+  refuses to overwrite a pre-existing incomplete DKMS state.
+- Invoked the hook with a synthetic APT v3 record for a dummy
+  `linux-image-7.2.9+deb13-amd64` package and the actual Debian 7.2.9 arch and
+  common header packages. Both paths passed: using the matching installed
+  `linux-kbuild` files and extracting a `linux-kbuild` package fixture from
+  the installed Debian files. In each case, a fresh disposable copy of the
+  host DKMS tree received a signed, uncompressed module. `modinfo` reported
+  `7.2.9+deb13-amd64 SMP preempt mod_unload` and signer `Rebroad's module
+  signing key`.
+- A DKMS install into a separate external install tree consumed the prepared
+  module without changing its build log. A simulated compiler failure removed
+  only the new release directory. A non-kernel transaction was skipped, and a
+  kernel image without matching headers was rejected before DKMS.
+- `apt-config -c scripts/local-btrfs-qgroup-apt-preflight.conf dump` parsed the
+  snippet and showed the hook configured for protocol version 3. All fixtures,
+  extracted packages, and DKMS copies stayed in the external Linux build
+  tree; the failed helper's diagnostic scratch directory remained in
+  `/var/tmp`. The live APT configuration, host DKMS tree, module tree, boot
+  selection, and package database were not changed.
+- This is direct invocation with a constructed APT protocol record, not a
+  complete APT kernel transaction. The generic APT hook ordering was tested
+  separately above. The source-controlled hook is not installed or enabled on
+  the host. It currently rejects a changed DKMS source package in the same
+  transaction as a kernel image; install that source update separately, then
+  retry the kernel transaction. Debian's actual kernel postinst path,
+  transaction rollback, boot/initramfs gating, and same-transaction module
+  source updates remain open.

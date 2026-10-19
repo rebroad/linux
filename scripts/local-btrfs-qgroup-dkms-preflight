@@ -6,14 +6,15 @@ set -Eeuo pipefail
 usage() {
 	cat <<'EOF'
 Usage: local-btrfs-qgroup-dkms-preflight \
-	--module-version VERSION --output-dir DIR --kernel RELEASE [--kernel RELEASE ...]
+	--module-version VERSION --kernel RELEASE [--kernel RELEASE ...]
+	[--output-dir DIR | --prepare-dkms-tree DIR]
 	[--source-tree DIR] [--kernel-source RELEASE=DIR] [--certificate FILE]
 
 Builds the configured btrfs-qgroup DKMS source for each exact kernel release,
-using installed headers or an explicit staged-header directory, verifies its
-signature metadata and vermagic, and emits one DKMS archive per release. It
-does not modify the host DKMS tree, installed modules,
-initramfs, boot configuration, or package database.
+using installed headers or an explicit staged-header directory, and verifies
+signature metadata and vermagic. --output-dir emits one DKMS archive per
+release from a private DKMS tree. --prepare-dkms-tree stages the verified
+uncompressed build in an already registered DKMS tree for later installation.
 EOF
 }
 
@@ -27,6 +28,7 @@ module_version=
 source_tree=/usr/src
 certificate=/usr/share/btrfs-qgroup-dkms/Rebroad-module-signing-key.der
 output_dir=
+prepare_dkms_tree=
 declare -a kernels=()
 declare -A requested_kernel_sources=()
 
@@ -50,6 +52,11 @@ while (($#)); do
 	--output-dir)
 		(($# >= 2)) || die "--output-dir requires a value"
 		output_dir=$2
+		shift 2
+		;;
+	--prepare-dkms-tree)
+		(($# >= 2)) || die "--prepare-dkms-tree requires a value"
+		prepare_dkms_tree=$2
 		shift 2
 		;;
 	--kernel)
@@ -83,7 +90,11 @@ done
 
 [[ $EUID -eq 0 ]] || die "run as root so DKMS can sign and build modules"
 [[ -n $module_version ]] || die "--module-version is required"
-[[ -n $output_dir ]] || die "--output-dir is required"
+if [[ -n $prepare_dkms_tree ]]; then
+	[[ -z $output_dir ]] || die "use only one of --output-dir and --prepare-dkms-tree"
+else
+	[[ -n $output_dir ]] || die "--output-dir is required"
+fi
 ((${#kernels[@]})) || die "at least one --kernel is required"
 [[ $module_version =~ ^[A-Za-z0-9.+_-]+$ ]] || die "invalid module version"
 
@@ -101,12 +112,14 @@ grep -Fq "PACKAGE_NAME=\"$module\"" "$source_dir/dkms.conf" ||
 grep -Fq "PACKAGE_VERSION=\"$module_version\"" "$source_dir/dkms.conf" ||
 	die "dkms.conf package version does not match $module_version"
 
-mkdir -p "$output_dir"
-output_dir=$(realpath -e "$output_dir") || die "cannot resolve output directory"
-repo_root=$(git -C "$(dirname "$(realpath -e "$0")")/.." rev-parse --show-toplevel)
-case "$output_dir/" in
-	"$repo_root/"*) die "output directory must be outside the source checkout" ;;
-esac
+if [[ -n $output_dir ]]; then
+	mkdir -p "$output_dir"
+	output_dir=$(realpath -e "$output_dir") || die "cannot resolve output directory"
+	repo_root=$(git -C "$(dirname "$(realpath -e "$0")")/.." rev-parse --show-toplevel)
+	case "$output_dir/" in
+		"$repo_root/"*) die "output directory must be outside the source checkout" ;;
+	esac
+fi
 [[ -f $certificate ]] || die "public signing certificate not found: $certificate"
 
 arch=$(uname -m)
@@ -145,47 +158,124 @@ mokutil_output=$(mokutil --test-key "$certificate" 2>&1 || true)
 
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 declare -a archives=()
-for release in "${kernels[@]}"; do
-	archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar
-	[[ ! -e $archive ]] || die "refusing to overwrite $archive"
-done
-work=$(mktemp -d "$output_dir/.${module}-preflight.XXXXXX")
+if [[ -n $output_dir ]]; then
+	for release in "${kernels[@]}"; do
+		archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar
+		[[ ! -e $archive ]] || die "refusing to overwrite $archive"
+	done
+	work=$(mktemp -d "$output_dir/.${module}-preflight.XXXXXX")
+else
+	work=$(mktemp -d "/var/tmp/${module}-preflight.XXXXXX")
+fi
+declare -a new_dkms_dirs=()
 finish() {
 	status=$?
 	if ((status == 0)); then
 		rm -rf -- "$work"
 	else
+		if [[ -n $prepare_dkms_tree && -n ${dkms_tree:-} ]]; then
+			module_tree=$dkms_tree/$module/$module_version
+			for path in "${new_dkms_dirs[@]}"; do
+				case "$path/" in
+					"$module_tree/"*) rm -rf -- "$path" ;;
+					*) echo "Refusing to remove unexpected DKMS path: $path" >&2 ;;
+				esac
+			done
+		fi
 		echo "Preflight failed; scratch files retained at $work" >&2
 	fi
 	exit "$status"
 }
 trap finish EXIT
 
-dkms_tree=$work/dkms-tree
 install_tree=$work/install-tree
-mkdir -p "$dkms_tree" "$install_tree"
-dkms_source_tree=$source_tree
-if ((${#kernel_sources[@]})); then
-	dkms_source_tree=$work/source-tree
-	mkdir -p "$dkms_source_tree"
-	cp -a "$source_dir" "$dkms_source_tree/$module-$module_version"
-	local_conf=$dkms_source_tree/$module-$module_version/dkms.conf
-	sed -i 's|/lib/modules/${kernelver}/build|${kernel_source_dir}|g' "$local_conf"
-	grep -Fq 'make -C ${kernel_source_dir}' "$local_conf" ||
-		die "could not make DKMS directives use kernel_source_dir"
+if [[ -n $prepare_dkms_tree ]]; then
+	dkms_tree=$(realpath -e "$prepare_dkms_tree") || die "DKMS tree does not exist: $prepare_dkms_tree"
+	registered_source=$(realpath -e "$dkms_tree/$module/$module_version/source") ||
+		die "$module $module_version is not registered in $dkms_tree"
+	[[ $registered_source == "$source_dir" ]] ||
+		die "DKMS registration points to an unexpected source tree"
+else
+	dkms_tree=$work/dkms-tree
+	mkdir -p "$dkms_tree"
 fi
-dkms add -m "$module" -v "$module_version" \
-	--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree"
+mkdir -p "$install_tree"
+dkms_source_tree=$source_tree
+scratch_conf=
+if ((${#kernel_sources[@]})); then
+	if [[ -z $prepare_dkms_tree ]]; then
+		dkms_source_tree=$work/source-tree
+		mkdir -p "$dkms_source_tree"
+		cp -a "$source_dir" "$dkms_source_tree/$module-$module_version"
+		local_conf=$dkms_source_tree/$module-$module_version/dkms.conf
+	else
+		mkdir -p "$work/source-copy"
+		cp -a "$source_dir" "$work/source-copy/$module-$module_version"
+		local_conf=$work/source-copy/$module-$module_version/dkms.conf
+	fi
+	make_target='M=${dkms_tree}/${module}/${module_version}/build'
+	make_with_output=$make_target
+	make_with_output+=' MO=${dkms_tree}/${module}/${module_version}/build'
+	sed -i \
+		-e 's|/lib/modules/${kernelver}/build|${kernel_source_dir}|g' \
+		-e "s| $make_target| $make_with_output|g" \
+		"$local_conf"
+	grep -Fq \
+		"make -C \${kernel_source_dir} $make_with_output" "$local_conf" ||
+		die "could not direct staged-header build outputs into the DKMS tree"
+	scratch_conf=$local_conf
+fi
+if [[ -z $prepare_dkms_tree ]]; then
+	dkms add -m "$module" -v "$module_version" \
+		--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree"
+fi
 
 for release in "${kernels[@]}"; do
 	echo "Building $module $module_version for $release"
 	kernel_source_args=()
+	config_args=()
 	if [[ -n ${kernel_sources[$release]+x} ]]; then
 		kernel_source_args+=(--kernelsourcedir "${kernel_sources[$release]}")
 	fi
+	if [[ -n $scratch_conf ]]; then
+		config_args+=(-c "$scratch_conf")
+	fi
+	if [[ -n $prepare_dkms_tree ]]; then
+		release_tree=$dkms_tree/$module/$module_version/$release
+		module_dir=$release_tree/$arch/module
+		module_file=$module_dir/btrfs.ko
+		if [[ -e $release_tree ]]; then
+			[[ -f $module_file || -f $module_file.xz ]] ||
+				die "incomplete existing DKMS state for $release; refusing to overwrite it"
+		else
+			new_dkms_dirs+=("$release_tree")
+		fi
+		if [[ ! -f $module_file && -f $module_file.xz ]]; then
+			xz -dk "$module_file.xz"
+		fi
+		if [[ -f $module_file ]]; then
+			echo "Verifying existing DKMS build for $release"
+		else
+			echo "Prebuilding $module $module_version for $release in the installed DKMS tree"
+			dkms build -m "$module" -v "$module_version" -k "$release/$arch" \
+				--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree" \
+				"${config_args[@]}" "${kernel_source_args[@]}"
+			[[ -f $module_file ]] ||
+				{ [[ -f $module_file.xz ]] && xz -dk "$module_file.xz"; }
+		fi
+		[[ -f $module_file ]] || die "prebuild produced no uncompressed module for $release"
+		vermagic=$(modinfo -F vermagic "$module_file")
+		[[ $vermagic == "$release"* ]] || die "wrong vermagic for $release: $vermagic"
+		signer=$(modinfo -F signer "$module_file")
+		sig_key=$(modinfo -F sig_key "$module_file")
+		sig_id=$(modinfo -F sig_id "$module_file")
+		[[ $signer == "$expected_signer" && -n $sig_key && -n $sig_id ]] ||
+			die "signature metadata does not match the enrolled certificate for $release"
+		continue
+	fi
 	dkms build -m "$module" -v "$module_version" -k "$release/$arch" \
 		--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree" \
-		"${kernel_source_args[@]}"
+		"${config_args[@]}" "${kernel_source_args[@]}"
 	module_file=$dkms_tree/$module/$module_version/$release/$arch/module/btrfs.ko
 	if [[ ! -f $module_file && -f $module_file.xz ]]; then
 		xz -dk "$module_file.xz"
@@ -209,6 +299,11 @@ for release in "${kernels[@]}"; do
 	[[ $(modinfo -F signer "$installed") == "$expected_signer" ]] ||
 		die "staged module signer mismatch for $release"
 done
+
+if [[ -n $prepare_dkms_tree ]]; then
+	echo "Prepared signed DKMS module(s) for ${#kernels[@]} kernel release(s)."
+	exit 0
+fi
 
 for release in "${kernels[@]}"; do
 	archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar

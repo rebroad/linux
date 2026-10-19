@@ -127,7 +127,7 @@ with the alternate root. The current source/config match is recorded in
    `codex/local-debian-package-builder` branch; generated files belong in its
    sibling build tree. This packaging work is separate from closed PR #1203.
 
-3. **Make the fix durable across APT upgrades — 80% done.** Snapper-only
+3. **Make the fix durable across APT upgrades — 82% done.** Snapper-only
    alternatives tested on the exact 7.2.6 stock module do not preserve fresh
    counters with the required four snapshot-only QGROUPs; the bounded
    shared-parent kernel fast path avoids the fallback on that hierarchy. Keep
@@ -152,24 +152,32 @@ with the alternate root. The current source/config match is recorded in
    kernel-image hook or our DKMS package's own `postinst` leaves a package
    half-configured. The kernel-image case also moves `/vmlinuz` before stopping
    later hooks. See `GOAL-done.md` for evidence. The source-controlled
-   `scripts/local-btrfs-qgroup-dkms-preflight` now builds and verifies modules
-   in an alternate DKMS tree and emits a separate signed archive for each
-   release. It accepts staged headers through `--kernel-source RELEASE=DIR`;
-   a scratch copy of `dkms.conf` uses DKMS's `kernel_source_dir` variable.
-   The staged-path build passed against an alternate path to the installed
-   7.2.9 headers. This remains a preparation prototype, not yet a package or
-   upgrade solution. The local APT 3.0.3 manual identifies
+   `scripts/local-btrfs-qgroup-dkms-preflight` builds and verifies modules in
+   an alternate DKMS tree and emits a separate signed archive per release. It
+   also has a preparation mode that stages an uncompressed signed build in an
+   already registered DKMS tree and cleans newly created release state if a
+   build fails. `scripts/local-btrfs-qgroup-apt-preflight` and its APT config
+   snippet now parse protocol v3, identify exact incoming kernel releases,
+   extract matching Debian headers and `linux-kbuild` packages, and invoke that
+   preparation mode before dpkg. Real 7.2.9 headers and kbuild files produced
+   a signed module in a disposable DKMS tree; a later DKMS install consumed it
+   without rebuilding. Missing headers and non-kernel transactions were also
+   checked. Full evidence and test limits are in `GOAL-done.md`.
+
+   This is source-controlled but not yet installed or exercised as a complete
+   APT kernel transaction. The local APT 3.0.3 manual identifies
    `DPkg::Pre-Install-Pkgs` as a hook that runs before dpkg and can receive the
    downloaded package files. A disposable transaction verified that a failing
    hook aborts before dpkg and that a successful hook runs before package
    `postinst`. In a separate DKMS-tree test, `autoinstall` installed a staged
    built module without compiling after its `.ko.xz` had been decompressed;
-   it failed while only the compressed file was present. Remaining: implement
-   the source-controlled hook against actual incoming kernel/header `.deb`
-   files, prepare the uncompressed signed module in DKMS before dpkg, and
-   prove the kernel's later DKMS hook installs it without rebuilding. Gate
-   boot/initramfs state on the verified result and preserve a usable rollback.
-   The actual
+   it failed while only the compressed file was present. Remaining: run the
+   source-controlled hook from a real disposable APT kernel transaction,
+   verify Debian's kernel postinst installs the prebuilt module without
+   rebuilding, and make changed DKMS source packages work safely when APT
+   proposes them with a kernel. Install and enable the hook only after these
+   checks. Gate boot/initramfs state on the verified result and preserve a
+   usable rollback. The actual
    APT rejection check left package state and boot selection unchanged. Keep
    unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's

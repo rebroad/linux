@@ -256,15 +256,13 @@ quota-based cleanup must wait until the counters are consistent.
    limit disabled. The candidate module is active on the current
    `7.2.6+deb13-amd64` kernel.
 
-   On 2026-10-19, our diagnostic `btrfs quota rescan -w /mnt/kingston` command
-   at 10:12 definitely started a scan: the immediately preceding status showed
-   no scan running and a clear inconsistency flag. It completed at 10:23 and
-   changed the home snapshot and tracker exclusive counters by 180,224 bytes.
-   An earlier `-w` command was issued at 09:35 before a scan completed at
-   09:47; because `-w` can join an already-running scan, the available log does
-   not prove who started that one. Exclude the 10:12 scan from Snapper's
-   automatic scan frequency; keep the 09:47 scan's initiator unresolved. The
-   09:47 scan cleared Kingston's inconsistency flag and corrected its stale
+   On 2026-10-19, our diagnostic `btrfs quota rescan -w /mnt/kingston` commands
+   started scans at 09:35 and 10:12, completing at 09:47 and 10:23. At 09:34:56
+   the qgroup flag was set but the rescan status said none was running; before
+   the 10:12 command, the flag was clear and again no scan was running. The
+   `-w` commands therefore started both scans; neither is evidence of a
+   Snapper-initiated scan or automatic scan frequency. The 09:47 scan cleared
+   Kingston's inconsistency flag and corrected its stale
    counters. The 10:00 hourly run created all four
    configured snapshots; p8 and Kingston both still had clear inconsistency
    flags and Snapper did not start a rescan. A separate diagnostic full scan

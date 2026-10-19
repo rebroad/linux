@@ -3926,6 +3926,13 @@ specified in `GOAL.md`.
   group/other-writable modes, so that mode passes its file-safety check. This
   verifies path and format compatibility by source inspection; it is not a
   live end-to-end suspend test.
+- The existing repeated-cycle QEMU harness also covers the alternate-root
+  behavior: its Kingston configs live under `/mnt/kingston/etc`, its list and
+  create commands use `snapper --no-dbus --root /mnt/kingston`, and they share
+  the same absolute `/run/snapper-qgroup-rescan-hold` with the default-root
+  configs. The four-config hold/window cycle passed. This is behavioral
+  evidence for alternate-root hold lookup in QEMU, while a real host
+  suspend/resume remains untested.
 - Source reviewed at `snapper/BtrfsUtils.cc:963-979`,
   `snapper/QGroupRescanLimiter.cc:312-345`, and
   `/home/rebroad/bin/force-suspend:58-99`.

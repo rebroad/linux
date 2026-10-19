@@ -158,11 +158,13 @@ with the alternate root. The current source/config match is recorded in
    a scratch copy of `dkms.conf` uses DKMS's `kernel_source_dir` variable.
    The staged-path build passed against an alternate path to the installed
    7.2.9 headers. This remains a preparation prototype, not yet a package or
-   upgrade solution. Remaining: exercise an actual downloaded candidate header
-   package, then integrate the preflight artifacts with kernel package
-   preparation and activation so build failures happen before dpkg changes
-   kernel-package state and an unverified kernel cannot become bootable.
-   Preserve a usable rollback. The actual
+   upgrade solution. The local APT 3.0.3 manual identifies
+   `DPkg::Pre-Install-Pkgs` as a hook that runs before dpkg and can receive the
+   downloaded package files. Remaining: test this hook with an actual
+   downloaded candidate header package, make it prepare the module before any
+   dpkg state changes, and ensure the kernel's later DKMS hook installs that
+   prebuilt module without compiling again. Gate boot/initramfs state on the
+   verified result and preserve a usable rollback. The actual
    APT rejection check left package state and boot selection unchanged. Keep
    unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's

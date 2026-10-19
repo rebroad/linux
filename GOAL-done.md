@@ -4769,3 +4769,15 @@ specified in `GOAL.md`.
   therefore showed only `0/5`. The default full listing confirmed `1/100` and
   `1/101` are present on both filesystems. The prior claim that Kingston's
   snapshot qgroups were absent was incorrect.
+
+## APT pre-install hook feasibility (2026-10-19)
+
+- The installed APT is 3.0.3. Its local `apt.conf(5)` documents
+  `DPkg::Pre-Install-Pkgs` as running before dpkg and receiving the filenames
+  of packages about to be installed; protocol versions 2 and 3 include package
+  action and version metadata. This is a candidate place to stage incoming
+  kernel headers and run the module preflight before package state changes.
+- Feasibility is not implementation: no APT hook has been installed or tested
+  against a kernel transaction. The hook must also arrange for the later DKMS
+  kernel hook to consume the verified module without rebuilding it, and failed
+  preflight must leave package and boot state unchanged.

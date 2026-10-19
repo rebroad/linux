@@ -3132,3 +3132,37 @@ specified in `GOAL.md`.
   audit could not recheck privileged live module state, Secure Boot policy,
   initramfs contents, or qgroup accounting. Backporting, signing, deployment,
   and exact-kernel runtime verification remain open.
+
+## 7.2.9 teardown backport, regression test, and DKMS package staging (2026-10-19)
+
+- The exact 7.2.9 Btrfs source shipped in the installed DKMS package lacks the
+  two teardown fixes. Its required source change is the upstream two-line
+  backport: reset a tolerated missing qgroup item result to success, and only
+  treat negative relation-removal results as errors. Added the same in-kernel
+  regression cases used on 7.2.6 to the 7.2.9 qgroup selftests.
+- Built the production-configuration 7.2.9 module against
+  `/usr/src/linux-headers-7.2.9+deb13-amd64` with sanity tests disabled. It has
+  vermagic `7.2.9+deb13-amd64 SMP preempt mod_unload`; the unsigned module's
+  SHA-256 is
+  `5cd3e338bbad4a426900734ca4ef37abade7a1d0a1f1ec2586a12993c45ae554`.
+- Built a separate test-enabled module from that 7.2.9 source and booted the
+  exact Debian 7.2.9 kernel under QEMU TCG with the module loaded. The two new
+  teardown cases passed at node sizes 4, 8, 16, 32, and 64 KiB; the guest
+  reported `QGROUP-SELFTEST: MODULE-LOAD-PASS`. This direct-kernel test did not
+  enable Secure Boot; signing and Secure Boot acceptance remain package gates.
+  The test module SHA-256 is
+  `11c8e588730e655438396f8e63ceb732d99885d1135d9825af3cab1e62836b25` and its
+  serial log is
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-test-7.2.9-20261019/qemu-final.serial.log`.
+- Built DKMS package version
+  `7.2.6+rebroad1.z20261019.g89f68effaaf87` at
+  `/mnt/kingston/builds/rebroad/src/linux.build/dkms-package-20261019/btrfs-qgroup-dkms_7.2.6+rebroad1.z20261019.g89f68effaaf87_all.deb`.
+  Its source map selects the updated 7.2.6 and 7.2.9 trees for their exact
+  releases. Extracting the package and running each selector chose the
+  expected source, including the teardown test. Package SHA-256 is
+  `5e313fb7aa0b1532f7a5d470a041d970a10ca719eaa61acf93ae4e5a000aa8e9`.
+- The package contains the public module certificate only; it does not contain
+  the private signing key. The package is staged but not installed. The
+  installed signed modules still have the previous hashes recorded above;
+  package installation, DKMS build/sign, initramfs verification, and host
+  runtime checks remain open in `GOAL.md`.

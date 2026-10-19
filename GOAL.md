@@ -312,11 +312,13 @@ quota-based cleanup must wait until the counters are consistent.
    hashes, APT result, and per-kernel verification are in
    `GOAL-done.md`. A 2026-10-19 live package audit finds the signed DKMS
    modules selected for both installed releases, but their hashes still match
-   the pre-teardown-backport builds; deploy the new backport to both release
-   variants before treating the installed module as current. An unsigned
-   production-configuration 7.2.6 module has now built from the updated source
-   against the exact headers; signing, installing, and host verification
-   remain. The installed selector passes for a supported release and
+   the pre-teardown-backport builds. A new versioned DKMS package is staged
+   with the updated 7.2.6 source and the 7.2.9 teardown backport; both source
+   selectors and exact-header production builds pass, and the 7.2.9 regression
+   tests pass in QEMU at all five node sizes. The package has not been
+   installed. Install it, then verify signed builds, module selection,
+   initramfs inclusion, and host operation for both releases. The installed
+   selector passes for a supported release and
    returns an explicit error for an unmapped release. However, source
    inspection shows that this failure propagates through DKMS and Debian's
    `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore

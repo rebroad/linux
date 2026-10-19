@@ -57,11 +57,13 @@ after filesystem sync and the 14:00 snapshots through 14:01:53. Because p8
 was active throughout, this is not evidence of incorrect accounting;
 quiescent/independent reconciliation is still required. The 14:00 hourly run
 created snapshots on all four roots without a scan, with both inconsistency
-flags clear. Longer current-kernel observation, p8 live reconciliation,
-and the original onset remain open. The running Btrfs module is still build ID
-`258e41d2`; the installed, signed 7.2.6 DKMS module is `46d21507` and is
-included in the initramfs. The new teardown backport needs a reboot before live
-validation. See `GOAL-done.md`.
+flags clear. A later 14:11 sample still showed both flags clear and no scans,
+while p8 totals continued moving under live activity; it is a baseline, not a
+quiescent accounting check. Longer current-kernel observation, p8 live
+reconciliation, and the original onset remain open. The running Btrfs module
+remains build ID `258e41d2`; the installed, signed 7.2.6 DKMS module is
+`46d21507` and is included in the initramfs. The new teardown backport needs a
+reboot before live validation. See `GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings

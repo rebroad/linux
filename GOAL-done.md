@@ -3206,6 +3206,29 @@ specified in `GOAL.md`.
   of the new module, host rollback, accounting validation, and real
   suspend/resume remain open in `GOAL.md`.
 
+## Exact 7.2.6 Secure Boot acceptance for the updated module (2026-10-19)
+
+- Booted the exact `7.2.6+deb13-amd64` kernel from the disposable OVMF Secure
+  Boot fixture, with `module.sig_enforce=1`. The guest loaded the updated DKMS
+  Btrfs module with SHA-256
+  `8d3c3c14834cc820fe4ba59004eb3041caeb0e91b3b8256f76d10d9736899f75`, matching
+  the installed 7.2.6 module. A second module with the same 7.2.6 vermagic and
+  code but with its appended PKCS#7 signature removed was rejected as unsigned.
+- Snapper completed the hold/defer and expiry checks, reported last-known quota
+  values as stale, deferred quota cleanup, created repeated root/home
+  snapshots, performed quota-aware cleanup, and compared counters before and
+  after a full rescan. The guest reported `SNAPPER-QUOTA: PASS` and powered
+  down normally. The Btrfs filesystem image was freshly formatted, so the
+  workload began without pre-existing subvolumes.
+- The serial log is
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-prod-validation-726-dkms-20261019/secureboot-dkms-serial.log`
+  (SHA-256 `77e5d1c97a9710057ec43ae6f063d59557e342469baa512cb70ff7495466858a`).
+  Its generated initramfs SHA-256 is
+  `a732b343d401f353cd120fece3e240097a82a88bf66625ef26302947019a9f13`.
+- This proves the updated module passes the exact-release Secure Boot QEMU
+  workload. The running host still has a different module build ID loaded;
+  host activation, rollback, and accounting checks remain open in `GOAL.md`.
+
 ## Current Snapper package build and host runtime audit (2026-10-19)
 
 - The official Snapper `master` fetched for this audit is

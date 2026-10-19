@@ -3826,3 +3826,26 @@ specified in `GOAL.md`.
   and has build ID `46d2150765693e6b09846490c74ebdf710c0661b`. The installed
   build differs from the loaded module, so its qgroup-teardown backport has
   not yet been exercised on the host; activation requires a reboot.
+
+## p8 live qgroup follow-up (2026-10-19 14:02 BST)
+
+- A diagnostic `btrfs quota rescan -w /mnt/p8` was explicitly started at
+  13:42:31 and completed at 13:58:06. The p8 inconsistency flag was `0` before
+  and after. This was a manually requested diagnostic scan, not a Snapper-
+  initiated scan. At the 14:00 check there was no rescan in progress on either
+  p8 or Kingston; the 14:00 Snapper timeline service completed successfully.
+- p8's four qgroup counters changed during the diagnostic scan. A subsequent
+  `btrfs filesystem sync /mnt/p8` also changed them, and two more sync/read
+  samples about two seconds apart still differed. The exact readings are in
+  `/var/tmp/linux.build/p8-qgroup-live-after-20261019.txt`,
+  `/var/tmp/linux.build/p8-qgroup-live-after-sync-20261019.txt`,
+  `/var/tmp/linux.build/p8-qgroup-live-repeat-sync-a.txt`, and
+  `/var/tmp/linux.build/p8-qgroup-live-repeat-sync-b.txt`. The filesystem was
+  live during these reads, so they do not establish a counter error: ordinary
+  transactions may have been updating qgroups. They also do not establish
+  correctness. Capture a quiescent state and compare against an independent
+  full accounting report before drawing a conclusion about p8.
+- The host's sudo audit records confirm the p8 scan command was requested
+  explicitly at 13:42:31. The only Kingston scan that day completed at
+  13:40:24 after the explicit diagnostic command at 13:27:42. Neither was
+  initiated by the 14:00 timeline service.

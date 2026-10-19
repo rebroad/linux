@@ -3378,9 +3378,12 @@ specified in `GOAL.md`.
   35,719,372,800)`, respectively. The `1/101` and its tracker parent `2/0`
   each gained 180,224 exclusive bytes; the root group `1/100` and its parent
   `2/1` were unchanged.
-- The pre-scan inconsistency flag was clear, so this is evidence that a full
-  scan reconciled a small counter difference without a reported inconsistency.
-  It does not show that Snapper triggered the difference, establish whether
+- The pre-scan inconsistency flag was clear, and the full scan returned a
+  different value for the home snapshot group's exclusive accounting without
+  reporting an inconsistency. Because the scan ran for about 11 minutes while
+  Kingston remained mounted and active, this comparison cannot distinguish
+  pre-existing counter drift from legitimate filesystem changes during the
+  scan. It does not show that Snapper triggered the difference, establish that
   the pre-scan counters were wrong, or identify the earlier cause of
   Kingston's inconsistency. More repeated live cycles and independent
   accounting reconciliation remain necessary.

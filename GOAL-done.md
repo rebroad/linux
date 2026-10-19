@@ -4719,3 +4719,43 @@ specified in `GOAL.md`.
   solve package source maintenance, signing/verification for new releases, the
   current package `prerm` removal behavior, dpkg failure recovery, or initramfs
   activation. The experiment changed no host module files or DKMS state.
+
+## Source-controlled DKMS preflight prototype (2026-10-19)
+
+- Added `scripts/local-btrfs-qgroup-dkms-preflight`. It accepts an explicit
+  module version, external output directory, and exact kernel release list;
+  builds in an alternate DKMS tree; verifies each module's release vermagic,
+  signer metadata, and enrolled public certificate; stages it in a scratch
+  install tree; and emits a separate DKMS archive per kernel release. It does
+  not install to the host module tree or change host DKMS/dpkg state.
+- Ran it for the installed `7.2.6+deb13-amd64` and
+  `7.2.9+deb13-amd64` headers. Both signed builds passed; each archive imported
+  into a fresh alternate DKMS tree and `dkms install` staged the module.
+  `modinfo` confirmed matching vermagic and the expected signer for both.
+- A combined multi-release archive did not import both releases reliably with
+  the installed DKMS implementation: its archive-load loop reports
+  redeclaration errors for readonly loop-local variables and skipped the
+  second release. Separate one-release archives avoid that behavior. Importing
+  each archive into a fresh tree passed. All generated files stayed in the
+  external Linux build tree.
+- This proves repeatable module preparation and archive import for the two
+  currently supported releases. It does not yet build or install a Debian
+  package, run before an APT kernel transaction, gate boot or initramfs state,
+  or handle a new release whose headers/source mapping are not yet prepared.
+
+## Live qgroup status and corrected `-F` interpretation (2026-10-19 19:07 BST)
+
+- `btrfs quota rescan -s /mnt/kingston` reported no scan in progress. The
+  Kingston and p8 qgroup `inconsistent` flags were both `0`.
+- The full qgroup tables contain all four snapshot collectives. Current
+  exclusive bytes were p8-root (`1/100`) 31,266,009,088; p8-home (`1/101`)
+  23,498,055,680; Kingston-root (`1/100`) 15,672,770,560; and Kingston-home
+  (`1/101`) 20,302,884,864. These are live readings and can change with
+  filesystem activity.
+- An earlier diagnostic used `btrfs qgroup show -F` against the filesystem
+  mount root and mistakenly treated the filtered result as the complete
+  inventory. Installed btrfs-progs documents `-F` as listing qgroups that
+  impact the given path, including ancestral groups; the mount-root query
+  therefore showed only `0/5`. The default full listing confirmed `1/100` and
+  `1/101` are present on both filesystems. The prior claim that Kingston's
+  snapshot qgroups were absent was incorrect.

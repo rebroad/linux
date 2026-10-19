@@ -1,0 +1,184 @@
+#!/bin/bash
+# Build signed Btrfs modules in a private DKMS tree before allowing a kernel
+# package transaction to install a new kernel.
+set -Eeuo pipefail
+
+usage() {
+	cat <<'EOF'
+Usage: local-btrfs-qgroup-dkms-preflight \
+	--module-version VERSION --output-dir DIR --kernel RELEASE [--kernel RELEASE ...]
+	[--source-tree DIR] [--certificate FILE]
+
+Builds the configured btrfs-qgroup DKMS source for each exact installed
+kernel-header release, verifies its signature metadata and vermagic, and emits
+one DKMS archive per release. It does not modify the host DKMS tree, installed modules,
+initramfs, boot configuration, or package database.
+EOF
+}
+
+die() {
+	echo "Error: $*" >&2
+	exit 1
+}
+
+module=btrfs-qgroup
+module_version=
+source_tree=/usr/src
+certificate=/usr/share/btrfs-qgroup-dkms/Rebroad-module-signing-key.der
+output_dir=
+declare -a kernels=()
+
+while (($#)); do
+	case $1 in
+	--module-version)
+		(($# >= 2)) || die "--module-version requires a value"
+		module_version=$2
+		shift 2
+		;;
+	--source-tree)
+		(($# >= 2)) || die "--source-tree requires a value"
+		source_tree=$2
+		shift 2
+		;;
+	--certificate)
+		(($# >= 2)) || die "--certificate requires a value"
+		certificate=$2
+		shift 2
+		;;
+	--output-dir)
+		(($# >= 2)) || die "--output-dir requires a value"
+		output_dir=$2
+		shift 2
+		;;
+	--kernel)
+		(($# >= 2)) || die "--kernel requires a value"
+		kernels+=("$2")
+		shift 2
+		;;
+	-h|--help)
+		usage
+		exit 0
+		;;
+	*)
+		usage >&2
+		die "unknown argument: $1"
+		;;
+	esac
+done
+
+[[ $EUID -eq 0 ]] || die "run as root so DKMS can sign and build modules"
+[[ -n $module_version ]] || die "--module-version is required"
+[[ -n $output_dir ]] || die "--output-dir is required"
+((${#kernels[@]})) || die "at least one --kernel is required"
+[[ $module_version =~ ^[A-Za-z0-9.+_-]+$ ]] || die "invalid module version"
+
+for command in dkms modinfo mokutil openssl tar xz realpath; do
+	command -v "$command" >/dev/null || die "required command not found: $command"
+done
+
+source_tree=$(realpath -e "$source_tree") || die "source tree does not exist"
+source_dir=$source_tree/$module-$module_version
+[[ -d $source_dir ]] || die "DKMS source directory not found: $source_dir"
+[[ -f $source_dir/dkms.conf && -f $source_dir/kernel-source-map ]] ||
+	die "DKMS source metadata is incomplete"
+grep -Fq "PACKAGE_NAME=\"$module\"" "$source_dir/dkms.conf" ||
+	die "dkms.conf package name does not match $module"
+grep -Fq "PACKAGE_VERSION=\"$module_version\"" "$source_dir/dkms.conf" ||
+	die "dkms.conf package version does not match $module_version"
+
+mkdir -p "$output_dir"
+output_dir=$(realpath -e "$output_dir") || die "cannot resolve output directory"
+repo_root=$(git -C "$(dirname "$(realpath -e "$0")")/.." rev-parse --show-toplevel)
+case "$output_dir/" in
+	"$repo_root/"*) die "output directory must be outside the source checkout" ;;
+esac
+[[ -f $certificate ]] || die "public signing certificate not found: $certificate"
+
+arch=$(uname -m)
+declare -A seen=()
+for release in "${kernels[@]}"; do
+	[[ $release =~ ^[A-Za-z0-9.+_-]+$ ]] || die "invalid kernel release: $release"
+	[[ -z ${seen[$release]+x} ]] || die "duplicate kernel release: $release"
+	seen[$release]=1
+	[[ -e /lib/modules/$release/build/Makefile ]] ||
+		die "matching kernel headers are not installed for $release"
+	map_count=$(awk -v wanted="$release" '$1 == wanted { count++ } END { print count + 0 }' \
+		"$source_dir/kernel-source-map")
+	[[ $map_count -eq 1 ]] || die "source map has $map_count entries for $release"
+done
+
+cert_subject=$(openssl x509 -inform DER -in "$certificate" -noout -subject -nameopt RFC2253)
+expected_signer=${cert_subject#subject=CN=}
+[[ $expected_signer != "$cert_subject" ]] ||
+	die "certificate has no simple CN subject; signer cannot be verified"
+mokutil_output=$(mokutil --test-key "$certificate" 2>&1 || true)
+[[ $mokutil_output == *"is already enrolled"* ]] ||
+	die "module signing certificate is not enrolled with Secure Boot"
+
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+declare -a archives=()
+for release in "${kernels[@]}"; do
+	archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar
+	[[ ! -e $archive ]] || die "refusing to overwrite $archive"
+done
+work=$(mktemp -d "$output_dir/.${module}-preflight.XXXXXX")
+finish() {
+	status=$?
+	if ((status == 0)); then
+		rm -rf -- "$work"
+	else
+		echo "Preflight failed; scratch files retained at $work" >&2
+	fi
+	exit "$status"
+}
+trap finish EXIT
+
+dkms_tree=$work/dkms-tree
+install_tree=$work/install-tree
+mkdir -p "$dkms_tree" "$install_tree"
+dkms add -m "$module" -v "$module_version" \
+	--dkmstree "$dkms_tree" --sourcetree "$source_tree"
+
+for release in "${kernels[@]}"; do
+	echo "Building $module $module_version for $release"
+	dkms build -m "$module" -v "$module_version" -k "$release/$arch" \
+		--dkmstree "$dkms_tree" --sourcetree "$source_tree"
+	module_file=$dkms_tree/$module/$module_version/$release/$arch/module/btrfs.ko
+	if [[ ! -f $module_file && -f $module_file.xz ]]; then
+		xz -dk "$module_file.xz"
+	fi
+	[[ -f $module_file ]] || die "DKMS did not produce an uncompressed module for $release"
+	vermagic=$(modinfo -F vermagic "$module_file")
+	[[ $vermagic == "$release"* ]] || die "wrong vermagic for $release: $vermagic"
+	signer=$(modinfo -F signer "$module_file")
+	sig_key=$(modinfo -F sig_key "$module_file")
+	sig_id=$(modinfo -F sig_id "$module_file")
+	[[ $signer == "$expected_signer" && -n $sig_key && -n $sig_id ]] ||
+		die "signature metadata does not match the enrolled certificate for $release"
+	mkdir -p "$install_tree/$release"
+	dkms install -m "$module" -v "$module_version" -k "$release/$arch" \
+		--dkmstree "$dkms_tree" --sourcetree "$source_tree" \
+		--installtree "$install_tree" --no-depmod
+	installed=$install_tree/$release/updates/dkms/btrfs.ko
+	[[ -f $installed ]] || die "DKMS did not stage an installable module for $release"
+	[[ $(modinfo -F vermagic "$installed") == "$release"* ]] ||
+		die "staged module vermagic mismatch for $release"
+	[[ $(modinfo -F signer "$installed") == "$expected_signer" ]] ||
+		die "staged module signer mismatch for $release"
+done
+
+for release in "${kernels[@]}"; do
+	archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar
+	work_archive=$work/$release.tar
+	dkms mktarball -m "$module" -v "$module_version" -k "$release/$arch" \
+		--dkmstree "$dkms_tree" --sourcetree "$source_tree" \
+		--installtree "$install_tree" --archive "$work_archive"
+	tar -tf "$work_archive" > "$work/$release.files" ||
+		die "DKMS archive validation failed for $release"
+	grep -Fq "/$release/$arch/module/btrfs.ko.xz" "$work/$release.files" ||
+		die "DKMS archive is missing the signed module for $release"
+	mv -- "$work_archive" "$archive"
+	archives+=("$archive")
+done
+echo "Verified signed modules for ${#kernels[@]} kernel release(s)."
+printf 'DKMS archive: %s\n' "${archives[@]}"

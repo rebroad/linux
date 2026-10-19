@@ -3356,3 +3356,31 @@ specified in `GOAL.md`.
 - This verifies installed wiring and static ordering only. No real
   suspend/resume was initiated, so systemd's runtime ordering and the absence
   of a catch-up rescan remain to be verified on a real resume.
+
+## Kingston post-snapshot qgroup counter reconciliation (2026-10-19)
+
+- After the 10:00 BST hourly Snapper run created the four configured snapshots,
+  Kingston's inconsistency flag was clear and no scan was in progress. At
+  10:12:21 BST, a diagnostic full scan was manually started with
+  `btrfs quota rescan -w /mnt/kingston` to compare the live counters against a
+  full recomputation. Snapper and its hourly timer did not start this scan.
+- The scan completed at 10:23:32 BST. The kernel logged
+  `qgroup scan completed (inconsistency flag cleared)`, and a subsequent status
+  query reported no rescan operation in progress. Thus Kingston was consistent
+  by the Btrfs inconsistency flag after completion.
+- Before the scan, groups `1/100`, `1/101`, `2/0`, and `2/1` had respective
+  `(referenced, exclusive)` byte counters `(35,910,082,560,
+  15,672,426,496)`, `(325,860,507,648, 18,670,075,904)`,
+  `(325,870,014,464, 200,180,613,120)`, and `(35,910,098,944,
+  35,719,372,800)`. Afterward they reported `(35,910,082,560,
+  15,672,426,496)`, `(325,860,507,648, 18,670,256,128)`,
+  `(325,870,194,688, 200,180,793,344)`, and `(35,910,098,944,
+  35,719,372,800)`, respectively. The `1/101` and its tracker parent `2/0`
+  each gained 180,224 exclusive bytes; the root group `1/100` and its parent
+  `2/1` were unchanged.
+- The pre-scan inconsistency flag was clear, so this is evidence that a full
+  scan reconciled a small counter difference without a reported inconsistency.
+  It does not show that Snapper triggered the difference, establish whether
+  the pre-scan counters were wrong, or identify the earlier cause of
+  Kingston's inconsistency. More repeated live cycles and independent
+  accounting reconciliation remain necessary.

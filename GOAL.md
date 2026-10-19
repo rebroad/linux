@@ -234,9 +234,13 @@ quota-based cleanup must wait until the counters are consistent.
    `7.2.6+deb13-amd64` kernel.
 
    On 2026-10-19, a controlled full rescan cleared Kingston's inconsistency
-   flag and corrected its stale counters. The next hourly run created all four
-   configured snapshots; p8 and Kingston both remained consistent, and neither
-   started another rescan. This is one live post-rescan cycle, not yet proof
+   flag and corrected its stale counters. The 10:00 hourly run created all four
+   configured snapshots; p8 and Kingston both still had clear inconsistency
+   flags and Snapper did not start a rescan. A separate diagnostic full scan
+   manually started on Kingston at 10:12 completed at 10:23 and adjusted the
+   `1/101` and `2/0` exclusive counters by 180,224 bytes even though no
+   inconsistency was reported before the scan. This is one observed live
+   snapshot cycle followed by a diagnostic counter reconciliation, not proof
    that the condition stays fixed across repeated snapshots or that it explains
    when Kingston first became inconsistent. See `GOAL-done.md`.
 

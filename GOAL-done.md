@@ -4567,3 +4567,14 @@ specified in `GOAL.md`.
   Kingston inconsistent. The controlled QEMU snapshot reproductions identify
   a repeatable trigger for the tested hierarchy, but do not prove that it was
   the original cause on the host.
+
+## Refreshed kernel and Snapper package candidates (2026-10-19 17:43 BST)
+
+- Refreshed the configured APT indexes. `linux-image-amd64` remains at
+  `7.2.9-1~bpo13+1`; no newer kernel candidate appeared. The simulated full
+  upgrade reports zero packages to upgrade, install, or remove. DKMS has
+  installed Btrfs modules for both `7.2.6+deb13-amd64` and
+  `7.2.9+deb13-amd64`.
+- The installed local Snapper and libsnapper `0.13.2-1+local1.20261019003646.g7d4db17085ce`
+  remain APT candidates. Debian-origin Snapper remains pinned at priority `-1`.
+  No package transaction was applied.

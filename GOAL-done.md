@@ -4701,3 +4701,21 @@ specified in `GOAL.md`.
   needs to build and verify a candidate module before dpkg begins changing
   kernel-package state, then gate boot/initramfs selection on that verified
   module.
+
+## Prebuilt DKMS archive import experiment (2026-10-19)
+
+- Used DKMS `mktarball` to export the already-built, signed 7.2.6 and 7.2.9
+  modules together with their source into a 17 MiB archive in the external
+  build tree. The archive contains one `btrfs.ko.xz` for each release and no
+  signing key.
+- Imported the archive with `ldtarball` into a disposable DKMS tree. DKMS
+  marked the module built without invoking a build. Its normal install step
+  initially rejected the compressed `.ko.xz` in the imported build tree;
+  after decompressing it only in that scratch tree, `dkms install` copied it
+  into the scratch install tree. `modinfo` confirmed the 7.2.6 vermagic and
+  enrolled-key signer.
+- This demonstrates that a tested module artifact can be carried into a
+  separate DKMS tree without compiling during installation. It does not yet
+  solve package source maintenance, signing/verification for new releases, the
+  current package `prerm` removal behavior, dpkg failure recovery, or initramfs
+  activation. The experiment changed no host module files or DKMS state.

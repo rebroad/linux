@@ -4631,3 +4631,16 @@ specified in `GOAL.md`.
   `GRUB_DEFAULT=0` remains set.
 - The running kernel remains 7.2.6. This prepares the intended next boot but
   does not verify live activation of the signed 7.2.9 Btrfs module.
+
+## Unmapped kernel source selector check (2026-10-19 18:09 BST)
+
+- Ran the installed DKMS source selector from `/var/tmp` with the unsupported
+  release `7.3.0+deb13-amd64`. It exited 1 with
+  `no matching Btrfs source is packaged`; the selector did not copy source or
+  modify a kernel build tree.
+- `apt-get -s full-upgrade` selected no package changes, and `dpkg --audit`
+  remained empty. The live APT pin continues to keep unsupported kernel
+  releases out of the upgrade plan.
+- This verifies the source-map rejection and current APT transaction plan,
+  not a full unsupported Debian kernel package install or the resulting
+  `dpkg` recovery path. That end-to-end package-hook behavior remains open.

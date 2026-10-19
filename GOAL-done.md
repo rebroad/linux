@@ -4173,6 +4173,12 @@ specified in `GOAL.md`.
   target skips for the p8 root/home configs. At 16:00:16 both `/` and Kingston
   had inconsistency flags `0` and reported no rescan in progress. This check
   does not establish new snapshot counts or independently reconcile counters.
+- At 16:06, `dpkg-query` confirmed both `snapper` and `libsnapper` remain at
+  `0.13.2-1+local1.20261019003646.g7d4db17085ce`. All four root/home configs
+  still had separate `1/100` and `1/101` snapshot groups, the shared hold path,
+  the `05:00-21:00` window, the daily limit disabled, and `SPACE_LIMIT="1.0"`.
+  Both filesystems still reported no rescan in progress and inconsistency flag
+  `0`. The loaded Btrfs module was not revalidated by this check.
 
 ## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
 

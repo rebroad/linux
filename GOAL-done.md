@@ -3674,3 +3674,23 @@ specified in `GOAL.md`.
   and `qgroup-tests.c`.
 - The patch has a `base-commit` footer for the verified `for-next` tip and has
   no `Signed-off-by` trailer. It remains a local draft and was not sent.
+
+## Live qgroup and module follow-up (2026-10-19 12:45 BST)
+
+- The kernel journal from 09:00 through 12:45 contains the Kingston scan
+  completion messages at 09:47 and 10:23, with no later Btrfs qgroup scan
+  event. The 12:00 `snapper-timeline.service` completed successfully and its
+  wrapper logged only duplicate-target skips. The process list showed no
+  `btrfs-qgroup-rescan` worker at the time of this check. This does not prove
+  qgroup consistency: a scan's absence and a successful snapshot service are
+  not counter validation.
+- A direct `btrfs qgroup show -reF /mnt/kingston` and `btrfs quota rescan -w`
+  both returned `Operation not permitted`. In this session Kingston is exposed
+  read-only and its device cannot be queried. The last direct host status
+  available in this investigation, at 12:31 BST, reported clear qgroup flags
+  and no scan; the current qgroup flag and counters could not be refreshed.
+- The runtime remains kernel `7.2.6+deb13-amd64` with loaded Btrfs build ID
+  `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. The installed 7.2.6 and 7.2.9
+  DKMS module build IDs are `46d2150765693e6b09846490c74ebdf710c0661b` and
+  `29eef0f63dbf1853b12c4714903b7f53be56015f`, respectively. The host reports
+  the locally built Snapper package `0.13.2-1+local1.20261019003646.g7d4db17085ce`.

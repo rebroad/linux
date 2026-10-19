@@ -160,11 +160,16 @@ with the alternate root. The current source/config match is recorded in
    7.2.9 headers. This remains a preparation prototype, not yet a package or
    upgrade solution. The local APT 3.0.3 manual identifies
    `DPkg::Pre-Install-Pkgs` as a hook that runs before dpkg and can receive the
-   downloaded package files. Remaining: test this hook with an actual
-   downloaded candidate header package, make it prepare the module before any
-   dpkg state changes, and ensure the kernel's later DKMS hook installs that
-   prebuilt module without compiling again. Gate boot/initramfs state on the
-   verified result and preserve a usable rollback. The actual
+   downloaded package files. A disposable transaction verified that a failing
+   hook aborts before dpkg and that a successful hook runs before package
+   `postinst`. In a separate DKMS-tree test, `autoinstall` installed a staged
+   built module without compiling after its `.ko.xz` had been decompressed;
+   it failed while only the compressed file was present. Remaining: implement
+   the source-controlled hook against actual incoming kernel/header `.deb`
+   files, prepare the uncompressed signed module in DKMS before dpkg, and
+   prove the kernel's later DKMS hook installs it without rebuilding. Gate
+   boot/initramfs state on the verified result and preserve a usable rollback.
+   The actual
    APT rejection check left package state and boot selection unchanged. Keep
    unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's

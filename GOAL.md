@@ -217,15 +217,23 @@ quota-based cleanup must wait until the counters are consistent.
    in-use release for all remaining kernel investigation and acceptance
    testing.
 
-   The Snapper companion is upstream PR [#1203](https://github.com/openSUSE/snapper/pull/1203),
-   based on the latest official `openSUSE/snapper` master. It is open, all
-   seven CI checks pass, and upstream review is pending. Keep PR #1203 active
-   while validating the accounting design, but its status and implementation
-   must follow the QEMU investigation above. Do not describe the kernel
-   companion as required unless the controlled tests establish that
-   distinct-ID accounting still fails independently of the shared-ID
-   configuration. Results and limits are recorded in `GOAL-done.md`; refresh
-   upstream state before rebasing or starting new work.
+   Snapper PR [#1203](https://github.com/openSUSE/snapper/pull/1203) was closed
+   without merge on 2026-10-19. The maintainer's stated concern is that qgroup
+   values may be incorrect after a single snapshot, so a rescan is required for
+   accurate values regardless of how recently the last scan ran; they saw no
+   advantage in the gate patch and recommended disabling qgroups if necessary.
+   Disabling qgroups does not meet the required four independent exclusive-space
+   totals. Treat the hold and daily-limit gates as operational deferrals, not an
+   accounting fix, and compare the maintainer's claim with the recorded QEMU
+   counter reconciliation: the stock module's counters changed on rescans,
+   while the candidate matched the offline qgroup report for the tested
+   topology; the concurrent source race remains unreproduced. Keep the local
+   Snapper behavior available for stale-status reporting, quota-cleanup safety,
+   and urgent suspend, but do not describe PR #1203 as active or resolved. Decide
+   whether a concise evidence-based upstream follow-up is justified after the
+   newest installed kernel module is activated and live accounting is checked.
+   The official master currently matches PR #1203's base. Review its latest tip
+   before any rebase or new submission; details are in `GOAL-done.md`.
 
    **PR description practice:** Follow the target repository's PR template and
    conventions. Keep the description focused on the current implementation,

@@ -364,9 +364,12 @@ quota-based cleanup must wait until the counters are consistent.
      documented. Verify the new p8 groups through Snapper operations and
      cleanup, and retain the active 7.2.6 release as the acceptance kernel.
    - Verify the installed Snapper package after upgrade/reinstall and confirm
-     every Kingston configuration retains the rescan window and hold settings.
-     Restore quota cleanup limits only after accounting and cleanup are
-     verified under the paired host runtime.
+     every Kingston configuration under
+     `/mnt/kingston/@/etc/snapper/configs/` retains the rescan window and hold
+     settings. Use `sudo` for these root-owned configs and live qgroup queries;
+     the unprivileged sandbox view reports Kingston read-only and denies
+     qgroup ioctls. Restore quota cleanup limits only after accounting and
+     cleanup are verified under the paired host runtime.
 
    Before considering the host rollout complete, verify the running kernel,
    loaded module, initramfs, Secure Boot signature, and active Snapper package

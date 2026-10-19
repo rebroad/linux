@@ -388,9 +388,14 @@ quota-based cleanup must wait until the counters are consistent.
    disabled while snapshots continue; the current host check is recorded in
    `GOAL-done.md`. The 18:00 run exposed duplicate hourly snapshots: `/` and
    `/mnt/p8/@` resolve to the same Btrfs subvolume IDs, and the mounted config
-   tree was discovered twice. The root repo wrapper now deduplicates by device,
-   subvolume ID, and config; its live-target check passed, but the next
-   scheduled run still needs to confirm one snapshot per target. This removes
+   tree was discovered twice. The root-repo wrapper now deduplicates by device,
+   subvolume ID, and config. The installed
+   `/usr/local/sbin/snapper-timeline-all-roots` matches root-repo commit
+   `19f05f689`. The system journal shows eight consecutive hourly runs
+   completed from 18:00 on 2026-10-18 through 01:00 on 2026-10-19, with 28
+   duplicate-target skip messages and no failure messages. This verifies the
+   deduplication path ran repeatedly; still verify exactly one snapshot was
+   created per intended target. This removes
    redundant snapshot triggers, but does not yet prove the qgroup
    inconsistency's underlying cause. This wrapper is one rescan initiator;
    Snapper's quota-query and snapshot-tracking code can independently start a

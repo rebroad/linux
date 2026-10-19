@@ -3089,3 +3089,18 @@ specified in `GOAL.md`.
   `5112524883654068a6776bb74f4bd3d1e0618ef19cfb873b15d969bddb98a5bb`. Both
   and the disposable ESP/filesystem images are under
   `/var/tmp/linux.build/qgroup-prod-validation-729/`.
+
+## Timeline target deduplication runtime check (2026-10-19)
+
+- The active `snapper-timeline.service` unit runs
+  `/usr/local/sbin/snapper-timeline-all-roots`. Its SHA-256 matches the copy
+  recorded by root-repo commit `19f05f689` (`fix(snapper): dedupe timeline
+  targets`). This confirms the installed runtime is using that committed
+  script rather than the separate home-bin copy.
+- The system journal shows eight hourly service runs from 18:00 on 2026-10-18
+  through 01:00 on 2026-10-19. All eight started and finished; 28 duplicate
+  target skip messages were logged, and no failure messages appeared. This
+  verifies repeated runtime execution of the deduplication path.
+- This read-only check did not establish the exact number of new snapshots per
+  target, inspect live qgroup accounting, or verify suspend/resume ordering.
+  Those checks remain open in `GOAL.md`.

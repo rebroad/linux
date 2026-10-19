@@ -124,9 +124,11 @@ with the alternate root. The current source/config match is recorded in
    `modprobe`, and present in its initramfs. Add and validate exact source
    support before each later kernel release.
 
-   Remaining: after an approved reboot, verify the loaded 7.2.9 module and live
-   accounting, then explicitly boot 7.2.6 and verify its replacement module
-   and rollback path. Exercise supported and unsupported kernel transactions
+   Current Snapper with both exact-release modules passed Secure Boot QEMU
+   workloads. Remaining: after an approved reboot, verify the loaded 7.2.9
+   module and live accounting, then explicitly boot 7.2.6 and verify its
+   replacement module and rollback path. Exercise supported and unsupported
+   kernel transactions
    end to end: a failed or unmapped build must neither leave package
    configuration broken nor permit silent boot of stock Btrfs. Keep unrelated
    updates available and maintain the visible APT kernel allowlist before each
@@ -187,10 +189,11 @@ the timeline wrapper's separate explicit rescan commands remain disabled.
 The current locally built Snapper package (`7d4db17085ce`) has passed exact
 7.2.6 QEMU stale-quota and hold tests using the exact installed DKMS module.
 The direct-kernel run verified stale-value display, deferred cleanup, and
-timeline-child snapshots while the hold kept the rescan idle. A separate OVMF
-Secure Boot run enforced module signatures, rejected an unsigned Btrfs module,
-and passed the same stale-quota and hold checks. Neither QEMU run replaces host
-suspend/resume or live accounting checks; see `GOAL-done.md` for evidence.
+timeline-child snapshots while the hold kept the rescan idle. Separate OVMF
+Secure Boot runs for exact 7.2.6 and 7.2.9 modules enforced signatures,
+rejected unsigned Btrfs modules, and passed the same stale-quota and hold
+checks. These QEMU runs do not replace host suspend/resume or live accounting
+checks; see `GOAL-done.md` for evidence.
 
 The bounded kernel fast path supplies accurate counters without a full scan
 for the tested four-collective hierarchy; the stock fallback leaves the newest

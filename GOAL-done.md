@@ -3218,6 +3218,10 @@ specified in `GOAL.md`.
   `SNAPPER-QUOTA: PASS`. The serial log is
   `/var/tmp/linux.build/qgroup-prod-validation-729-dkms-20261019-freshfs/secureboot-dkms-serial.log`
   (SHA-256 `2a20b0f40161997587dda9444fa45e9a9900b16735f54478ee510a2d54c39d47`).
+  Its Snapper executable hash was
+  `be394f2d436828d52fa9ef7e70d85652f7316ee262ea5a8d40a713ad11b46742`; the
+  current `7d4db17085ce` Snapper build is validated under 7.2.9 Secure Boot
+  below.
 - At the same live audit, both filesystem inconsistency flags were `0` and
   Kingston had no rescan in progress. No APT package holds or custom kernel
   pre-install guard are configured; `dpkg --audit` is clean. An unmapped DKMS
@@ -4239,6 +4243,42 @@ specified in `GOAL.md`.
   `2fa9e15af0d5e3d2a4e9273ead833a05e924e945676c1a1e3fcc099df9cba2cd`). The
   initrd SHA-256 is
   `7cbda0d37ae33f4b745cddf27b6e601460ddaac3643363ade5d3e53875738c21`. This
+  validates current Snapper and module signature enforcement for the tested
+  two-config QEMU workload; it does not cover host suspend/resume or the
+  four-filesystem host accounting cycle.
+
+## Current Snapper under Secure Boot on exact 7.2.9 (2026-10-19)
+
+- Repeated the current-Snapper workload through OVMF Secure Boot with copied
+  MOK-enrolled firmware variables, the exact Debian `7.2.9+deb13-amd64` kernel,
+  and a fresh disposable Btrfs filesystem. The guest command line set
+  `module.sig_enforce=1`; the kernel logged Secure Boot lockdown, the signed
+  DKMS Btrfs module loaded, and an otherwise matching unsigned module was
+  rejected. The init script verified the active `sig_enforce` parameter.
+- The guest used Snapper 0.13.2 / libsnapper 8.2.0 from local source commit
+  `7d4db17085ce`, verified by executable hash
+  `5fc79ea4fb066ed4eee9f1a7792eac0eee5ff97e302899892426ec673b9e8ff5` and
+  library hash
+  `7d6b80cfb3f407f27fef6fe238d564496d6f69f8bb3ad10a28d83162d817393d`. The
+  loaded Btrfs module hash was
+  `2b94d9a03652ad61fdf8c019fa15b85581121680304ada9dc594be7ff8837e4a`.
+- Both configs were listed in `SNAPPER_CONFIGS` and used identical rescan
+  windows and hold-file paths; their daily limit was disabled to isolate the
+  hold. After `btrfs qgroup assign --no-rescan` made qgroup data inconsistent,
+  both configs listed last-known quota values with a stale warning, deferred
+  quota cleanup, and created timeline-child snapshots. The rescan count stayed
+  unchanged and `btrfs quota rescan -s` reported no operation in progress after
+  each Snapper operation. Expiring the hold allowed one automatic scan; the
+  repeated-snapshot, cleanup, and final full-rescan comparison then passed as
+  `SNAPPER-QUOTA: PASS`.
+- The normalized serial log is
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-current-snapper-secureboot-7d-729-20261019/qemu-secureboot.txt`
+  (SHA-256
+  `8c263a413601ca8b367241a6a32fcfacfefe177637fede21bd58f9c282e5b111`); the
+  binary log is alongside it (SHA-256
+  `1c7800ac9b8c6b22fc47cd5c569f049cc08845ba064e478d85ef67e8c382ceee`). The
+  initrd SHA-256 is
+  `51a6cb5adb664e3a9967c298ce76cc185e881ac2e60381d73a10f7f3bd1090d5`. This
   validates current Snapper and module signature enforcement for the tested
   two-config QEMU workload; it does not cover host suspend/resume or the
   four-filesystem host accounting cycle.

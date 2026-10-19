@@ -3233,3 +3233,30 @@ specified in `GOAL.md`.
   `21205c8983e2861557e89194031c2dc0d23cff6caea955a16e084b9f1f24b8bf`; and
   the test harness SHA-256 is
   `4534f65d38a1b97d1fc124237d9e94c6145ccb937cc827a7a61782a22874189e`.
+
+## Live rescan-policy and timeline-service audit (2026-10-19)
+
+- The running kernel is `7.2.6+deb13-amd64`. In the real host view, `/`,
+  `/mnt/p8`, `/home`, and `/mnt/kingston` are mounted read-write; the
+  unprivileged sandbox mount view reports them as read-only.
+- The active p8 configs, `/etc/snapper/configs/root` and `home`, both contain
+  `QGROUP_RESCAN_DAILY_LIMIT="no"`,
+  `QGROUP_RESCAN_WINDOW="05:00-21:00"`, and the shared hold file
+  `/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`. The installed
+  timeline wrapper still has its explicit `btrfs quota rescan` block commented
+  out.
+- `snapper-timeline.timer` is active, with last trigger at 02:00 BST and next
+  trigger at 03:00 BST. The 00:00, 01:00, and 02:00 services exited
+  successfully and logged duplicate-target skips for the already-seen p8
+  root/home paths. This confirms the service and deduplication path ran; it
+  does not verify the number of snapshots created or the qgroup totals.
+- The Kingston configs are at
+  `/mnt/kingston/@/etc/snapper/configs/{root,home}` (root-owned mode 0640), not
+  `/mnt/kingston/etc/snapper/configs/`. Their policy values could not be read
+  without sudo. `btrfs quota rescan -s` and `btrfs qgroup show` likewise
+  returned `Operation not permitted` in the escalated non-root shell. No live
+  scan-state or qgroup-counter conclusion is drawn from this audit.
+- The installed Snapper/libSnapper package is still
+  `0.13.2-1+local1.20261018183503.g017efa146426`; the current PR-head build
+  remains uninstalled pending sudo authentication. These checks and remaining
+  gates are tracked in `GOAL.md`.

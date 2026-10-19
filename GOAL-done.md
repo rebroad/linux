@@ -4101,3 +4101,26 @@ specified in `GOAL.md`.
   the installed certificate. They match. The private key contents and exact
   pathname were not printed or recorded. The installed package file list does
   not include the private key.
+
+## Live Snapper package reinstall check (2026-10-19 15:09 BST)
+
+- Reinstalled the exact locally built `snapper` and `libsnapper` packages,
+  version `0.13.2-1+local1.20261019003646.g7d4db17085ce`, using APT. The
+  transaction reinstalled only those two packages; `dpkg --audit` remained
+  empty. The installed Snapper reports 0.13.2 / libsnapper 8.2.0 and includes
+  the `btrfs-quota` feature.
+- After reinstall, `snapper list-configs` worked over D-Bus and returned the
+  default `root` and `home` configs. Read-only snapshot listing worked for
+  those configs and for Kingston's alternate root using `--no-dbus`. The
+  APT transaction created its normal `apt` pre/post snapshots (3865 and 3866).
+- The four config files, timeline service, service override, timer, and
+  `/usr/local/sbin/snapper-timeline-all-roots` retained their pre-reinstall
+  SHA-256 values. The timer remained active and its service still executes the
+  customized wrapper. All four configs retained their distinct `1/100` and
+  `1/101` QGROUPs, shared hold path, `05:00-21:00` window, disabled daily cap,
+  and `SPACE_LIMIT="1.0"`.
+- Immediately after the transaction, both `/` and `/mnt/kingston` reported no
+  qgroup rescan in progress and `btrfs qgroup show` emitted no inconsistency
+  warning. This covers the reinstall and its two `apt` snapshots while the
+  previously loaded module was still active; it does not test a version
+  upgrade, cleanup, rollback, or the newly installed module after reboot.

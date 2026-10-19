@@ -92,17 +92,20 @@ with the alternate root. The current source/config match is recorded in
    updates are quiesced. Retained logs do not establish the first historical
    inconsistency; do not infer its cause from the oldest diagnostic scan.
 
-2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The
+2. **Deploy and maintain our latest-upstream Snapper build — 85% done.** The
    host runs our locally built Snapper 0.13.2 from commit `7d4db17085ce`, based
    on the current official upstream tip; the checkout and package evidence are
-   in `GOAL-done.md`. Keep this locally built runtime as the target.
+   in `GOAL-done.md`. An exact-version reinstall of `snapper` and `libsnapper`
+   preserved the four configs and timeline service wiring; Snapper's D-Bus
+   listing and read-only snapshot queries worked afterward. Keep this locally
+   built runtime as the target.
 
-   Verify that package reinstall/upgrade preserves Btrfs quota support, daemon
-   behavior, the four configs and their rescan policies. Complete host stale-
-   quota, cleanup, rollback, and APT-upgrade checks. During investigation keep
-   the timeline wrapper's explicit rescan block disabled and `SPACE_LIMIT="1.0"`
-   so quota-based cleanup remains disabled. Recheck the shared window and hold
-   path after package configuration migrations. The build recipe is
+   Remaining: exercise a version upgrade and rollback while checking Btrfs
+   quota support and daemon behavior. Complete host stale-quota, cleanup, and
+   APT-upgrade checks. During investigation keep the timeline wrapper's explicit
+   rescan block disabled and `SPACE_LIMIT="1.0"` so quota-based cleanup remains
+   disabled. Recheck the shared window and hold path after package configuration
+   migrations. The build recipe is
    `scripts/build-local-debian-package.sh` on the Snapper fork's
    `codex/local-debian-package-builder` branch; generated files belong in its
    sibling build tree. This packaging work is separate from closed PR #1203.

@@ -93,17 +93,18 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-**First priority: diagnose and fix the current Btrfs stalls.** Investigate the
-transaction waits, blocked writeback workers, and long commits with live kernel
-stacks and commit-progress evidence. Establish whether the loaded modified
-qgroup module caused or contributed to the stalls. If it did not, identify the
-specific kernel path or dependency responsible and fix that cause. Treat these
-stalls as a separate issue from qgroup inconsistency unless evidence connects
-them. Complete this investigation before resuming lower-priority deployment
-validation. The 2026-10-19 live investigation confirmed a transaction commit
-wait on the external-writer count and blocked processes queued in
-`wait_current_trans`; its evidence and the remaining diagnostic gaps are in
-`GOAL-done.md`.
+**First priority: diagnose and fix the current Btrfs issues, starting with the
+system stalls.** Investigate the transaction waits, blocked writeback workers,
+and long commits with live kernel stacks and commit-progress evidence. Establish
+whether our Btrfs changes caused or contributed to these stalls. If they did
+not, identify the specific faulty kernel path or dependency and fix that cause;
+do not assume either our changes or upstream code is responsible before the
+evidence supports it. Treat these stalls as a separate issue from qgroup
+inconsistency unless evidence connects them. Complete this investigation before
+resuming lower-priority deployment validation. The 2026-10-19 live
+investigation confirmed a transaction commit wait on the external-writer count
+and blocked processes queued in `wait_current_trans`; its evidence and the
+remaining diagnostic gaps are in `GOAL-done.md`.
 
 1. **Finish root-cause and live-accounting validation — 95% done.** The
    controlled QEMU matrix and source trace identify the stock-kernel fallback

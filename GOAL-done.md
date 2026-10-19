@@ -3253,6 +3253,12 @@ specified in `GOAL.md`.
   2794-2796, Kingston-root 2712-2714, and Kingston-home 2505-2507. The qgroup
   totals and whether any of these runs followed a real resume remain
   unverified.
+- The captured kernel journal from 22:00 through 03:00 contains no qgroup
+  inconsistency or rescan entries during the 23:00-02:00 timeline runs. It
+  contains one earlier qgroup scan-completion message at 22:27 on
+  `nvme0n1p5`. This is an absence-of-log evidence only; it does not prove the
+  counters match a full scan or establish what the read-only Kingston qgroup
+  state is.
 - The Kingston configs are at
   `/mnt/kingston/@/etc/snapper/configs/{root,home}` (root-owned mode 0640), not
   `/mnt/kingston/etc/snapper/configs/`. Their policy values could not be read

@@ -416,8 +416,11 @@ quota-based cleanup must wait until the counters are consistent.
    `info.xml` audit also confirms exactly one timeline snapshot in each of the
    p8-root, p8-home, Kingston-root, and Kingston-home snapshot directories for
    each of the 00:00, 01:00, and 02:00 runs on 2026-10-19. This verifies the
-   four intended targets for those runs; their qgroup totals and actual
-   suspend/resume ordering remain unverified. This removes
+   four intended targets for those runs. The kernel journal contains no
+   qgroup inconsistency or rescan entries during these runs; it records one
+   earlier scan completion at 22:27. This observation does not establish
+   counter accuracy. Live qgroup totals and actual suspend/resume ordering
+   remain unverified. This removes
    redundant snapshot triggers, but does not yet prove the qgroup
    inconsistency's underlying cause. This wrapper is one rescan initiator;
    Snapper's quota-query and snapshot-tracking code can independently start a

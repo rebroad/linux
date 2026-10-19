@@ -3605,6 +3605,10 @@ specified in `GOAL.md`.
   The PR head is the current local Snapper branch and the official `master`
   still equals the PR's base. Its seven CI checks had passed, but the PR is not
   active and must not be described as open.
+- A fresh fetch and GitHub API check on 2026-10-19 verified official
+  `upstream/master` at `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`, matching
+  the PR base OID; PR #1203 remains closed at that base. No rebase or new
+  submission was performed.
 - The upstream maintainer's closing comment states that a single snapshot may
   leave qgroup values incorrect, so a rescan is needed to obtain correct values
   regardless of the time since the prior scan. They saw no benefit in the gate
@@ -3620,8 +3624,9 @@ specified in `GOAL.md`.
   requirement, so disabling qgroups is not an acceptable resolution. Snapper's
   hold/window/daily-limit behavior remains an operational policy; deferral must
   keep counters explicitly stale and prevent quota-based cleanup from using
-  them. Reassess upstream follow-up after activating the newest installed
-  module and checking live accounting.
+  them. Live Kingston accounting has since been checked on the previously
+  loaded shared-parent fast-path module; reassess upstream follow-up after
+  activating the newer installed module and checking p8/live host accounting.
 
 ## Pre-reboot module and GRUB audit (2026-10-19 12:18 BST)
 
@@ -3775,19 +3780,49 @@ specified in `GOAL.md`.
   module build is prepared, while the synthetic transaction showed unrelated
   upgrades proceed.
 
-## Kingston live qgroup status and scan timing (2026-10-19 13:10 BST)
+## Kingston live qgroup status and counter reconciliation (2026-10-19 13:40 BST)
 
 - Read-only host checks confirmed `/mnt/kingston` is `/dev/sda1`, mounted
   read-write as Btrfs. Its sysfs qgroup inconsistency flag was `0`, and
   `btrfs quota rescan -s /mnt/kingston/@` reported no rescan in progress.
 - The kernel journal records qgroup scan completions at 09:47:09 and 10:23:32.
-  Kingston root and home timeline snapshots were created at 09:00:03 and
-  10:00:02; the hourly Snapper service ran at 10:00:01-10:00:02 and then
-  finished. The 10:23 completion followed the 10:00 snapshots, but neither the
-  journal nor process state records the rescan start or its initiating
-  process, so the timeline is correlation rather than proof of the trigger.
-  Snapshots at 11:00, 12:00, and 13:00 were also present; there was no active
-  scan at the audit.
-- This refreshes the earlier sandbox-limited audit. Kingston was consistent
-  and not scanning at 13:10 BST; the causes of the two earlier scans remain
-  unidentified.
+  The sudo journal identifies their initiators: it records
+  `btrfs quota rescan -w /mnt/kingston` at 09:35:08 and again at 10:12:22.
+  These explicit diagnostic requests precede their respective completions.
+- The hourly Snapper service ran from 10:00:01 to 10:00:02. Kingston root and
+  home snapshots were created at 10:00:02, but the service completed ten
+  minutes before the second explicit diagnostic rescan request. Therefore
+  these two scans were not initiated by the hourly Snapper service; their
+  timing must not be used as evidence that the 10:00 snapshots triggered them.
+- At 13:24 BST Kingston was consistent and no scan was running. This resolves
+  the initiators for these two diagnostic scans; it does not replace the
+  separate historical evidence of automatic rescans in the stock-kernel
+  snapshot cycle or identify that cycle's original onset.
+- The installed Snapper package reports
+  `0.13.2-1+local1.20261019003646.g7d4db17085ce`. The hourly service ran the
+  locally installed `/usr/local/sbin/snapper-timeline-all-roots` at
+  13:00:05-13:00:07. Kingston root and home snapshots were present for the
+  11:00, 12:00, and 13:00 runs, with no automatic rescan recorded after the
+  10:23 diagnostic scan.
+- At 13:27:42, with the Kingston inconsistency flag clear and no scan in
+  progress, an explicitly requested `btrfs quota rescan -w /mnt/kingston`
+  started a diagnostic full scan. It completed at 13:40:24; the flag remained
+  clear. All four qgroup referenced/exclusive pairs were identical before and
+  after:
+
+  | Qgroup | Referenced bytes | Exclusive bytes |
+  | --- | ---: | ---: |
+  | `1/100` | 35,910,164,480 | 15,672,508,416 |
+  | `1/101` | 326,054,203,392 | 18,852,720,640 |
+  | `2/0` | 326,071,951,360 | 200,382,541,824 |
+  | `2/1` | 35,910,180,864 | 35,719,454,720 |
+
+- This shows the loaded 7.2.6 shared-parent fast path's Kingston counters
+  matched a full rescan after the three hourly snapshot cycles. It does not
+  validate p8 or the newer installed teardown backport, which is not yet loaded.
+- The running kernel is `7.2.6+deb13-amd64`; its loaded Btrfs module build ID
+  is `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. The installed DKMS module is
+  signed by `Rebroad's module signing key`, is present in the 7.2.6 initramfs,
+  and has build ID `46d2150765693e6b09846490c74ebdf710c0661b`. The installed
+  build differs from the loaded module, so its qgroup-teardown backport has
+  not yet been exercised on the host; activation requires a reboot.

@@ -31,6 +31,13 @@ Snapper/Btrfs operations set inconsistency, whether completed full scans
 restore correct counters, and whether a Snapper-only change can meet the
 accounting and operating requirements. Distinguish a conservative fallback
 from incorrect counters and from a Snapper tracking/configuration error.
+The 2026-10-19 02:24 BST live sysfs audit shows p8's inconsistency flag clear,
+but Kingston's set; Kingston groups `1/100` and `1/101` have exclusive counters
+larger than referenced counters and must be treated as stale. The loaded
+7.2.6 Btrfs build ID matches the selected DKMS module, and no qgroup-rescan
+worker was visible. Determine when Kingston became inconsistent and reconcile
+its counters after a controlled full scan before drawing conclusions from its
+totals. The read-only evidence is in `GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings

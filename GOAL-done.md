@@ -3876,3 +3876,16 @@ specified in `GOAL.md`.
 - The p8 counter samples after its 13:58 diagnostic scan spanned ongoing live
   filesystem updates and the 14:00 snapshot operations. Their changes cannot
   be assigned to the rescan itself or treated as an accounting mismatch.
+
+## Post-snapshot live qgroup baseline (2026-10-19 14:11 BST)
+
+- A read-only sample was captured at
+  `/var/tmp/linux.build/live-qgroup-sample-20261019-1410.txt` on the running
+  7.2.6 host with Btrfs module build ID
+  `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. Both p8 and Kingston had
+  inconsistency flag `0`, with no rescan in progress.
+- The four qgroup referenced/exclusive pairs per filesystem are preserved in
+  the sample for a later post-reboot comparison. p8's totals changed relative
+  to the 14:01 read while both flags remained clear, confirming its live
+  counters continued to move. The system was active, so this sample does not
+  establish whether p8 accounting matches an independent full report.

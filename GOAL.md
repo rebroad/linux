@@ -233,6 +233,13 @@ quota-based cleanup must wait until the counters are consistent.
    limit disabled. The candidate module is active on the current
    `7.2.6+deb13-amd64` kernel.
 
+   On 2026-10-19, a controlled full rescan cleared Kingston's inconsistency
+   flag and corrected its stale counters. The next hourly run created all four
+   configured snapshots; p8 and Kingston both remained consistent, and neither
+   started another rescan. This is one live post-rescan cycle, not yet proof
+   that the condition stays fixed across repeated snapshots or that it explains
+   when Kingston first became inconsistent. See `GOAL-done.md`.
+
    The candidate kernel fast path has passed the documented four-group QEMU
    workload on both the former 7.1.13 release and current 7.2.6 release. On
    7.2.6, matched stock-module runs triggered repeated scans on distinct groups,
@@ -256,13 +263,14 @@ quota-based cleanup must wait until the counters are consistent.
    The unsigned mail-formatted draft is
    `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
 2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
-   runs our locally built Snapper with the qgroup fix, but its installed local
-   package is still from commit `017efa14`, behind the current PR head
-   `7d4db170`. A package built from that current head has passed the Snapper
-   test suite and has a narrow install simulation with no package additions or
-   removals. Install only the new `snapper` and `libsnapper` packages, then
-   verify the live binary, daemon, and rescan configuration. Build and test
-   details are in `GOAL-done.md`. Debian packaging
+   now runs our locally built Snapper from the current PR head
+   `7d4db17085ce`; package version
+   `0.13.2-1+local1.20261019003646.g7d4db17085ce` is installed for both
+   `snapper` and `libsnapper`. The live binary reports Snapper 0.13.2,
+   libsnapper 8.2.0, and Btrfs quota support, and lists the p8 `root` and `home`
+   configs. Verify config and daemon behavior after package reinstall, then
+   finish full accounting and quota checks, rollback, and APT-upgrade behavior.
+   Build, package, and live-runtime evidence is in `GOAL-done.md`. Debian packaging
    is only the installation format for our build; the distribution-provided
    Snapper is not the target runtime or a runtime dependency.
    Keep rollout completion gated until technical review, full accounting and

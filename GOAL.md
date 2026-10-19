@@ -111,13 +111,16 @@ with the alternate root. The current source/config match is recorded in
    end to end: a failed or unmapped build must neither leave package
    configuration broken nor permit silent boot of stock Btrfs. Keep unrelated
    updates available and maintain the visible APT kernel allowlist before each
-   candidate. Do not consider kernel security-update coverage complete until
-   the selected backports kernel is checked against the stable-security fixes;
-   if those fixes are missing, prepare and test a matching signed kernel module
-   before allowing that security kernel. Verify the locally built Snapper fix
-   also survives package reinstall/upgrade. The APT policy, DKMS design,
-   exact-release tests, and unsupported-release failure mode are documented in
-   `GOAL-done.md`.
+   candidate. Debian's tracker marks all 12 CVEs in DSA-6393 fixed by upstream
+   7.2.9 or earlier. This supports keeping the selected 7.2.9 backport for
+   those fixes; the exact Debian backport source patch set has not been
+   compared byte-for-byte with the fixed Debian source records. Recheck each
+   later Debian kernel security advisory against the selected backports
+   candidate; if a security fix is absent, prepare and test a matching signed
+   module before allowing another kernel through the kernel guard. Verify the
+   locally built Snapper fix also survives package reinstall/upgrade. The APT
+   policy, DKMS design, exact-release tests, security comparison, and
+   unsupported-release failure mode are documented in `GOAL-done.md`.
 
 4. **Finish accounting and recovery coverage — 95% done.** Preserve four
    separately queryable snapshot collectives and verify their exclusive-space

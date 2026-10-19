@@ -3578,3 +3578,27 @@ specified in `GOAL.md`.
   `/var/tmp/linux.build/qgroup-concurrent-race-heavy-20261019/`. Continue to
   treat this as a bounded negative result pending live correlation and any
   stronger reproduction evidence.
+
+## Snapper PR #1203 closed without merge (2026-10-19)
+
+- A live GitHub check found PR #1203 in `CLOSED` state, with no merge commit.
+  The PR head is the current local Snapper branch and the official `master`
+  still equals the PR's base. Its seven CI checks had passed, but the PR is not
+  active and must not be described as open.
+- The upstream maintainer's closing comment states that a single snapshot may
+  leave qgroup values incorrect, so a rescan is needed to obtain correct values
+  regardless of the time since the prior scan. They saw no benefit in the gate
+  patch and suggested disabling qgroups if they cause problems.
+- The tested stock-module QEMU results support the need to rescan for stock
+  qgroup counters in the tested topology. The candidate-module QEMU runs
+  matched offline `btrfs check --qgroup-report` counters without requiring the
+  inconsistency fallback, but the concurrent source-accounting race was not
+  reproduced. This evidence is relevant to the maintainer's claim but does not
+  establish the candidate's correctness for all workloads. No new upstream
+  comment or PR was sent after closure.
+- The four separately queryable exclusive-space groups are a project
+  requirement, so disabling qgroups is not an acceptable resolution. Snapper's
+  hold/window/daily-limit behavior remains an operational policy; deferral must
+  keep counters explicitly stale and prevent quota-based cleanup from using
+  them. Reassess upstream follow-up after activating the newest installed
+  module and checking live accounting.

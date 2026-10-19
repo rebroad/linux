@@ -4726,8 +4726,10 @@ specified in `GOAL.md`.
   module version, external output directory, and exact kernel release list;
   builds in an alternate DKMS tree; verifies each module's release vermagic,
   signer metadata, and enrolled public certificate; stages it in a scratch
-  install tree; and emits a separate DKMS archive per kernel release. It does
-  not install to the host module tree or change host DKMS/dpkg state.
+  install tree; and emits a separate DKMS archive per kernel release. For
+  staged headers, it copies the DKMS source into the external build tree and
+  adjusts only that scratch `dkms.conf` to use DKMS's `$kernel_source_dir`.
+  It does not install to the host module tree or change host DKMS/dpkg state.
 - Ran it for the installed `7.2.6+deb13-amd64` and
   `7.2.9+deb13-amd64` headers. Both signed builds passed; each archive imported
   into a fresh alternate DKMS tree and `dkms install` staged the module.
@@ -4738,10 +4740,18 @@ specified in `GOAL.md`.
   second release. Separate one-release archives avoid that behavior. Importing
   each archive into a fresh tree passed. All generated files stayed in the
   external Linux build tree.
+- The installed DKMS config hardcodes `/lib/modules/${kernelver}/build`, which
+  ignores DKMS's `--kernelsourcedir` option. After adjusting a scratch copy of
+  that config, a preflight build succeeded when the 7.2.9 headers were supplied
+  through an alternate staged-header path. This validates the path handling,
+  not a real downloaded candidate `.deb`; no newer kernel candidate is
+  available in the current APT policy, which selects the already-installed
+  7.2.9 backport.
 - This proves repeatable module preparation and archive import for the two
-  currently supported releases. It does not yet build or install a Debian
-  package, run before an APT kernel transaction, gate boot or initramfs state,
-  or handle a new release whose headers/source mapping are not yet prepared.
+  currently supported releases and the staged-header mechanism. It does not
+  yet build or install a Debian package, run before an APT kernel transaction,
+  gate boot or initramfs state, or handle a new release whose source mapping is
+  not yet prepared.
 
 ## Live qgroup status and corrected `-F` interpretation (2026-10-19 19:07 BST)
 

@@ -7,11 +7,12 @@ usage() {
 	cat <<'EOF'
 Usage: local-btrfs-qgroup-dkms-preflight \
 	--module-version VERSION --output-dir DIR --kernel RELEASE [--kernel RELEASE ...]
-	[--source-tree DIR] [--certificate FILE]
+	[--source-tree DIR] [--kernel-source RELEASE=DIR] [--certificate FILE]
 
-Builds the configured btrfs-qgroup DKMS source for each exact installed
-kernel-header release, verifies its signature metadata and vermagic, and emits
-one DKMS archive per release. It does not modify the host DKMS tree, installed modules,
+Builds the configured btrfs-qgroup DKMS source for each exact kernel release,
+using installed headers or an explicit staged-header directory, verifies its
+signature metadata and vermagic, and emits one DKMS archive per release. It
+does not modify the host DKMS tree, installed modules,
 initramfs, boot configuration, or package database.
 EOF
 }
@@ -27,6 +28,7 @@ source_tree=/usr/src
 certificate=/usr/share/btrfs-qgroup-dkms/Rebroad-module-signing-key.der
 output_dir=
 declare -a kernels=()
+declare -A requested_kernel_sources=()
 
 while (($#)); do
 	case $1 in
@@ -53,6 +55,19 @@ while (($#)); do
 	--kernel)
 		(($# >= 2)) || die "--kernel requires a value"
 		kernels+=("$2")
+		shift 2
+		;;
+	--kernel-source)
+		(($# >= 2)) || die "--kernel-source requires RELEASE=DIR"
+		release=${2%%=*}
+		header_dir=${2#*=}
+		[[ $release != "$2" && -n $header_dir ]] ||
+			die "--kernel-source requires RELEASE=DIR"
+		[[ $release =~ ^[A-Za-z0-9.+_-]+$ ]] ||
+			die "invalid kernel release in --kernel-source: $release"
+		[[ -z ${requested_kernel_sources[$release]+x} ]] ||
+			die "duplicate --kernel-source for $release"
+		requested_kernel_sources[$release]=$header_dir
 		shift 2
 		;;
 	-h|--help)
@@ -96,15 +111,28 @@ esac
 
 arch=$(uname -m)
 declare -A seen=()
+declare -A kernel_sources=()
 for release in "${kernels[@]}"; do
 	[[ $release =~ ^[A-Za-z0-9.+_-]+$ ]] || die "invalid kernel release: $release"
 	[[ -z ${seen[$release]+x} ]] || die "duplicate kernel release: $release"
 	seen[$release]=1
-	[[ -e /lib/modules/$release/build/Makefile ]] ||
-		die "matching kernel headers are not installed for $release"
+	if [[ -n ${requested_kernel_sources[$release]+x} ]]; then
+		header_dir=$(realpath -e "${requested_kernel_sources[$release]}") ||
+			die "kernel source directory does not exist for $release"
+		[[ -f $header_dir/Makefile ]] ||
+			die "kernel source directory has no Makefile for $release"
+		kernel_sources[$release]=$header_dir
+	else
+		[[ -e /lib/modules/$release/build/Makefile ]] ||
+			die "matching kernel headers are not installed for $release"
+	fi
 	map_count=$(awk -v wanted="$release" '$1 == wanted { count++ } END { print count + 0 }' \
 		"$source_dir/kernel-source-map")
 	[[ $map_count -eq 1 ]] || die "source map has $map_count entries for $release"
+done
+for release in "${!requested_kernel_sources[@]}"; do
+	[[ -n ${seen[$release]+x} ]] ||
+		die "--kernel-source supplied for unlisted release $release"
 done
 
 cert_subject=$(openssl x509 -inform DER -in "$certificate" -noout -subject -nameopt RFC2253)
@@ -136,13 +164,28 @@ trap finish EXIT
 dkms_tree=$work/dkms-tree
 install_tree=$work/install-tree
 mkdir -p "$dkms_tree" "$install_tree"
+dkms_source_tree=$source_tree
+if ((${#kernel_sources[@]})); then
+	dkms_source_tree=$work/source-tree
+	mkdir -p "$dkms_source_tree"
+	cp -a "$source_dir" "$dkms_source_tree/$module-$module_version"
+	local_conf=$dkms_source_tree/$module-$module_version/dkms.conf
+	sed -i 's|/lib/modules/${kernelver}/build|${kernel_source_dir}|g' "$local_conf"
+	grep -Fq 'make -C ${kernel_source_dir}' "$local_conf" ||
+		die "could not make DKMS directives use kernel_source_dir"
+fi
 dkms add -m "$module" -v "$module_version" \
-	--dkmstree "$dkms_tree" --sourcetree "$source_tree"
+	--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree"
 
 for release in "${kernels[@]}"; do
 	echo "Building $module $module_version for $release"
+	kernel_source_args=()
+	if [[ -n ${kernel_sources[$release]+x} ]]; then
+		kernel_source_args+=(--kernelsourcedir "${kernel_sources[$release]}")
+	fi
 	dkms build -m "$module" -v "$module_version" -k "$release/$arch" \
-		--dkmstree "$dkms_tree" --sourcetree "$source_tree"
+		--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree" \
+		"${kernel_source_args[@]}"
 	module_file=$dkms_tree/$module/$module_version/$release/$arch/module/btrfs.ko
 	if [[ ! -f $module_file && -f $module_file.xz ]]; then
 		xz -dk "$module_file.xz"
@@ -157,8 +200,8 @@ for release in "${kernels[@]}"; do
 		die "signature metadata does not match the enrolled certificate for $release"
 	mkdir -p "$install_tree/$release"
 	dkms install -m "$module" -v "$module_version" -k "$release/$arch" \
-		--dkmstree "$dkms_tree" --sourcetree "$source_tree" \
-		--installtree "$install_tree" --no-depmod
+		--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree" \
+		--installtree "$install_tree" --no-depmod "${kernel_source_args[@]}"
 	installed=$install_tree/$release/updates/dkms/btrfs.ko
 	[[ -f $installed ]] || die "DKMS did not stage an installable module for $release"
 	[[ $(modinfo -F vermagic "$installed") == "$release"* ]] ||
@@ -171,8 +214,9 @@ for release in "${kernels[@]}"; do
 	archive=$output_dir/${module}-${module_version}-${release}-${timestamp}.tar
 	work_archive=$work/$release.tar
 	dkms mktarball -m "$module" -v "$module_version" -k "$release/$arch" \
-		--dkmstree "$dkms_tree" --sourcetree "$source_tree" \
-		--installtree "$install_tree" --archive "$work_archive"
+		--dkmstree "$dkms_tree" --sourcetree "$dkms_source_tree" \
+		--installtree "$install_tree" --archive "$work_archive" \
+		"${kernel_source_args[@]}"
 	tar -tf "$work_archive" > "$work/$release.files" ||
 		die "DKMS archive validation failed for $release"
 	grep -Fq "/$release/$arch/module/btrfs.ko.xz" "$work/$release.files" ||

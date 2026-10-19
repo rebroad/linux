@@ -4126,5 +4126,19 @@ specified in `GOAL.md`.
 - Immediately after the transaction, both `/` and `/mnt/kingston` reported no
   qgroup rescan in progress and `btrfs qgroup show` emitted no inconsistency
   warning. This covers the reinstall and its two `apt` snapshots while the
-  previously loaded module was still active; it does not test a version
-  upgrade, cleanup, rollback, or the newly installed module after reboot.
+  previously loaded module was still active; it does not test cleanup, host
+  rollback, or the newly installed module after reboot.
+
+## Isolated Snapper package rollback cycle (2026-10-19)
+
+- In a disposable `/var/tmp` dpkg root, installed the previous local package
+  pair (`g017efa146426`), upgraded to the current pair (`g7d4db17085ce`),
+  downgraded to the previous pair, and restored the current pair. `dpkg-query`
+  showed the expected package versions after every transition, and the final
+  isolated `dpkg --audit` was empty. The temporary root was removed afterward;
+  the host package database was not used.
+- This deliberately forced dependency checks, disabled triggers, and ran
+  maintainer scripts without a chroot, so it verifies dpkg unpack/configure and
+  version rollback only. It does not validate dependency resolution, host
+  daemon behavior, conffile migration, or runtime rollback; those host checks
+  remain open in `GOAL.md`.

@@ -183,6 +183,16 @@ can still see the last-known quota numbers and their stale status; quota-based
 deletion waits until the numbers are current. The host's configured preference is
 05:00-21:00 local time for every Snapper configuration sharing the filesystem;
 the timeline wrapper's separate explicit rescan commands remain disabled.
+
+The current locally built Snapper package (`7d4db17085ce`) has now passed an
+exact-7.2.6 QEMU stale-quota and hold test using the exact installed DKMS
+module. With both configs registered and identical rescan policy, it displayed
+stale values, deferred quota cleanup, and created timeline-child snapshots
+while the active hold kept the rescan status idle. Expiring the marker allowed
+one scan. This direct-kernel QEMU run did not enforce module signatures and
+does not replace Secure Boot, host suspend/resume, or live accounting checks;
+see `GOAL-done.md` for evidence.
+
 The bounded kernel fast path supplies accurate counters without a full scan
 for the tested four-collective hierarchy; the stock fallback leaves the newest
 snapshot counters stale until a full scan. Exact-7.2.6 QEMU alternatives using

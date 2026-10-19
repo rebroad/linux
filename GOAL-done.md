@@ -4161,3 +4161,38 @@ specified in `GOAL.md`.
   still the older `258e41d2` build, not the newly installed DKMS module, and
   this observation does not independently reconcile counters against a full
   accounting scan.
+
+## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
+
+- Rebuilt an isolated QEMU rootfs from the current local Snapper packages built
+  from commit `7d4db17085ce`. The guest reported Snapper 0.13.2 / libsnapper
+  8.2.0; the copied executable and library hashes were
+  `5fc79ea4fb066ed4eee9f1a7792eac0eee5ff97e302899892426ec673b9e8ff5` and
+  `7d6b80cfb3f407f27fef6fe238d564496d6f69f8bb3ad10a28d83162d817393d`.
+- Booted the exact Debian `7.2.6+deb13-amd64` kernel with the exact installed
+  DKMS Btrfs module (compressed hash
+  `8d3c3c14834cc820fe4ba59004eb3041caeb0e91b3b8256f76d10d9736899f75`, build
+  ID `46d2150765693e6b09846490c74ebdf710c0661b`) and a fresh disposable Btrfs
+  image. This direct-kernel run used `module.sig_enforce=0`; it did not test
+  Secure Boot enforcement.
+- The fixture registered both Snapper configs, matched their rescan windows
+  and hold-file paths, and disabled their daily limits to isolate the hold.
+  After `btrfs qgroup assign --no-rescan` made qgroup data inconsistent, each
+  config listed last-known used-space values with a stale warning, deferred
+  quota cleanup, and created a timeline-child snapshot. After each Snapper
+  operation, the completed-scan count was unchanged and
+  `btrfs quota rescan -s` reported no operation in progress. The test then
+  expired the hold; the next quota query started exactly one automatic scan.
+  Repeated snapshots, quota cleanup, and the final full-rescan comparison
+  passed with `SNAPPER-QUOTA: PASS` and no shared-policy mismatch warning.
+- The normalized serial log is
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-current-snapper-7d-726-child-hold-20261019/qemu-current-snapper-hold-idle.txt`
+  (SHA-256
+  `e0a7ad3c1d131ec309e24e8e5cfd2ac0729a4b1ccac6d80a730aca0f51142dd6`); the
+  binary serial log is alongside it (SHA-256
+  `99c47adc460e0e4df9b62b32da0d07ab63acc29028d1a5bf9197f9065e2f5569`). The
+  initrd SHA-256 is
+  `3786557157bb0aa92afa0a3041d5e06126b4eaa68b39a6ec504404559252a977`. These
+  results cover the current Snapper code and exact 7.2.6 module in QEMU; they
+  do not replace host suspend/resume, Secure Boot enforcement, or live
+  four-filesystem accounting and cleanup validation.

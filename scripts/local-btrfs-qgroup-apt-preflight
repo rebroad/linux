@@ -1,0 +1,288 @@
+#!/usr/bin/env python3
+"""Prebuild signed Btrfs DKMS modules before APT installs kernel packages."""
+
+from __future__ import annotations
+
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import unquote
+
+
+MODULE = os.environ.get("BTRFS_QGROUP_DKMS_MODULE", "btrfs-qgroup")
+DKMS_TREE = Path(os.environ.get("BTRFS_QGROUP_DKMS_TREE", "/var/lib/dkms"))
+SOURCE_TREE = Path(os.environ.get("BTRFS_QGROUP_SOURCE_TREE", "/usr/src"))
+PREFLIGHT = Path(
+    os.environ.get(
+        "BTRFS_QGROUP_DKMS_PREFLIGHT",
+        str(Path(__file__).with_name("local-btrfs-qgroup-dkms-preflight")),
+    )
+)
+MODULE_PACKAGE = os.environ.get("BTRFS_QGROUP_DKMS_PACKAGE", "btrfs-qgroup-dkms")
+IMAGE_METAPACKAGES = {
+    "linux-image-amd64",
+    "linux-image-cloud-amd64",
+    "linux-image-rt-amd64",
+}
+
+
+class PreflightError(Exception):
+    pass
+
+
+def run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if check and result.returncode:
+        detail = (
+            result.stderr.strip()
+            or result.stdout.strip()
+            or f"exit status {result.returncode}"
+        )
+        raise PreflightError(f"{shlex.join(args[:2])} failed: {detail}")
+    return result
+
+
+def parse_apt_protocol(data: str) -> list[tuple[str, Path]]:
+    lines = iter(data.splitlines())
+    if next(lines, None) != "VERSION 3":
+        raise PreflightError("APT must provide Pre-Install-Pkgs protocol version 3")
+
+    for line in lines:
+        if not line:
+            break
+    else:
+        raise PreflightError("APT protocol ended before the package action list")
+
+    actions: list[tuple[str, Path]] = []
+    for line in lines:
+        if not line:
+            continue
+        fields = line.split(maxsplit=8)
+        if len(fields) != 9:
+            raise PreflightError("malformed APT version-3 package action record")
+        package, action = fields[0], unquote(fields[8])
+        if action.startswith("**"):
+            continue
+        actions.append((package, Path(action)))
+    return actions
+
+
+def apt_debs(actions: list[tuple[str, Path]]) -> dict[str, tuple[Path, dict[str, str]]]:
+    result: dict[str, tuple[Path, dict[str, str]]] = {}
+    for action_package, path in actions:
+        if not path.is_file():
+            raise PreflightError(f"APT package file is missing: {path}")
+        package = run(["dpkg-deb", "-f", str(path), "Package"]).stdout.strip()
+        if package != action_package:
+            raise PreflightError(f"APT action and .deb package disagree for {path}")
+        if package in result:
+            raise PreflightError(f"multiple package files for {package} in one transaction")
+        fields = {}
+        for field in ("Package", "Version", "Architecture"):
+            fields[field] = run(["dpkg-deb", "-f", str(path), field]).stdout.strip()
+        result[package] = (path, fields)
+    return result
+
+
+def kernel_release(package: str) -> str | None:
+    if package in IMAGE_METAPACKAGES or package.endswith(("-dbg", "-dbgsym")):
+        return None
+    if package.startswith("linux-image-unsigned-"):
+        release = package.removeprefix("linux-image-unsigned-")
+    elif package.startswith("linux-image-"):
+        release = package.removeprefix("linux-image-")
+    else:
+        return None
+    if not re.fullmatch(r"[0-9][A-Za-z0-9.+_~-]*-amd64", release):
+        raise PreflightError(f"unrecognized kernel image package name: {package}")
+    return release
+
+
+def registered_module_version() -> str:
+    result = run(["dkms", "status", "--dkmstree", str(DKMS_TREE), "-m", MODULE])
+    versions = set(re.findall(rf"^{re.escape(MODULE)}/([^,\s]+),", result.stdout, re.MULTILINE))
+    override = os.environ.get("BTRFS_QGROUP_DKMS_VERSION")
+    if override:
+        if versions and override not in versions:
+            raise PreflightError("configured DKMS version is not the registered version")
+        return override
+    if len(versions) != 1:
+        raise PreflightError(
+            f"expected one registered {MODULE} version, found {len(versions)}"
+        )
+    return next(iter(versions))
+
+
+def extract_headers(
+    release: str,
+    image: dict[str, str],
+    packages: dict[str, tuple[Path, dict[str, str]]],
+    root: Path,
+) -> Path | None:
+    arch_package = f"linux-headers-{release}"
+    common_package = f"linux-headers-{release.removesuffix('-amd64')}-common"
+    arch_entry = packages.get(arch_package)
+    common_entry = packages.get(common_package)
+    if arch_entry is None and common_entry is None:
+        if Path(f"/lib/modules/{release}/build/Makefile").is_file():
+            return None
+        raise PreflightError(f"no matching headers are installed or included for {release}")
+    if arch_entry is None or common_entry is None:
+        raise PreflightError(
+            f"both {arch_package} and {common_package} must be in the APT transaction"
+        )
+
+    arch_deb, arch_info = arch_entry
+    common_deb, common_info = common_entry
+    if arch_info["Version"] != common_info["Version"]:
+        raise PreflightError(f"header package versions differ for {release}")
+    if arch_info["Version"] != image["Version"]:
+        raise PreflightError(f"kernel image and header package versions differ for {release}")
+    if arch_info["Architecture"] != "amd64" or common_info["Architecture"] != "all":
+        raise PreflightError(f"unexpected header architectures for {release}")
+
+    stage = root / release
+    stage.mkdir(mode=0o700)
+    run(["dpkg-deb", "-x", str(common_deb), str(stage)])
+    run(["dpkg-deb", "-x", str(arch_deb), str(stage)])
+    arch_dir = stage / "usr/src" / f"linux-headers-{release}"
+    common_dir = stage / "usr/src" / common_package
+    makefile = arch_dir / "Makefile"
+    if not makefile.is_file() or not (common_dir / "Makefile").is_file():
+        raise PreflightError(f"extracted header packages are incomplete for {release}")
+
+    scripts_link = common_dir / "scripts"
+    if not scripts_link.is_symlink():
+        raise PreflightError(f"header package has no expected kbuild scripts link for {release}")
+    match = re.fullmatch(
+        r"\.\./\.\./lib/(linux-kbuild-[A-Za-z0-9.+_-]+)/scripts",
+        os.readlink(scripts_link),
+    )
+    if not match:
+        raise PreflightError(f"unrecognized kbuild scripts link for {release}")
+    kbuild_package = match.group(1)
+    kbuild_entry = packages.get(kbuild_package)
+    stage_lib = stage / "usr/lib"
+    stage_lib.mkdir(parents=True, exist_ok=True)
+    if kbuild_entry is not None:
+        kbuild_deb, kbuild_info = kbuild_entry
+        if (
+            kbuild_info["Version"] != image["Version"]
+            or kbuild_info["Architecture"] != "amd64"
+        ):
+            raise PreflightError(
+                f"kernel and kbuild package versions or architectures differ for {release}"
+            )
+        run(["dpkg-deb", "-x", str(kbuild_deb), str(stage)])
+    else:
+        host_kbuild = Path("/usr/lib") / kbuild_package
+        if not (host_kbuild / "scripts/Kbuild.include").is_file() or not (
+            host_kbuild / "scripts/pahole-version.sh"
+        ).is_file():
+            raise PreflightError(
+                f"matching {kbuild_package} package is neither incoming nor installed"
+            )
+        (stage_lib / kbuild_package).symlink_to(host_kbuild)
+
+    staged_kbuild = stage_lib / kbuild_package
+    if not (staged_kbuild / "scripts/Kbuild.include").is_file() or not (
+        staged_kbuild / "scripts/pahole-version.sh"
+    ).is_file():
+        raise PreflightError(f"extracted kbuild package is incomplete for {release}")
+
+    text = makefile.read_text()
+    kbuild_output = f"KBUILD_OUTPUT=/usr/src/linux-headers-{release}"
+    common_include = f"include /usr/src/{common_package}/Makefile"
+    if text.count(kbuild_output) != 1 or text.count(common_include) != 1:
+        raise PreflightError(f"unrecognized Debian header Makefile layout for {release}")
+    text = text.replace(kbuild_output, f"KBUILD_OUTPUT={arch_dir}")
+    text = text.replace(common_include, f"include {common_dir}/Makefile")
+    makefile.write_text(text)
+    return arch_dir
+
+
+def main() -> int:
+    try:
+        if os.geteuid() != 0:
+            raise PreflightError("APT hook must run as root")
+        actions = parse_apt_protocol(sys.stdin.read())
+        if not actions:
+            return 0
+        packages = apt_debs(actions)
+        targets = {
+            release: info
+            for package, (_, info) in packages.items()
+            if (release := kernel_release(package)) is not None
+        }
+        if not targets:
+            return 0
+
+        for package, (_, info) in packages.items():
+            if kernel_release(package) is not None and info["Architecture"] != "amd64":
+                raise PreflightError(f"unsupported kernel image architecture: {package}")
+
+        if MODULE_PACKAGE in packages:
+            installed_version = run(
+                ["dpkg-query", "-W", f"-f=${{Version}}", MODULE_PACKAGE], check=False
+            )
+            incoming_version = packages[MODULE_PACKAGE][1]["Version"]
+            if installed_version.returncode or installed_version.stdout.strip() != incoming_version:
+                raise PreflightError(
+                    "install the DKMS source update separately before upgrading the kernel"
+                )
+
+        version = registered_module_version()
+        if not PREFLIGHT.is_file() or not os.access(PREFLIGHT, os.X_OK):
+            raise PreflightError(f"DKMS preflight helper is not executable: {PREFLIGHT}")
+
+        with tempfile.TemporaryDirectory(prefix="btrfs-qgroup-apt-", dir="/var/tmp") as temp:
+            root = Path(temp)
+            command = [
+                str(PREFLIGHT),
+                "--module-version",
+                version,
+                "--prepare-dkms-tree",
+                str(DKMS_TREE),
+                "--source-tree",
+                str(SOURCE_TREE),
+            ]
+            for release, image in sorted(targets.items()):
+                command.extend(("--kernel", release))
+                headers = extract_headers(release, image, packages, root)
+                if headers is not None:
+                    command.extend(("--kernel-source", f"{release}={headers}"))
+
+            certificate = os.environ.get("BTRFS_QGROUP_CERTIFICATE")
+            if certificate:
+                command.extend(("--certificate", certificate))
+            result = subprocess.run(
+                command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            if result.returncode:
+                detail = (
+                    result.stderr.strip()
+                    or result.stdout.strip()
+                    or f"preflight helper exited with status {result.returncode}"
+                )
+                detail_lines = [
+                    "[DKMS signing details redacted]"
+                    if re.search(r"key|private", line, re.I)
+                    else line
+                    for line in detail.splitlines()[-20:]
+                ]
+                raise PreflightError("module preparation failed:\n" + "\n".join(detail_lines))
+
+        releases = ", ".join(sorted(targets))
+        print(f"Btrfs DKMS preflight passed for kernel release(s): {releases}")
+        return 0
+    except (OSError, PreflightError) as error:
+        print(f"Btrfs DKMS APT preflight: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

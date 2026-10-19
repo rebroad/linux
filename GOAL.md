@@ -396,6 +396,14 @@ quota-based cleanup must wait until the counters are consistent.
    but the package's build failure for an unmapped release can leave the
    kernel package unconfigured. Design and verify a visible, kernel-specific
    pre-install policy before an unsupported candidate enters dpkg.
+   A read-only APT preferences prototype on the live package lists confirmed
+   that versioned image, modules, and headers can be denied while exact
+   supported releases remain candidates, provided allowlist records precede
+   the broad deny rule. It denied the Debian 6.12 fallback and retained 7.2.6
+   and 7.2.9. This was tested with APT 3.0.3; a full isolated transaction
+   simulation proving an unsupported kernel is visibly held while unrelated
+   security updates proceed remains open. The installed APT version also needs
+   reconciling with the previously requested 3.1.8 before deploying the policy.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, initramfs inclusion, and exact-release

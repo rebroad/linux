@@ -4781,3 +4781,25 @@ specified in `GOAL.md`.
   against a kernel transaction. The hook must also arrange for the later DKMS
   kernel hook to consume the verified module without rebuilding it, and failed
   preflight must leave package and boot state unchanged.
+
+## APT hook ordering and DKMS prebuilt install test (2026-10-19)
+
+- Reflink-copied the existing disposable Debian root into the external build
+  tree, configured an APT 3.0.3 `DPkg::Pre-Install-Pkgs` version-3 hook, and
+  installed a tiny local test package through APT. When the hook returned 42,
+  APT returned 100 before dpkg unpacked the package; `dpkg-query` showed it was
+  absent and neither its `postinst` marker nor the hook's before-dpkg marker
+  existed. With the failure marker removed, APT completed and the package's
+  `postinst` verified that the hook had run first. The hook received the
+  expected `VERSION 3` package-action records.
+- In an alternate DKMS tree, `dkms autoinstall` failed when the built module
+  existed only as `btrfs.ko.xz`. After decompressing the signed module to
+  `btrfs.ko` in that scratch tree, `autoinstall` installed it without a build;
+  `modinfo` verified the target release vermagic and expected signer. This is
+  the behavior needed for the later kernel postinst to consume a preflighted
+  module.
+- Both tests changed only disposable data under the external build tree. They
+  establish hook ordering and DKMS's built-module install behavior, not a real
+  kernel APT transaction. The source-controlled hook, exact incoming header
+  package extraction, real DKMS-tree prebuild, failure cleanup, and boot and
+  initramfs gates remain unimplemented and unverified.

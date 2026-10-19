@@ -3950,3 +3950,20 @@ specified in `GOAL.md`.
   started then. The evidence attributes that scan to the explicit diagnostic
   command, not the Snapper timeline service. Its counters were not independently
   reconciled in this check.
+
+## Historical journal coverage audit (2026-10-19)
+
+- Persistent journals retain system boots back to 2026-08-13, but the kernel
+  journal contains no Btrfs entries before the current boot on 2026-10-18.
+  Thus the earlier qgroup inconsistency flags and scan initiators cannot be
+  reconstructed from retained kernel messages.
+- The oldest retained Kingston scan-related sudo records are from 2026-08-17
+  23:51:43 (`btrfs quota rescan status /mnt/kingston`) followed on
+  2026-08-18 00:00:23 by an explicit `btrfs quota rescan -w /mnt/kingston`.
+  The command was run from `/mnt/kingston/@home/rebroad/src/codex`; later
+  status and rescan commands followed at 00:02-00:06. These records establish
+  an explicit scan request, not the onset or cause of inconsistency.
+- The earliest retained Snapper timeline failure is 2026-08-13 08:08:32.
+  Its journal has the wrapper's `home` and `root` start messages and systemd's
+  exit status, but no qgroup, quota, inconsistency, or rescan diagnostic. Do
+  not infer a qgroup cause from those generic service failures.

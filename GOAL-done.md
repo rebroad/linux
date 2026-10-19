@@ -3714,5 +3714,8 @@ specified in `GOAL.md`.
   overridden 13:00 deadline, a custom hold-file path, preservation of a later
   active hold, and fail-closed handling of an invalid time. The installed
   helper was then checked with the real 04:00 default and an isolated 13:00
-  override. This verifies the helper's inputs and deadline calculation; a
-  real suspend/resume cycle and timer catch-up behavior remain unverified.
+  override. `systemd-analyze verify` passed for the sleep guard, timeline timer,
+  and timeline service when run with permission to read included root-owned
+  units; `sh -n` passed for both helpers and the system-sleep hook. This
+  verifies static configuration and deadline calculation; a real
+  suspend/resume cycle and timer catch-up behavior remain unverified.

@@ -148,14 +148,14 @@ with the alternate root. The current source/config match is recorded in
    leave package configuration broken nor permit silent boot of stock Btrfs.
    The existing synthetic 7.3.0 APT fixture has no maintainer scripts, so it
    verifies candidate blocking but not Debian's DKMS-hook or dpkg failure
-   behavior. The isolated Debian hook test found that a simulated DKMS failure
-   leaves the package half-configured and moves `/vmlinuz` to the candidate
-   before skipping initramfs and GRUB hooks; retry can recover dpkg, while the
-   GRUB menu remains on the rollback kernel. See `GOAL-done.md` for evidence.
-   Remaining: prevent any module build failure from leaving the package
-   half-configured or making an unverified kernel bootable, while preserving a
-   usable rollback. The actual APT rejection check left package state and boot
-   selection unchanged. Keep unrelated updates available and maintain the
+   behavior. Isolated tests found that a failed DKMS build in either Debian's
+   kernel-image hook or our DKMS package's own `postinst` leaves a package
+   half-configured. The kernel-image case also moves `/vmlinuz` before stopping
+   later hooks. See `GOAL-done.md` for evidence. Remaining: redesign the module
+   preparation and activation flow so build failures happen before dpkg changes
+   kernel-package state, and cannot make an unverified kernel bootable. Preserve
+   a usable rollback. The actual APT rejection check left package state and
+   boot selection unchanged. Keep unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's
    tracker marks all 12 CVEs in DSA-6393 fixed by upstream
    7.2.9 or earlier. This supports keeping the selected 7.2.9 backport for

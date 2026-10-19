@@ -4675,3 +4675,29 @@ specified in `GOAL.md`.
   remained configured. This test validates Debian's failure and recovery
   behavior, but it exposes the unresolved half-configured-package and
   `/vmlinuz`-symlink risk; it does not establish a safe failure design.
+
+## DKMS package postinst failure test (2026-10-19)
+
+- Inspected the installed DKMS package's own `postinst`. It uses `set -eu`,
+  validates the enrolled signing certificate, then builds modules for every
+  installed kernel before installing any of them and updating initramfs images.
+  A failed build therefore aborts configuration of the DKMS package itself.
+- Exercised the package's actual `postinst` from its built `.deb` in a separate
+  Debian trixie chroot. Stubbed the signing checks and made the first DKMS build
+  return 42; no host key material or host package database was used. `dpkg -i`
+  exited 1, `dpkg-query` reported `install ok half-configured`, and `dpkg
+  --audit` identified `btrfs-qgroup-dkms` as half-configured. The host's
+  `dpkg --audit` remained empty and the running kernel remained 7.2.6.
+- Inspected Debian DKMS 3.2.2's `autoinstall()` implementation: it skips a
+  module already installed for the target kernel before checking `AUTOINSTALL`
+  or attempting a build. The live DKMS status and `modprobe --show-depends`
+  confirm the APT-allowlisted 7.2.6 and 7.2.9 releases already have and select
+  their signed DKMS modules. The active APT pin rejects unsupported 7.3.0.
+  This supports keeping prepared releases out of the build path during kernel
+  postinst, but does not solve failures while installing or upgrading the DKMS
+  package itself.
+- Test harness and isolated root remain in the external Linux build tree at
+  `/mnt/kingston/builds/rebroad/src/linux.build/`. A safe release process still
+  needs to build and verify a candidate module before dpkg begins changing
+  kernel-package state, then gate boot/initramfs selection on that verified
+  module.

@@ -3967,3 +3967,19 @@ specified in `GOAL.md`.
   Its journal has the wrapper's `home` and `root` start messages and systemd's
   exit status, but no qgroup, quota, inconsistency, or rescan diagnostic. Do
   not infer a qgroup cause from those generic service failures.
+
+## Four-config Snapper list check (2026-10-19 14:32 BST)
+
+- Ran the installed local Snapper binary's `list` operation for p8 root/home
+  and Kingston root/home. All four returned their timeline snapshots through
+  the expected configs.
+- Kingston home is a separate top-level `@home` subvolume, while its Snapper
+  config is under `@/etc`. The timeline wrapper temporarily bind-mounts
+  `@home` at `@/home` before invoking Snapper with `--root /mnt/kingston/@`.
+  My first manual list omitted that wrapper setup and failed with “subvolume is
+  not a btrfs subvolume”; repeating the check with the wrapper's bind mount
+  succeeded. The temporary mount was removed immediately afterward.
+- After all four list operations, p8 and Kingston both had inconsistency flag
+  `0` and no rescan in progress. This verifies live config/path operation; it
+  does not independently validate qgroup counter accuracy, cleanup, or
+  suspend/resume behavior.

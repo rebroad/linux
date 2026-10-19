@@ -4230,6 +4230,23 @@ specified in `GOAL.md`.
   touched. This is not a real suspend/resume test; timer catch-up behavior and
   the live Snapper rescan path after resume remain open.
 
+## Linux source checkout overlay cleanup (2026-10-19 16:24 BST)
+
+- The Linux repo root had Btrfs-only copies in its top-level `Kconfig` and
+  `Makefile`, plus 142 untracked files. The copies were not used by DKMS:
+  `PRE_BUILD` selects the versioned `kernel-sources/<release>/fs/btrfs` tree
+  from `/usr/src` and copies it into DKMS's external build directory. No kernel
+  or DKMS build was active during cleanup.
+- Before removing the misplaced copies, they were archived with `cpto` into
+  `/mnt/kingston/builds/rebroad/src/linux.build/btrfs-root-overlay-7.2.9-20261019`.
+  The archive manifest verifies all 145 entries. Among the source files,
+  123 matched the packaged 7.2.6 and 7.2.9 sources, and 19 matched 7.2.9
+  exactly. The unmatched `qgroup.c.orig` backup was retained in the archive.
+- The 142 untracked root-level files were then removed, and the Linux top-level
+  `Kconfig` and `Makefile` were restored from `HEAD`. The actual tracked
+  `fs/btrfs` sources and installed DKMS sources were left unchanged; the Linux
+  checkout reported clean afterward.
+
 ## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
 
 - Rebuilt an isolated QEMU rootfs from the current local Snapper packages built

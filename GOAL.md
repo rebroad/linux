@@ -47,13 +47,15 @@ scan-attribution evidence is in `GOAL-done.md`.
 
 The host currently runs the shared-parent fast path on `7.2.6+deb13-amd64`
 (build ID `258e41d2`). Its 11:00-14:00 hourly runs created all four snapshots
-without a scan; a Kingston full rescan after the first three cycles changed no
-qgroup counters. The p8 diagnostic scan and subsequent live counter readings
-are inconclusive because filesystem activity continued during measurement. The
-newer signed DKMS modules for installed 7.2.6 and 7.2.9 are not active; reboot,
-live accounting validation, and rollback checks remain open. The first-ever
-onset of the historical Kingston inconsistency is unknown. See `GOAL-done.md`
-for the complete chronology and evidence.
+without a scan. A later 15:31 wrapper run also created four snapshots, and the
+two `apt` snapshots from reinstalling Snapper left both filesystems consistent
+without a scan. A Kingston full rescan after the first three hourly cycles
+changed no qgroup counters. The p8 diagnostic scan and subsequent live counter
+readings are inconclusive because filesystem activity continued during
+measurement. The newer signed DKMS modules for installed 7.2.6 and 7.2.9 are
+not active; reboot, live accounting validation, and rollback checks remain
+open. The onset of the historical Kingston inconsistency is unknown. See
+`GOAL-done.md` for the complete chronology and evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,

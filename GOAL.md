@@ -338,7 +338,7 @@ quota-based cleanup must wait until the counters are consistent.
    investigation; an empty value leaves Snapper's default `0.5` limit active.
    Recheck the shared rescan window and hold marker after package configuration
    migrations.
-3. **Make the fix durable across APT upgrades — 75% done.** Prefer a Snapper-only
+3. **Make the fix durable across APT upgrades — 80% done.** Prefer a Snapper-only
    deployment if that fully fixes the cause and satisfies the rescan ceiling.
    If a kernel/module change is required, choose and document a maintainable,
    APT-managed deployment for the paired kernel and Snapper changes. It must
@@ -395,34 +395,36 @@ quota-based cleanup must wait until the counters are consistent.
    inspection shows that this failure propagates through DKMS and Debian's
    `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore
    leave the kernel image package unconfigured. This is not an acceptable
-   fail-safe. Design and verify a pre-install policy that prevents an
-   unsupported kernel from becoming bootable without leaving dpkg broken,
-   silently selecting stock Btrfs, or blocking unrelated security updates;
-   make any temporarily withheld kernel update visible. Keep preparing exact
+   fail-safe. The installed pre-install APT policy prevents an unsupported
+   kernel from becoming bootable without entering a failing DKMS build or
+   silently selecting stock Btrfs. Its held-back kernel meta-packages remain
+   visible, and non-kernel security updates can proceed. Keep preparing exact
    source support before each new APT kernel candidate and test both the
    supported and unsupported paths end to end.
-   The live audit confirms there are no held packages or custom pre-install
-   guard; `dpkg --audit` is clean. DKMS's standard kernel hooks are present,
-   but the package's build failure for an unmapped release can leave the
-   kernel package unconfigured. Design and verify a visible, kernel-specific
-   pre-install policy before an unsupported candidate enters dpkg.
-   A read-only APT preferences prototype on the live package lists confirmed
-   that versioned image, modules, and headers can be denied while exact
-   supported releases remain candidates, provided allowlist records precede
-   the broad deny rule. It denied the Debian 6.12 fallback and retained 7.2.6
-   and 7.2.9. An isolated transaction simulation with APT 3.0.3 now confirms
-   that an unsupported versioned kernel image/module is not installable, its
-   meta-packages are visibly kept back, and an unrelated security update still
-   proceeds. The no-pin control would install the unsupported image and
-   modules. No production pin has been installed; test details are in
-   `GOAL-done.md`.
+   The production preference file
+   `/etc/apt/preferences.d/99-btrfs-qgroup-kernel.pref` is now installed. It
+   allows exact Debian package versions for the supported 7.2.6 and 7.2.9
+   kernel builds and denies other versioned kernel images, modules, binaries,
+   bases, headers, and kbuild packages. The kernel image/header meta-packages
+   remain visible to APT and are kept back when their required kernel is not
+   allowed. On the live package lists, both supported releases remain
+   candidates; the available 6.12 security image and headers have no
+   installation candidate (the current index has no separate 6.12 modules
+   package). `apt-get -s install` rejects the 6.12 image, the 7.2.9 image
+   remains installable, simulated `apt-get upgrade` and `full-upgrade` report
+   no package changes, and `dpkg --audit` is clean. A synthetic 7.3.0
+   transaction using the production policy shape visibly kept the kernel
+   meta-packages back while upgrading an unrelated security package. It holds
+   kernel updates until their exact source, signed module, initramfs, and
+   acceptance are ready; maintain the allowlist before each later release.
+   Test artifacts and limits are in `GOAL-done.md`.
 
    The live system still has APT 3.0.3 installed and as its Trixie candidate.
    The previously requested 3.1.8 was a Debian testing version, not available
    from the configured Trixie sources ([Debian package tracker](https://tracker.debian.org/news/1675790/apt-318-migrated-to-testing/);
-   [Trixie package page](https://packages.debian.org/source/stable/apt)). Decide
-   whether to install that historical out-of-suite version before deploying a
-   production pin; do not add a testing source implicitly.
+   [Trixie package page](https://packages.debian.org/source/stable/apt)). The
+   kernel guard was tested with the installed Trixie APT 3.0.3; no testing
+   source was added for this work.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, initramfs inclusion, and exact-release
@@ -489,7 +491,7 @@ quota-based cleanup must wait until the counters are consistent.
    in-use release; do not build or boot a different kernel for acceptance.
    Add coverage only for Btrfs layouts needed by the patch or not already
    covered.
-5. **Preserve temporary host containment, including after resume — 92% done.** The
+5. **Preserve temporary host containment, including after resume — 94% done.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in
    `GOAL-done.md`. The 18:00 run exposed duplicate hourly snapshots: `/` and

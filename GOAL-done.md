@@ -3866,3 +3866,13 @@ specified in `GOAL.md`.
   `btrfs quota rescan -s` reported no scan in progress on either filesystem.
   This confirms the live mapping and policy configuration, not long-term
   counter correctness or suspend/resume behavior.
+- The 14:00:05-14:00:06 hourly run created the next timeline snapshot in all
+  four roots: p8 root `3863`, p8 home `2808`, Kingston root `2726`, and
+  Kingston home `2519`. The wrapper's duplicate-target messages refer to the
+  extra p8 mount/config discovery after the default-root snapshots; they do
+  not indicate that the intended targets were skipped. No qgroup scan started
+  during or after this run, and both filesystem inconsistency flags remained
+  clear at 14:06.
+- The p8 counter samples after its 13:58 diagnostic scan spanned ongoing live
+  filesystem updates and the 14:00 snapshot operations. Their changes cannot
+  be assigned to the rescan itself or treated as an accounting mismatch.

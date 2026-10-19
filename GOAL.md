@@ -42,8 +42,9 @@ inheritance, and the wrapper starts another scan. A preserved Kingston config
 pair shows distinct root/home QGROUPs (`1/100` and `1/101`) during a later
 instance of this cycle, so a shared root/home snapshot group is not required
 for it. On the 7.2.6 host, the loaded shared-parent fast-path module completed
-the 11:00, 12:00, and 13:00 hourly cycles without a scan. A forced Kingston
-rescan after those cycles changed none of the four snapshot/tracker counters.
+the 11:00, 12:00, 13:00, and 14:00 hourly cycles without a scan. A forced
+Kingston rescan after the first three cycles and before the 14:00 run changed
+none of the four snapshot/tracker counters.
 The two earlier 09:47:09 and 10:23:32 scan completions came from explicit
 diagnostic `btrfs quota rescan -w /mnt/kingston` commands logged at 09:35:08
 and 10:12:22; the 10:00 Snapper timer finished at 10:00:02 and initiated
@@ -51,10 +52,12 @@ neither. These diagnostic scans are separate from the historical automatic
 stock-kernel cycle. The diagnostic Kingston scan at 13:27:42 completed at
 13:40:24 with all four qgroup counters unchanged. The diagnostic p8 scan at
 13:42:31 completed at 13:58:06 with the inconsistency flag clear, but its
-counters changed during the scan and continued changing after filesystem sync
-through 14:01:53. Because p8 was live and counters did not settle, this is not
-yet evidence of incorrect accounting; quiescent/independent reconciliation is
-still required. Longer current-kernel observation, p8 live reconciliation,
+counters differed between live reads during the scan and continued changing
+after filesystem sync and the 14:00 snapshots through 14:01:53. Because p8
+was active throughout, this is not evidence of incorrect accounting;
+quiescent/independent reconciliation is still required. The 14:00 hourly run
+created snapshots on all four roots without a scan, with both inconsistency
+flags clear. Longer current-kernel observation, p8 live reconciliation,
 and the original onset remain open. The running Btrfs module is still build ID
 `258e41d2`; the installed, signed 7.2.6 DKMS module is `46d21507` and is
 included in the initramfs. The new teardown backport needs a reboot before live

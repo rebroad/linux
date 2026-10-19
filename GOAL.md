@@ -144,11 +144,15 @@ with the alternate root. The current source/config match is recorded in
    workloads. Remaining: after an approved reboot, verify the loaded 7.2.9
    module and live accounting, then explicitly boot 7.2.6 and verify its
    replacement module and rollback path. Exercise supported and unsupported
-   kernel transactions
-   end to end: a failed or unmapped build must neither leave package
-   configuration broken nor permit silent boot of stock Btrfs. Keep unrelated
-   updates available and maintain the visible APT kernel allowlist before each
-   candidate. Debian's tracker marks all 12 CVEs in DSA-6393 fixed by upstream
+   kernel transactions end to end: a failed or unmapped build must neither
+   leave package configuration broken nor permit silent boot of stock Btrfs.
+   The existing synthetic 7.3.0 APT fixture has no maintainer scripts, so it
+   verifies candidate blocking but not Debian's DKMS-hook or dpkg failure
+   behavior. Add an isolated transaction test that covers those hooks and
+   verifies the package database and boot selection after both a rejected
+   kernel and a simulated DKMS failure. Keep unrelated updates available and
+   maintain the visible APT kernel allowlist before each candidate. Debian's
+   tracker marks all 12 CVEs in DSA-6393 fixed by upstream
    7.2.9 or earlier. This supports keeping the selected 7.2.9 backport for
    those fixes. The backport's complete `debian/patches` tree was compared
    byte-for-byte with Debian's `7.2.9-1` unstable source and is identical.

@@ -489,8 +489,11 @@ quota-based cleanup must wait until the counters are consistent.
    kernel. The tests and candidate kernel patch now apply to the current Btrfs
    `for-next` submission base. Keep runtime kernel testing on the exact
    in-use release; do not build or boot a different kernel for acceptance.
-   Add coverage only for Btrfs layouts needed by the patch or not already
-   covered.
+   The 2026-10-19 follow-up directly covers overflow in the target snapshot
+   group's exclusive counters, the shared tracker's four counters, and all
+   four ancestor counters; the exact-7.2.6 QEMU sanity run passed at all five
+   nodesizes. See `GOAL-done.md`. Add further coverage only for Btrfs layouts
+   needed by the patch or not already covered.
 5. **Preserve temporary host containment, including after resume — 94% done.** The
    timeline wrapper's explicit `btrfs quota rescan` commands are currently
    disabled while snapshots continue; the current host check is recorded in

@@ -3337,3 +3337,22 @@ specified in `GOAL.md`.
   recurring inconsistency cause as fully resolved. A real suspend/resume,
   quota cleanup, package rollback/reinstall, and kernel-upgrade acceptance
   remain open in `GOAL.md`.
+
+## Live sleep/resume guard wiring audit (2026-10-19 10:07 BST)
+
+- The root-owned `snapper-timeline-sleep.service` is enabled and required by
+  `sleep.target`. The root-owned `/usr/lib/systemd/system-sleep/98-snapper-timeline`
+  hook is also installed; it invokes the same
+  `/usr/local/libexec/snapper-timeline-sleep` helper with systemd's `pre` or
+  `post` argument. This supersedes the earlier audit that found only the
+  unrelated unattended-upgrades sleep hook.
+- Static source inspection shows the helper records the timer's prior active
+  state under `/run`, stops the timer before sleep, refreshes the shared rescan
+  hold before restarting the timer after resume, and removes the state file.
+  The service and system-sleep hook therefore share an idempotency guard. The
+  `sleep.target` dependency is present, `snapper-timeline-sleep.service` is
+  enabled, the timeline timer is active and enabled, and the state file and
+  hold marker were absent at inspection.
+- This verifies installed wiring and static ordering only. No real
+  suspend/resume was initiated, so systemd's runtime ordering and the absence
+  of a catch-up rescan remain to be verified on a real resume.

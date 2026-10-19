@@ -4212,6 +4212,22 @@ specified in `GOAL.md`.
   accurate counters, and on p8 it overlaps with the separate built-in cleanup
   timer; test and reconcile those paths before applying it.
 
+## Scheduled four-root snapshot cycle (2026-10-19 17:00 BST)
+
+- The hourly timer ran `snapper-timeline.service` at 17:00:03 and the service
+  exited successfully at 17:00:04. The live qgroup tree showed four new
+  snapshot leaves: p8-root snapshot 3869 (`0/6972` under `1/100`), p8-home
+  2812 (`0/6973` under `1/101`), Kingston-root 2730 (`0/5530` under `1/100`),
+  and Kingston-home 2523 (`0/5529` under `1/101`).
+- After the run, `btrfs quota rescan -s` reported no scan in progress on p8 or
+  Kingston, and both qgroup inconsistency flags were `0`. This is one more
+  successful scheduled four-root snapshot cycle with the currently running
+  kernel and local Snapper build; it does not independently verify the stored
+  counters.
+- The p8 collective counters changed between the 16:40 and 17:00 readings,
+  including the new snapshots and intervening filesystem activity. The
+  independent full-accounting comparison therefore remains open.
+
 ## Isolated Snapper package rollback cycle (2026-10-19)
 
 - In a disposable `/var/tmp` dpkg root, installed the previous local package

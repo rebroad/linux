@@ -3682,6 +3682,11 @@ specified in `GOAL.md`.
   Debian repository transaction. The test repository and status database are
   under `/var/tmp/kernel-pin-sim.TIW8w3/`; no host package or APT configuration
   was changed.
+- Ran an actual `apt-get install linux-image-7.3.0+deb13-amd64` against that
+  isolated repository and status database. APT exited 100 with “no
+  installation candidate”; the isolated dpkg status hash and host
+  `/boot/grub/grub.cfg` hash were unchanged. No package transaction or kernel
+  hook ran.
 - The previously requested APT `3.1.8` was a Debian testing version; it is not
   available from this host's configured Trixie sources. Debian's tracker
   records its migration to testing on 2025-10-07, while the Trixie source
@@ -4643,4 +4648,30 @@ specified in `GOAL.md`.
   releases out of the upgrade plan.
 - This verifies the source-map rejection and current APT transaction plan,
   not a full unsupported Debian kernel package install or the resulting
-  `dpkg` recovery path. That end-to-end package-hook behavior remains open.
+  `dpkg` recovery path. Actual APT rejection is tested in the isolated APT
+  transaction section above; simulated DKMS-hook failure and recovery are
+  tested below.
+
+## Isolated Debian kernel-hook failure and recovery test (2026-10-19)
+
+- Created a minimal Debian trixie root under the external Linux build tree at
+  `/mnt/kingston/builds/rebroad/src/linux.build/dpkg-failure-chroot/` using
+  `mmdebstrap`. The host package database and boot files were not used by the
+  test transaction.
+- Installed a synthetic 7.2.6 rollback image, then a synthetic
+  `linux-image-7.2.9+deb13-amd64` package carrying the exact installed Debian
+  7.2.9 image `postinst`. The chroot supplied Debian's real
+  `linux-run-hooks`, Perl, `run-parts`, and `linux-update-symlinks`.
+- The simulated `dkms` postinst hook exited 42. `dpkg -i` exited 1 and
+  `dpkg-query` reported `install ok half-configured`. The actual postinst had
+  already moved `/vmlinuz` to the candidate before invoking hooks. The hook log
+  contained only `dkms`; later initramfs and GRUB hooks did not run, and the
+  generated GRUB menu fixture still selected the rollback kernel.
+- After changing the simulated DKMS hook to succeed, `dpkg --configure -a`
+  completed the package. The retry ran DKMS, initramfs, and GRUB hooks in order,
+  and the chroot's `dpkg --audit` was empty.
+- A final host audit emitted no `dpkg --audit` findings. The host remained on
+  `7.2.6+deb13-amd64`, and both installed 7.2.6 and 7.2.9 image packages
+  remained configured. This test validates Debian's failure and recovery
+  behavior, but it exposes the unresolved half-configured-package and
+  `/vmlinuz`-symlink risk; it does not establish a safe failure design.

@@ -4578,3 +4578,23 @@ specified in `GOAL.md`.
 - The installed local Snapper and libsnapper `0.13.2-1+local1.20261019003646.g7d4db17085ce`
   remain APT candidates. Debian-origin Snapper remains pinned at priority `-1`.
   No package transaction was applied.
+
+## Live four-root timeline-service cycle (2026-10-19 17:46 BST)
+
+- Confirmed no active `force-suspend` hold, then ran the installed
+  `snapper-timeline.service` once. It completed successfully from 17:46:07 to
+  17:46:08. The wrapper logged duplicate p8 mount aliases and created one
+  snapshot for each unique config target.
+- New snapshots: p8-root 3870 (`0/6974` under `1/100`), p8-home 2813
+  (`0/6975` under `1/101`), Kingston-root 2731 (`0/5532` under `1/100`), and
+  Kingston-home 2524 (`0/5531` under `1/101`). The live qgroup tree shows p8
+  `1/100` and `1/101` under trackers `2/0` and `2/1`; Kingston's root and home
+  groups remain separately attached to `2/1` and `2/0` respectively.
+- All four `forget --collective` results reported `CONSISTENT`: p8-root 88
+  snapshots / 28.98 GiB exclusive, p8-home 36 / 21.67 GiB, Kingston-root 94 /
+  14.60 GiB, and Kingston-home 40 / 18.89 GiB. Neither filesystem had a scan
+  in progress, and the kernel journal had no qgroup scan or inconsistency
+  event during the cycle.
+- The loaded module was still 7.2.6 build ID `258e41d2`, not the newer signed
+  DKMS replacement. This adds a successful live snapshot round on the active
+  module; post-reboot validation and the scheduled cleanup run remain open.

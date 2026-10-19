@@ -4053,6 +4053,17 @@ specified in `GOAL.md`.
   changing the kernel allowlist or claiming ongoing security coverage, compare
   each newer Debian security advisory against the actual selected backports
   source.
+- Compared the exact `debian/patches` directories from Debian's official
+  `linux_7.2.9-1.debian.tar.xz` and the host-targeted
+  `linux_7.2.9-1~bpo13+1.debian.tar.xz`. All 78 files, including `series`, are
+  byte-for-byte identical. Their SHA-256 hashes are respectively
+  `2f0002dcc877aa7577e4cb5af2f56996e668bd9f033ef3c90475f7196f3b80b1` and
+  `12617f6c507319252e7dc5d68d36d880bcb8e32dd44e26260ce2b06fb898f8df`.
+  The backport changelog says it is a rebuild for trixie-backports, and its
+  Debian patch set adds no delta to the 7.2.9-1 source patch set. This supports
+  the previously recorded tracker result for DSA-6393; it does not establish
+  coverage of later advisories. The archives and extracted comparison are in
+  `/mnt/kingston/builds/rebroad/src/linux.build/debian-source-audit-20261019/`.
 
 ## Live qgroup status check (2026-10-19 14:49 BST)
 

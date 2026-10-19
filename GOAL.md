@@ -134,9 +134,9 @@ with the alternate root. The current source/config match is recorded in
    updates available and maintain the visible APT kernel allowlist before each
    candidate. Debian's tracker marks all 12 CVEs in DSA-6393 fixed by upstream
    7.2.9 or earlier. This supports keeping the selected 7.2.9 backport for
-   those fixes; the exact Debian backport source patch set has not been
-   compared byte-for-byte with the fixed Debian source records. Recheck each
-   later Debian kernel security advisory against the selected backports
+   those fixes. The backport's complete `debian/patches` tree was compared
+   byte-for-byte with Debian's `7.2.9-1` unstable source and is identical.
+   Recheck each later Debian kernel security advisory against the selected backports
    candidate; if a security fix is absent, prepare and test a matching signed
    module before allowing another kernel through the kernel guard. Verify the
    locally built Snapper fix also survives package reinstall/upgrade. The APT

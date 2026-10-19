@@ -4216,6 +4216,20 @@ specified in `GOAL.md`.
   It was a diagnostic scan, not a scan initiated by the Snapper timeline
   service. The scan completed with the inconsistency flag clear.
 
+## Live post-resume hold-path audit (2026-10-19 16:16 BST)
+
+- The four host Snapper configs still use the same hold marker and `04:00`
+  release time. `snapper-timeline-sleep.service` is enabled, runs its pre-sleep
+  action before `sleep.target`, and runs its post action when stopped. The
+  executable system-sleep hook calls the same helper, so repeated post actions
+  share its marker check. The post action refreshes the hold before restarting
+  `snapper-timeline.timer`.
+- A smoke test of the installed hold writer against a temporary `/var/tmp`
+  marker produced the next `04:00` deadline (`2026-10-20 04:00 BST`) and kept
+  that deadline unchanged on a second refresh. The live hold file was not
+  touched. This is not a real suspend/resume test; timer catch-up behavior and
+  the live Snapper rescan path after resume remain open.
+
 ## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
 
 - Rebuilt an isolated QEMU rootfs from the current local Snapper packages built

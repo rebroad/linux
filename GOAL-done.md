@@ -4170,15 +4170,51 @@ specified in `GOAL.md`.
   accounting scan.
 - The scheduled 16:00 `snapper-timeline.service` run started and finished
   successfully at 16:00:05-16:00:07. Its journal contained four duplicate
-  target skips for the p8 root/home configs. At 16:00:16 both `/` and Kingston
-  had inconsistency flags `0` and reported no rescan in progress. This check
-  does not establish new snapshot counts or independently reconcile counters.
+  target skips for the p8 root/home configs. A direct read-only listing then
+  confirmed fresh timeline snapshots on all four roots: p8 root `3868`, p8 home
+  `2811`, Kingston root `2729`, and Kingston home `2522`, at 16:00:05-07. At
+  16:00:16 both filesystems had inconsistency flags `0` and no rescan in
+  progress. This proves one current four-root snapshot cycle, but does not
+  independently reconcile counters or exercise cleanup.
 - At 16:06, `dpkg-query` confirmed both `snapper` and `libsnapper` remain at
   `0.13.2-1+local1.20261019003646.g7d4db17085ce`. All four root/home configs
   still had separate `1/100` and `1/101` snapshot groups, the shared hold path,
   the `05:00-21:00` window, the daily limit disabled, and `SPACE_LIMIT="1.0"`.
   Both filesystems still reported no rescan in progress and inconsistency flag
   `0`. The loaded Btrfs module was not revalidated by this check.
+
+## Host module and qgroup baseline (2026-10-19 16:13 BST)
+
+- The current boot started at 2026-10-18 22:03:46, before the signed DKMS
+  module and refreshed initramfs were installed at 11:13 and 11:14 on
+  2026-10-19. The loaded module's build ID remains
+  `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`; the installed 7.2.6 DKMS module
+  is signed by `Rebroad's module signing key`, has build ID
+  `46d2150765693e6b09846490c74ebdf710c0661b`, is selected by `modprobe`, and
+  is present in both 7.2.6 and 7.2.9 initramfs images. DKMS reports both
+  releases installed. Therefore the replacement is prepared but its build is
+  not active in this boot.
+- A read-only sample at
+  `/mnt/kingston/builds/rebroad/src/linux.build/host-qgroup-baseline-20261019-1613.txt`
+  records both filesystems' inconsistency flags, rescan status, four qgroup
+  counter pairs, running kernel, loaded module build ID, and Snapper version.
+  Its SHA-256 is
+  `f5d838e2674084373f17c028da81b30437c46a2055067eaf5f812bbe8336639b`.
+  At capture time both filesystems had inconsistency flag `0`, no scan in
+  progress, and both configured snapshot groups plus their two tracker groups
+  were present.
+- Two p8 read-only counter samples 47 seconds apart showed qgroup counters
+  changing, so the filesystem was not quiesced and this does not provide the
+  required independent accounting reconciliation. The Kingston counters were
+  unchanged between those samples.
+- GRUB is configured with `GRUB_DEFAULT=0`; its first normal kernel entry is
+  7.2.9, followed by 7.2.6, with no saved-entry override. The next default boot
+  is therefore prepared to use the signed 7.2.9 DKMS module, subject to
+  post-boot build-ID verification.
+- The 13:40:24 Kingston scan was explicitly started by
+  `btrfs quota rescan -w /mnt/kingston` at 13:27:42, as recorded by sudo audit.
+  It was a diagnostic scan, not a scan initiated by the Snapper timeline
+  service. The scan completed with the inconsistency flag clear.
 
 ## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
 

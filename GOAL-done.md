@@ -3910,3 +3910,22 @@ specified in `GOAL.md`.
   rescan without a quiescent comparison.
 - Source reviewed at `snapper/Btrfs.cc:343-406`,
   `snapper/Btrfs.cc:420-455`, and `snapper/BtrfsUtils.cc:894-1018`.
+
+## Shared hold-path source audit (2026-10-19 14:14 BST)
+
+- The p8 and Kingston Snapper configs, `/etc/default/force-suspend`, and the
+  `force-suspend` fallback all name
+  `/home/rebroad/.local/state/snapper/qgroup-rescan-hold-until`.
+- Although Snapper prefixes the alternate Kingston root when locating its
+  config and sysconfig files, it passes `QGROUP_RESCAN_HOLD_FILE` unchanged to
+  `QGroupRescanLimiter::hold_active()`. That function opens the absolute path
+  directly. Thus Kingston's alternate-root invocation reads the same host
+  marker as p8; it does not look for a copy under Kingston's `/home`.
+- `force-suspend` writes the deadline via a temporary file and renames it into
+  place with mode `0644`. `hold_active()` rejects non-regular files and
+  group/other-writable modes, so that mode passes its file-safety check. This
+  verifies path and format compatibility by source inspection; it is not a
+  live end-to-end suspend test.
+- Source reviewed at `snapper/BtrfsUtils.cc:963-979`,
+  `snapper/QGroupRescanLimiter.cc:312-345`, and
+  `/home/rebroad/bin/force-suspend:58-99`.

@@ -114,6 +114,10 @@ never report stale counters as consistent. When a rescan is
 deferred, Snapper must still return last-known quota values with an explicit
 stale status; `snapper list` should display them with a warning, and
 quota-based cleanup must wait until the counters are consistent.
+The host's shared marker path is also used by Kingston's `--root` invocation:
+Snapper opens the configured absolute path directly rather than prefixing it
+with the alternate root. The current source/config match is recorded in
+`GOAL-done.md`; a real suspend/resume hold test remains open.
 
 ## Next steps
 

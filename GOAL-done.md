@@ -4142,3 +4142,22 @@ specified in `GOAL.md`.
   version rollback only. It does not validate dependency resolution, host
   daemon behavior, conffile migration, or runtime rollback; those host checks
   remain open in `GOAL.md`.
+
+## Live four-root timeline cycle after Snapper reinstall (2026-10-19 15:31 BST)
+
+- Ran `/usr/local/sbin/snapper-timeline-all-roots` once on the host. Snapper
+  created p8 root snapshot 3867 and home snapshot 2810, plus Kingston root
+  snapshot 2728 and home snapshot 2521. All four configs kept their distinct
+  snapshot-only qgroups: the new root leaves were under `1/100`, and the new
+  home leaves were under `1/101` on each filesystem.
+- `btrfs qgroup show --raw -p` reported p8 snapshot leaf qgroups `0/6968`
+  (root, 161,874,595,840 referenced / 81,920 exclusive bytes) and `0/6969`
+  (home, 267,491,127,296 / 16,384 bytes). Kingston's corresponding leaves were
+  `0/5526` (root, 20,237,672,448 / 16,384 bytes) and `0/5525` (home,
+  307,165,753,344 / 16,384 bytes), with the expected parent groups.
+- Immediately after the cycle, both filesystems reported no qgroup rescan in
+  progress and `btrfs qgroup show` emitted no inconsistency warning. This adds
+  one four-root host cycle after the package reinstall. The loaded module was
+  still the older `258e41d2` build, not the newly installed DKMS module, and
+  this observation does not independently reconcile counters against a full
+  accounting scan.

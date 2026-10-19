@@ -154,11 +154,14 @@ with the alternate root. The current source/config match is recorded in
    later hooks. See `GOAL-done.md` for evidence. The source-controlled
    `scripts/local-btrfs-qgroup-dkms-preflight` now builds and verifies modules
    in an alternate DKMS tree and emits a separate signed archive for each
-   release. Each archive imported and staged in its own scratch DKMS tree.
-   This is a preparation prototype, not yet a package or upgrade solution.
-   Remaining: integrate the preflight artifacts with kernel package
+   release. It accepts staged headers through `--kernel-source RELEASE=DIR`;
+   a scratch copy of `dkms.conf` uses DKMS's `kernel_source_dir` variable.
+   The staged-path build passed against an alternate path to the installed
+   7.2.9 headers. This remains a preparation prototype, not yet a package or
+   upgrade solution. Remaining: exercise an actual downloaded candidate header
+   package, then integrate the preflight artifacts with kernel package
    preparation and activation so build failures happen before dpkg changes
-   kernel-package state, and an unverified kernel cannot become bootable.
+   kernel-package state and an unverified kernel cannot become bootable.
    Preserve a usable rollback. The actual
    APT rejection check left package state and boot selection unchanged. Keep
    unrelated updates available and maintain the

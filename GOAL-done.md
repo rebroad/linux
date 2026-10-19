@@ -3361,14 +3361,13 @@ specified in `GOAL.md`.
 
 - The sudo journal records `btrfs quota rescan -w /mnt/kingston` at 09:35:08
   and 10:12:22 BST. The local `btrfs-quota(8)` documentation says `-w` starts
-  a rescan and waits, and may join one already in progress. Kernel messages
-  record scan completions at 09:47:09 and 10:23:32. The 10:12 command was
-  preceded by a status check showing no scan in progress and a clear
-  inconsistency flag, so that diagnostic definitely initiated the 10:23 scan;
-  exclude it from Snapper's automatic scan frequency. The available journal
-  does not preserve the output of the 09:34 status check, so the 09:35 command
-  might have joined a scan already started by Snapper or started it itself.
-  The initiator of the 09:47 completion remains unproven.
+  a rescan and waits, and may join one already in progress. The retained output
+  of the 09:34:56 status command shows Kingston's inconsistency flag was `1`
+  and no rescan was in progress. Immediately before the 10:12 command, the
+  flag was `0` and no rescan was in progress. Kernel messages record scan
+  completions at 09:47:09 and 10:23:32. The `-w` diagnostics therefore started
+  both scans; neither was started by Snapper or its hourly timer. Exclude both
+  from evidence about Snapper's automatic scan frequency.
 - After the 10:00 BST hourly Snapper run created the four configured snapshots,
   Kingston's inconsistency flag was clear and no scan was in progress. At
   10:12:21 BST, a diagnostic full scan was manually started with

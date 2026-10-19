@@ -4466,3 +4466,25 @@ specified in `GOAL.md`.
   validates current Snapper and module signature enforcement for the tested
   two-config QEMU workload; it does not cover host suspend/resume or the
   four-filesystem host accounting cycle.
+
+## Live collective audit and unparented p8 root snapshot (2026-10-19 17:03 BST)
+
+- The running host was still on `7.2.6+deb13-amd64`, with local Snapper and
+  libsnapper `0.13.2-1+local1.20261019003646.g7d4db17085ce`. Neither p8 nor
+  Kingston had an active qgroup rescan.
+- Read-only `forget --collective` queries reported `CONSISTENT` for p8-home
+  (`1/101`, 35 snapshots), Kingston-root (`1/100`, 93 snapshots), and
+  Kingston-home (`1/101`, 39 snapshots). The p8-root query did not return a
+  collective: it reported that snapshot 2176 had no single aggregate parent
+  qgroup.
+- Snapshot 2176 is still listed by Snapper config `root`, description
+  `verify var-tmp symlink exclusion`, created 2026-08-16 20:00:20 BST. Its
+  Btrfs subvolume ID is `0/3978`, path
+  `@/.snapshots/2176/snapshot`; it is not a child of `1/100`. The other p8
+  root snapshot leaves shown in the qgroup inventory are children of `1/100`,
+  whose tracker `2/0` contains the live source `0/262` and `1/100`.
+- The three successful statuses do not prove all four collectives are
+  accurate: p8-root remains incomplete until the intent and safe treatment of
+  snapshot 2176 are established. No snapshot or qgroup was changed during this
+  audit. The next timeline run was scheduled for 18:00 and cleanup for 21:41;
+  the default cleanup timer still excludes Kingston's alternate-root configs.

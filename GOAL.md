@@ -45,7 +45,11 @@ for it. The current 7.2.6 host has completed three more hourly cycles after
 reconciliation without a scan on the previously loaded shared-parent fast-path
 module; the newly rebuilt module is installed but still needs a reboot before
 its live behavior can be checked. Longer current-kernel observation and the
-original onset remain open. See `GOAL-done.md`.
+original onset remain open. The 13:10 BST live audit found Kingston's
+inconsistency flag clear and no active scan; its latest scan completions were
+09:47:09 and 10:23:32. Kingston root/home snapshots were created at 10:00:02,
+but the logs do not identify which process started either scan. See
+`GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings

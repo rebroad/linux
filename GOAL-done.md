@@ -3388,6 +3388,23 @@ specified in `GOAL.md`.
   Kingston's inconsistency. More repeated live cycles and independent
   accounting reconciliation remain necessary.
 
+## Second post-rescan live Snapper cycle (2026-10-19 11:00 BST)
+
+- The hourly `snapper-timeline.service` completed at 11:00:02. On Kingston it
+  created home snapshot 2516 (subvolume 5515) and root snapshot 2723
+  (subvolume 5516). Their qgroups were respectively `0/5515` under snapshot
+  group `1/101` and `0/5516` under `1/100`, preserving separate home/root
+  accounting.
+- At 11:00:23, both p8 and Kingston had a clear qgroup inconsistency flag, and
+  `btrfs quota rescan -s` reported no operation in progress for either
+  filesystem. There were no new kernel qgroup-rescan messages after the
+  manually started Kingston scan completed at 10:23:32.
+- This is the second observed hourly snapshot cycle after Kingston's
+  reconciliation scan. It shows the candidate host did not request or require
+  another rescan for these two hourly runs. It does not establish why Kingston
+  became inconsistent before the 09:34 diagnostic scan or prove long-term
+  stability.
+
 ## Qgroup tracking layout and snapshot race source review (2026-10-19)
 
 - The upstream Btrfs documentation says qgroups can form hierarchies and

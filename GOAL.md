@@ -356,6 +356,13 @@ quota-based cleanup must wait until the counters are consistent.
    make any temporarily withheld kernel update visible. Keep preparing exact
    source support before each new APT kernel candidate and test both the
    supported and unsupported paths end to end.
+   A live audit at 10:28 BST confirms that both currently installed kernels
+   still select signed DKMS modules, while the installed DKMS package remains
+   the older 7.1.13 build. No APT kernel holds or custom pre-install gate are
+   configured. The staged 7.2.6 DKMS package's `postinst` explicitly builds
+   for every installed kernel and exits on an unmapped release; verify a
+   kernel-only visible hold or equivalent guard before the next unsupported
+   candidate can enter dpkg.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, and initramfs inclusion are verified for

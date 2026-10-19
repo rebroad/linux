@@ -3719,3 +3719,38 @@ specified in `GOAL.md`.
   units; `sh -n` passed for both helpers and the system-sleep hook. This
   verifies static configuration and deadline calculation; a real
   suspend/resume cycle and timer catch-up behavior remain unverified.
+
+## Production APT kernel guard (2026-10-19)
+
+- Installed `/etc/apt/preferences.d/99-btrfs-qgroup-kernel.pref`. It assigns
+  priority 990 only to the exact package versions for supported 7.2.6 and
+  7.2.9 builds, then assigns priority -1 to other versioned Debian kernel
+  image, modules, binary, base, headers, and kbuild packages. The regex leaves
+  Debian's `linux-image-amd64`, `linux-headers-amd64`, and
+  `linux-base-amd64` meta-packages visible; when a future meta-package depends
+  on a blocked kernel ABI, APT can report it kept back instead of beginning a
+  DKMS build that has no source mapping. The allowlist must be extended only
+  after the release-matched source, signed module, initramfs, and acceptance
+  checks are ready.
+- With the live Debian package lists and APT 3.0.3, `apt-cache policy` kept the
+  7.2.6 and 7.2.9 image/module packages at priority 990 and showed the 6.12
+  security image and headers at priority -1 with no installation candidate;
+  the current package index has no separate 6.12 modules package. A simulated
+  supported 7.2.9 install remained valid; an explicit simulated install of
+  6.12 failed for lack of a candidate. Live `apt-get -s upgrade` and
+  `full-upgrade` had no available upgrades to perform, and `dpkg --audit` was
+  empty. No package transaction was run against the host.
+- Reused the disposable local-repository transaction with the production
+  preference structure adjusted to its synthetic package-version strings. An
+  unsupported 7.3.0 kernel caused `linux-image-amd64`,
+  `linux-headers-amd64`, and `linux-base-amd64` to be visibly kept back, while
+  the unrelated `security-demo` package upgraded from 1.0 to 2.0. The no-pin
+  control and the transaction dependency shape are documented in the earlier
+  isolated simulation section; this test does not cover every future Debian
+  package-name or dependency change.
+- The preference file is committed and pushed in the root-configuration repo
+  as [`a070de595`](https://github.com/rebroad/btcdevlaptop/commit/a070de595c5ae0cae552dcb9da1a0453255fe2d1).
+  It contains package policy only; no secrets or unrelated staged files were
+  included. The guard intentionally delays kernel updates until a matching
+  module build is prepared, while the synthetic transaction showed unrelated
+  upgrades proceed.

@@ -68,246 +68,80 @@ with the alternate root. The current source/config match is recorded in
 ## Next steps
 
 1. **Finish root-cause and live-accounting validation — 95% done.** The
-   controlled QEMU matrix and source trace are complete; results are in
-   `GOAL-done.md`. The provisional module decision above is for the tested
-   hierarchy and does not claim a general Btrfs correctness bug.
+   controlled QEMU matrix and source trace identify the stock-kernel fallback
+   for the tested hierarchy; full evidence and limits are in `GOAL-done.md`.
+   The shared-parent fast path remains a provisional optimization, not a claim
+   of a general Btrfs correctness bug.
 
-   Remaining: after the installed signed module is activated, validate
-   sustained four-root snapshot/accounting behavior on the host. Reconcile p8
-   counters against an independent report without concurrent updates; the
-   current live sample is inconclusive. The reproducible stock-kernel cycle is
-   understood, but the first-ever Kingston onset remains unknown.
+   Remaining: after activating the installed signed module, verify sustained
+   four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup
+   values against an independent full-accounting report while filesystem
+   updates are quiesced. Retained logs do not establish the first historical
+   inconsistency; do not infer its cause from the oldest diagnostic scan.
 
-2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
-   now runs our locally built Snapper from the current PR head
-   `7d4db17085ce`; package version
-   `0.13.2-1+local1.20261019003646.g7d4db17085ce` is installed for both
-   `snapper` and `libsnapper`. The live binary reports Snapper 0.13.2,
-   libsnapper 8.2.0, and Btrfs quota support, and lists the p8 `root` and `home`
-   configs. Verify config and daemon behavior after package reinstall, then
-   finish full accounting and quota checks, rollback, and APT-upgrade behavior.
-   Build, package, and live-runtime evidence is in `GOAL-done.md`. Debian packaging
-   is only the installation format for our build; the distribution-provided
-   Snapper is not the target runtime or a runtime dependency.
-   Keep rollout completion gated until technical review, full accounting and
-   quota checks, rollback, and APT-upgrade behavior are verified. Upstream PR
-   review and DCO sign-off are separate publication gates and are not
-   prerequisites for local use. Verify quota support after every package
-   reinstall or upgrade, and repeat the APT simulation before changing the
-   installed package. The recipe is
+2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The
+   host runs our locally built Snapper 0.13.2 from commit `7d4db17085ce`, based
+   on the current official upstream tip; the checkout and package evidence are
+   in `GOAL-done.md`. Keep this locally built runtime as the target.
+
+   Verify that package reinstall/upgrade preserves Btrfs quota support, daemon
+   behavior, the four configs and their rescan policies. Complete host stale-
+   quota, cleanup, rollback, and APT-upgrade checks. During investigation keep
+   the timeline wrapper's explicit rescan block disabled and `SPACE_LIMIT="1.0"`
+   so quota-based cleanup remains disabled. Recheck the shared window and hold
+   path after package configuration migrations. The build recipe is
    `scripts/build-local-debian-package.sh` on the Snapper fork's
-   `codex/local-debian-package-builder` branch; it is separate from upstream
-   PR #1203. It keeps generated files in the Snapper sibling build tree. The
-   successful build, package installation, and runtime evidence are in
-   `GOAL-done.md`. Keep the timeline wrapper's explicit rescan block disabled
-   and set `SPACE_LIMIT="1.0"` to disable quota-aware cleanup during
-   investigation; an empty value leaves Snapper's default `0.5` limit active.
-   Recheck the shared rescan window and hold marker after package configuration
-   migrations.
-3. **Make the fix durable across APT upgrades — 80% done.** Prefer a Snapper-only
-   deployment if that fully fixes the cause and satisfies the rescan ceiling.
-   If a kernel/module change is required, choose and document a maintainable,
-   APT-managed deployment for the paired kernel and Snapper changes. It must
-   automatically apply/build and activate the Btrfs fix on every kernel
-   upgrade or reinstall. At all times, every kernel version installed under
-   `/lib/modules` must have its matching signed Btrfs module built, selected,
-   and included in that kernel's initramfs. This covers the running kernel,
-   every older kernel retained for rollback, and each newly installed kernel
-   before it can be selected for boot. An upgrade must not silently leave or
-   boot an unpatched module;
-   Snapper package upgrades/reinstalls must also retain its fix. For Snapper,
-   the host runtime must remain our locally built and
-   maintained version based on latest upstream; do not switch it back to a
-   distribution-provided Snapper binary. For the kernel/module, prefer reviewed
-   Debian/upstream packages when available; if locally maintained packages are
-   needed, define how they are built, installed, and kept current. Do not
-   depend on a manually copied kernel module or silently hold back security
-   updates.
-   A standalone locally built image is insufficient: Btrfs is shipped in the
-   versioned `linux-modules-*` package, and the matching `linux-image-*`
-   package requires that exact version. APT metadata and the Debian-source
-   rebuild/repository findings are recorded in `GOAL-done.md`. The
-   APT-managed DKMS package with release-matched sources is installed and has
-   built modules for every currently installed kernel; its failure behavior
-   for future unmapped releases and its long-term upgrade path remain to be
-   verified. An
-   isolated Debian DKMS build against the exact running kernel headers
-   succeeded and resolved ahead of the packaged module in a synthetic module
-   tree. The candidate is signed with the enrolled `Rebroad` MOK key and passed
-   exact-kernel QEMU testing with Secure Boot and signature enforcement
-   enabled. The APT-managed DKMS package now carries release-matched source
-   variants: the 7.1 source for installed releases 7.1.8 and 7.1.13, plus
-   exact 7.2.6 and 7.2.9 sources. The current APT image candidate was 7.2.6.
-   Its exact source accepted the qgroup patch and built against its matching
-   headers. The package was upgraded before performing the APT kernel upgrade;
-   DKMS's real 7.2.6 header hook selected that source, built and signed the
-   module, and the kernel post-install included it in the new initramfs. The
-   three installed kernel versions verified at that time had signed modules
-   selected by `modprobe` and present in their matching initramfs. A later APT
-   upgrade installed 7.2.9; its DKMS build succeeded, the signed candidate is
-   selected by `modprobe`, and the module is in its initramfs. The host is
-   still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed.
-   The updated DKMS package is now installed, with signed release-matched
-   modules selected and present in both installed releases' initramfs images.
-   Fresh exact-7.2.6 and exact-7.2.9 Secure Boot QEMU runs passed the full
-   Snapper workload.
-   The host still has the earlier Btrfs module loaded: its sysfs build ID
-   differs from the installed 7.2.6 module, so the new teardown fix is not
-   active until reboot. Verify its loaded build ID after boot, then test
-   host operation and rollback. Package build, module hashes, QEMU log, and
-   per-kernel checks are in `GOAL-done.md`. The installed selector passes for
-   a supported release and returns an explicit error for an unmapped release.
-   However, source
-   inspection shows that this failure propagates through DKMS and Debian's
-   `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore
-   leave the kernel image package unconfigured. This is not an acceptable
-   fail-safe. The installed pre-install APT policy prevents an unsupported
-   kernel from becoming bootable without entering a failing DKMS build or
-   silently selecting stock Btrfs. Its held-back kernel meta-packages remain
-   visible, and non-kernel security updates can proceed. Keep preparing exact
-   source support before each new APT kernel candidate and test both the
-   supported and unsupported paths end to end.
-   The production preference file
-   `/etc/apt/preferences.d/99-btrfs-qgroup-kernel.pref` is now installed. It
-   allows exact Debian package versions for the supported 7.2.6 and 7.2.9
-   kernel builds and denies other versioned kernel images, modules, binaries,
-   bases, headers, and kbuild packages. The kernel image/header meta-packages
-   remain visible to APT and are kept back when their required kernel is not
-   allowed. On the live package lists, both supported releases remain
-   candidates; the available 6.12 security image and headers have no
-   installation candidate (the current index has no separate 6.12 modules
-   package). `apt-get -s install` rejects the 6.12 image, the 7.2.9 image
-   remains installable, simulated `apt-get upgrade` and `full-upgrade` report
-   no package changes, and `dpkg --audit` is clean. A synthetic 7.3.0
-   transaction using the production policy shape visibly kept the kernel
-   meta-packages back while upgrading an unrelated security package. It holds
-   kernel updates until their exact source, signed module, initramfs, and
-   acceptance are ready; maintain the allowlist before each later release.
-   Test artifacts and limits are in `GOAL-done.md`.
+   `codex/local-debian-package-builder` branch; generated files belong in its
+   sibling build tree. This packaging work is separate from closed PR #1203.
 
-   The live system still has APT 3.0.3 installed and as its Trixie candidate.
-   The previously requested 3.1.8 was a Debian testing version, not available
-   from the configured Trixie sources ([Debian package tracker](https://tracker.debian.org/news/1675790/apt-318-migrated-to-testing/);
-   [Trixie package page](https://packages.debian.org/source/stable/apt)). The
-   kernel guard was tested with the installed Trixie APT 3.0.3; no testing
-   source was added for this work.
+3. **Make the fix durable across APT upgrades — 80% done.** Prefer a
+   Snapper-only fix if it fully corrects the cause and meets the rescan limit;
+   retain the kernel companion only if the evidence requires it. Keep any
+   required Snapper and Btrfs changes under APT-managed installation. The
+   signed DKMS package currently has exact sources for installed 7.2.6 and 7.2.9, and
+   modules selected in both initramfs images. Before a kernel can be selected
+   for boot, every installed release—including rollback kernels and the next
+   APT candidate—must have a matching module built, signed, selected by
+   `modprobe`, and present in its initramfs. Add and validate exact source
+   support before each later kernel release.
 
-   **Next steps for safe local production use:**
-   - Build, signing, module selection, initramfs inclusion, and exact-release
-     Secure Boot QEMU acceptance are verified for installed 7.2.6 and 7.2.9.
-     The host still runs 7.2.6 with build ID `258e41d2` loaded; the installed
-     7.2.6 DKMS module is signed, selected, and in its initramfs with build ID
-     `46d21507`. `GRUB_DEFAULT=0` will boot 7.2.9 next; its signed DKMS module
-     (build ID `29eef0f6`) is also selected and in its initramfs. The 7.2.6
-     kernel and initramfs remain installed for rollback. After an approved
-     reboot, verify the 7.2.9 loaded build ID and live qgroup behavior, then
-     explicitly boot 7.2.6 to verify its replacement module and rollback path.
-     Final accounting and live-host cleanup acceptance remain outstanding.
-     Evidence and hashes are in `GOAL-done.md`.
-   - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
-     actual 7.2.6 header and image hooks passed. Maintain matching modules for
-     every installed kernel, including the currently running release and
-     rollback versions. Also prepare and validate the module for the next
-     kernel version APT will install or select, before rebooting into it: add
-     its matching source, verify the DKMS build and Secure Boot signature,
-     confirm module selection and initramfs inclusion, and complete these
-     checks before that release can be selected for boot. Repeat this for
-     every later kernel version. Prove an unmapped or failed build cannot
-     silently boot stock Btrfs or leave package configuration broken; keep
-     normal security upgrades available.
-   - Keep the verified boot selection and signed stock-module rollback path
-     documented. Verify the new p8 groups through Snapper operations and
-     cleanup, and retain the active 7.2.6 release as the acceptance kernel.
-   - Verify the installed Snapper package after upgrade/reinstall and confirm
-     every Kingston configuration under
-     `/mnt/kingston/@/etc/snapper/configs/` retains the rescan window and hold
-     settings. Use `sudo` for these root-owned configs and live qgroup queries;
-     the unprivileged sandbox view reports Kingston read-only and denies
-     qgroup ioctls. Restore quota cleanup limits only after accounting and
-     cleanup are verified under the paired host runtime.
+   Remaining: after an approved reboot, verify the loaded 7.2.9 module and live
+   accounting, then explicitly boot 7.2.6 and verify its replacement module
+   and rollback path. Exercise supported and unsupported kernel transactions
+   end to end: a failed or unmapped build must neither leave package
+   configuration broken nor permit silent boot of stock Btrfs. Keep unrelated
+   security updates available and maintain the visible APT kernel allowlist
+   before each candidate. Verify the locally built Snapper fix also survives
+   package reinstall/upgrade. The current APT policy, DKMS design, exact
+   release tests, and known unsupported-release failure mode are documented in
+   `GOAL-done.md`.
 
-   Before considering the host rollout complete, verify the running kernel,
-   loaded module, initramfs, Secure Boot signature, and active Snapper package
-   contain the intended fixes after both package reinstall and kernel upgrade.
-4. **Finish accounting and recovery coverage — 95% done.** Use the latest-upstream
-   Snapper build as the primary acceptance target and the exact currently
-   running kernel (`7.2.6+deb13-amd64`). Existing QEMU coverage and results are in
-   `GOAL-done.md`. The exact-header external build has
-   `CONFIG_BTRFS_FS_RUN_SANITY_TESTS` disabled. Although the module retains a
-   `btrfs_run_sanity_tests` entry-point symbol, disassembly shows it is only
-   the no-op stub; no Btrfs sanity-test objects or test functions are linked.
-   The earlier concern that the QEMU-tested module ran developer tests at load
-   time was incorrect. The current patched module, signed with the enrolled
-   MOK key, has now passed the full Snapper 0.13.2 QEMU acceptance workload on
-   the previous exact kernel; see the artifact hashes and serial log in
-   `GOAL-done.md`. Re-run the Secure Boot acceptance workload against 7.2.6
-   before considering production rollout complete.
-   Follow-up QEMU acceptance now boots the exact kernel through OVMF and shim
-   with Secure Boot enabled, imports the enrolled MOK certificate, and forces
-   `module.sig_enforce=1`. The signed Btrfs module loads, while an unsigned
-   copy is rejected. The full Snapper workload passes under enforcement; see
-   `GOAL-done.md`. The candidate is installed and loaded on the host; finish
-   Snapper package rollback verification and repeat Secure Boot acceptance on
-   7.2.6 before calling the rollout complete.
-   The exact-release checkout now has
-   maintainable qgroup selftests for the shared-parent fast path and the
-   differing/multiple-parent fallbacks; they passed in QEMU on the exact
-   kernel. The tests and candidate kernel patch now apply to the current Btrfs
-   `for-next` submission base. Keep runtime kernel testing on the exact
-   in-use release; do not build or boot a different kernel for acceptance.
-   The 2026-10-19 follow-up directly covers overflow in the target snapshot
-   group's exclusive counters, the shared tracker's four counters, and all
-   four ancestor counters; the exact-7.2.6 QEMU sanity run passed at all five
-   nodesizes. See `GOAL-done.md`. Add further coverage only for Btrfs layouts
-   needed by the patch or not already covered.
-5. **Preserve temporary host containment, including after resume — 94% done.** The
-   timeline wrapper's explicit `btrfs quota rescan` commands are currently
-   disabled while snapshots continue; the current host check is recorded in
-   `GOAL-done.md`. The 18:00 run exposed duplicate hourly snapshots: `/` and
-   `/mnt/p8/@` resolve to the same Btrfs subvolume IDs, and the mounted config
-   tree was discovered twice. The root-repo wrapper now deduplicates by device,
-   subvolume ID, and config. The installed
-   `/usr/local/sbin/snapper-timeline-all-roots` matches root-repo commit
-   `19f05f689`. The system journal shows eight consecutive hourly runs
-   completed from 18:00 on 2026-10-18 through 01:00 on 2026-10-19, with 28
-   duplicate-target skip messages and no failure messages. A read-only
-   `info.xml` audit also confirms exactly one timeline snapshot in each of the
-   p8-root, p8-home, Kingston-root, and Kingston-home snapshot directories for
-   each of the 00:00, 01:00, and 02:00 runs on 2026-10-19. This verifies the
-   four intended targets for those runs. The kernel journal contains no
-   qgroup inconsistency or rescan entries during these runs; it records one
-   earlier scan completion at 22:27. This observation does not establish
-   counter accuracy. Live qgroup totals and actual suspend/resume ordering
-   remain unverified. This removes
-   redundant snapshot triggers, but does not yet prove the qgroup
-   inconsistency's underlying cause. This wrapper is one rescan initiator;
-   Snapper's quota-query and snapshot-tracking code can independently start a
-   rescan when it finds inconsistent qgroups. Btrfs snapshot inheritance can
-   mark qgroups inconsistent, but does not itself start a rescan. Keep those
-   state changes distinct when tracing future scans. The active hourly
-   `snapper-timeline.timer` uses `OnCalendar`; systemd catches up calendar
-   events that elapse during suspend when the system resumes. The sleep/resume
-   guard is pushed to the home repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
-   host now has the local timeline and daily cleanup timers restored under
-   `/etc/systemd/system`; the hourly wrapper invokes the installed Snapper
-   directly. The enabled `sleep.target` service and system-sleep hook both
-   invoke the same root-owned helper under `/usr/local/libexec`; static review
-   confirms it stops the timeline timer before sleep and refreshes the hold
-   before restarting the timer. The resume hold helper formerly hardcoded
-   04:00/16:00 and ignored `FORCE_SUSPEND_RESCAN_RESUME_TIME`; it is now fixed
-   and verified to honor that setting and the configured hold-file path. The
-   hooks share a `/run` state file to make duplicate calls idempotent. The timer
-   and guard were enabled, and no stale sleep state or active hold marker was
-   present at the latest audit. Actual suspend/resume ordering and timer
-   catch-up behavior remain unverified. Verify that a real resume cannot start
-   a fresh scan through either the wrapper or Snapper's internal path. The timer
-   catch-up guard is separate from the
-   `force-suspend` hold, whose release deadline is controlled by its own
-   setting. See `GOAL-done.md` for the live audit.
-   Restore the original
-   `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
-   deployed and their initialization scan, quota accounting, and cleanup
-   behavior are verified.
+4. **Finish accounting and recovery coverage — 95% done.** Preserve four
+   separately queryable snapshot collectives and verify their exclusive-space
+   values against a full rescan. Exact-kernel QEMU snapshot, overflow, cleanup,
+   stale-value, hold/window, Secure Boot, and recovery tests are documented in
+   `GOAL-done.md`; run further QEMU coverage only for an uncovered Btrfs layout
+   required by the patch.
+
+   Remaining: complete the p8 independent accounting comparison, live cleanup
+   and rollback checks under the paired host runtime, and verify the counters
+   remain accurate through repeated snapshots and deletion. Restore the normal
+   quota-cleanup limit (`SPACE_LIMIT="0.5"`) only after accounting and cleanup
+   pass.
+
+5. **Preserve temporary host containment, including after resume — 94% done.**
+   The installed hourly wrapper has duplicate-target suppression; explicit
+   `btrfs quota rescan` commands remain disabled. The enabled sleep-target
+   service and system-sleep hook stop the timeline timer before sleep and
+   refresh the shared hold before restarting it. The timer catch-up and hold
+   configuration are separate controls; implementation and live audits are
+   in `GOAL-done.md`.
+
+   Remaining: verify on a real suspend/resume that timer catch-up cannot start
+   a scan through either the wrapper or Snapper's internal quota path. Confirm
+   the hold prevents new scans until its configured deadline, then allows a
+   deferred scan when policy permits. Keep the original cleanup limits disabled
+   until accounting, initialization scans, and cleanup behavior are verified.
 
 ## Acceptance
 

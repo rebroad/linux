@@ -165,13 +165,14 @@ with the alternate root. The current source/config match is recorded in
    rescan has completed. Remaining: complete the p8 independent accounting
    comparison, live cleanup and rollback checks under the paired host runtime,
    and verify the counters
-   remain accurate through repeated snapshots and deletion. The 21:41 host
-   cleanup timer currently targets only the default `root` and `home`
-   configs; Kingston's alternate-root configs are not in that helper's
-   `SNAPPER_CONFIGS`. Confirm the intended Kingston retention path and test its
-   behavior before claiming four-root cleanup coverage. Restore the normal
-   quota-cleanup limit (`SPACE_LIMIT="0.5"`) only after accounting and cleanup
-   pass.
+   remain accurate through repeated snapshots and deletion. Kingston has no
+   scheduled cleanup path: its alternate-root configs enable built-in cleanup,
+   but the 21:41 helper runs only the host `root` and `home` configs. The
+   exponential-retention tool has no scheduled invocation; its current dry-run
+   proposes deleting 60 Kingston snapshots. Decide which existing retention
+   policy is intended, then safely configure and verify it before claiming
+   four-root cleanup coverage. Restore the normal quota-cleanup limit
+   (`SPACE_LIMIT="0.5"`) only after accounting and cleanup pass.
 
 5. **Preserve temporary host containment, including after resume — 94% done.**
    The installed hourly wrapper has duplicate-target suppression; explicit

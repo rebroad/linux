@@ -4508,3 +4508,20 @@ specified in `GOAL.md`.
 - This restores a queryable four-collective state after a full scan; it does
   not establish long-term counter stability through subsequent snapshots and
   cleanup, nor does it replace the planned quiescent independent comparison.
+
+## Kingston retention-path audit (2026-10-19 17:24 BST)
+
+- The hourly wrapper reads Kingston's alternate-root `root` and `home`
+  configs and creates timeline snapshots. Those configs have
+  `TIMELINE_CLEANUP="yes"`, but the enabled 21:41 `snapper-cleanup.timer`
+  launches a helper that reads `/etc/sysconfig/snapper` (`root home`) and
+  invokes cleanup without an alternate `--root`. It therefore does not clean
+  the Kingston configs.
+- No root crontab or systemd timer schedules
+  `snapper-exponential-retention`; `/etc/cron.hourly/snapper.upstream` is not
+  selected by `run-parts`. The custom retention tool's read-only preview
+  proposed retaining 9 and deleting 30 snapshots in each Kingston config (60
+  total); the p8 preview proposed 52 deletions. No cleanup was applied.
+- The retention policy for Kingston remains undecided. Do not enable a cleanup
+  job or apply either preview until the intended policy is selected and its
+  effect is verified; four-root live cleanup coverage is still open.

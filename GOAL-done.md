@@ -4164,6 +4164,25 @@ specified in `GOAL.md`.
   previously loaded module was still active; it does not test cleanup, host
   rollback, or the newly installed module after reboot.
 
+## Keep the local Snapper runtime across Debian package updates (2026-10-19 16:42 BST)
+
+- Installed and committed `/etc/apt/preferences.d/99-snapper-local.pref` in
+  the root configuration repository (`77531529b`, pushed to its configured
+  origin). It pins Debian-origin `snapper` and `libsnapper` versions to
+  priority `-1`, preventing Debian packages from replacing the locally built
+  latest-upstream runtime.
+- `apt-cache policy` shows the installed local build remains the candidate at
+  priority 100 and Debian's current 0.10.6 package is blocked at `-1`.
+  `apt-get -s full-upgrade` reported no package changes, and a simulation of
+  installing the current local package pair completed without a plan to remove
+  or replace them. The preference is limited to these two package names.
+- No newer Debian Snapper candidate was available for a live upgrade test; the
+  rule matches Debian's release Origin and therefore also applies to later
+  Debian-origin versions. It does not build or publish local packages: each
+  later Snapper build still needs to be installed from its generated package.
+  A host rollback/runtime check and a later local-build upgrade check remain
+  open.
+
 ## Isolated Snapper package rollback cycle (2026-10-19)
 
 - In a disposable `/var/tmp` dpkg root, installed the previous local package

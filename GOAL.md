@@ -102,11 +102,15 @@ with the alternate root. The current source/config match is recorded in
    service wiring. Snapper's D-Bus listing and read-only snapshot queries
    worked afterward. Keep this locally built runtime as the target.
 
-   Remaining: complete host stale-quota, cleanup, package rollback, and
-   APT-upgrade checks. During investigation keep the timeline wrapper's
-   explicit rescan block disabled and `SPACE_LIMIT="1.0"` so quota-based
-   cleanup remains disabled. Recheck the shared window and hold path after
-   future package configuration migrations. The build recipe is
+   The host APT pin now rejects Debian-origin `snapper` and `libsnapper`
+   packages so a distro update cannot silently replace this local runtime;
+   its policy and full-upgrade simulation are recorded in `GOAL-done.md`.
+   Remaining: complete host stale-quota, cleanup, and package rollback/runtime
+   checks, and verify an upgrade to a subsequent local build. During
+   investigation keep the timeline wrapper's explicit rescan block disabled
+   and `SPACE_LIMIT="1.0"` so quota-based cleanup remains disabled. Recheck
+   the shared window and hold path after future package configuration
+   migrations. The build recipe is
    `scripts/build-local-debian-package.sh` on the Snapper fork's
    `codex/local-debian-package-builder` branch; generated files belong in its
    sibling build tree. This packaging work is separate from closed PR #1203.

@@ -4090,3 +4090,14 @@ specified in `GOAL.md`.
   (SHA-256
   `8ae6c24e3e751ce090367202bd1b50e760dbabec6c6fae9cfcef892461ed5acd`); the
   init script, fresh images, and initrd overlay are alongside it.
+
+## DKMS signing-key package audit (2026-10-19)
+
+- The installed DKMS package lists PEM and DER certificate files, not a private
+  key. `file` identifies both as X.509 certificates; a private-key parse of the
+  PEM certificate fails as expected. The DKMS signing configuration points to
+  a separate user-owned private key, whose mode is `0600`.
+- Compared the public key derived from that private key with the public key in
+  the installed certificate. They match. The private key contents and exact
+  pathname were not printed or recorded. The installed package file list does
+  not include the private key.

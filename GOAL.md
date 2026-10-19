@@ -41,15 +41,18 @@ and creates snapshots, Btrfs marks qgroups inconsistent during snapshot
 inheritance, and the wrapper starts another scan. A preserved Kingston config
 pair shows distinct root/home QGROUPs (`1/100` and `1/101`) during a later
 instance of this cycle, so a shared root/home snapshot group is not required
-for it. The current 7.2.6 host has completed three more hourly cycles after
-reconciliation without a scan on the previously loaded shared-parent fast-path
-module; the newly rebuilt module is installed but still needs a reboot before
-its live behavior can be checked. Longer current-kernel observation and the
-original onset remain open. The 13:10 BST live audit found Kingston's
-inconsistency flag clear and no active scan; its latest scan completions were
-09:47:09 and 10:23:32. Kingston root/home snapshots were created at 10:00:02,
-but the logs do not identify which process started either scan. See
-`GOAL-done.md`.
+for it. On the 7.2.6 host, the loaded shared-parent fast-path module completed
+the 11:00, 12:00, and 13:00 hourly cycles without a scan. A forced Kingston
+rescan after those cycles changed none of the four snapshot/tracker counters.
+The two earlier 09:47:09 and 10:23:32 scan completions came from explicit
+diagnostic `btrfs quota rescan -w /mnt/kingston` commands logged at 09:35:08
+and 10:12:22; the 10:00 Snapper timer finished at 10:00:02 and initiated
+neither. These diagnostic scans are separate from the historical automatic
+stock-kernel cycle. Longer current-kernel observation, p8 live reconciliation,
+and the original onset remain open. The running Btrfs module is still build ID
+`258e41d2`; the installed, signed 7.2.6 DKMS module is `46d21507` and is
+included in the initramfs. The new teardown backport needs a reboot before live
+validation. See `GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
 because its quick path does not handle source and snapshot groups as siblings
@@ -143,8 +146,10 @@ quota-based cleanup must wait until the counters are consistent.
    remains short until a full rescan, and the shortfall moves with snapshot
    order. Eight-round timeline cleanup and synchronous deletion pass in both
    snapshot orders with the candidate and the qgroup-removal-only baseline.
-   Live-host validation, hold/window repeated-cycle checks, and broader
-   root-cause reconciliation remain. With the candidate module,
+   Live Kingston accounting after three hourly cycles now matches a full
+   rescan under the loaded fast-path module. The p8 live comparison,
+   hold/window host checks, and broader root-cause reconciliation remain. With
+   the candidate module,
    a forced full rescan immediately after snapshots left nonempty qgroup
    counters unchanged in both root-first and home-first order: each snapshot
    group reported 4,243,456 referenced and 49,152 exclusive bytes. The

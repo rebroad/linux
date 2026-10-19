@@ -95,6 +95,18 @@ matched the stored and independently computed qgroup values for both modules.
 This did not reproduce the source-accounting race; it does not prove that race
 impossible or explain the earlier live Kingston inconsistency. The scripts,
 counter comparisons, hashes, and limits are recorded in `GOAL-done.md`.
+**Provisional module decision:** retain the shared-parent fast path as the
+candidate for the required current-and-accurate four-group accounting. In the
+matched exact-7.2.6 workload, stock exceeds the one-rescan-per-day operating
+ceiling (six automatic scans in eight snapshots), while the candidate completes
+the repeated snapshot and cleanup workloads without automatic scans and matches
+the independent offline qgroup report. Snapper's daily gate can cap scans, but
+leaves qgroup accounting marked inconsistent and values stale between scans;
+that is an operational fallback, not a root-cause fix. This supports a kernel
+optimization for the tested hierarchy, not a claim of a general Btrfs bug.
+Keep this decision provisional until the installed signed module is activated,
+live accounting and rollback are verified, and the p8 live counters can be
+reconciled without concurrent filesystem activity.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,

@@ -369,7 +369,8 @@ quota-based cleanup must wait until the counters are consistent.
    still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed.
    The updated DKMS package is now installed, with signed release-matched
    modules selected and present in both installed releases' initramfs images.
-   A fresh exact-7.2.9 Secure Boot QEMU run passed the full Snapper workload.
+   Fresh exact-7.2.6 and exact-7.2.9 Secure Boot QEMU runs passed the full
+   Snapper workload.
    The host still has the earlier Btrfs module loaded: its sysfs build ID
    differs from the installed 7.2.6 module, so the new teardown fix is not
    active until reboot. Verify its loaded build ID after boot, then test
@@ -393,12 +394,12 @@ quota-based cleanup must wait until the counters are consistent.
    pre-install policy before an unsupported candidate enters dpkg.
 
    **Next steps for safe local production use:**
-   - Build, signing, module selection, and initramfs inclusion are verified for
-     the currently installed 7.2.6 and 7.2.9 releases. Exact 7.2.9 Secure Boot
-     QEMU acceptance passes. The host is still running 7.2.6 with the previous
-     Btrfs module loaded; reboot and verify the new build ID, host accounting,
-     and rollback path. Final accounting and live-host cleanup acceptance
-     remain outstanding. Evidence and hashes are in `GOAL-done.md`.
+   - Build, signing, module selection, initramfs inclusion, and exact-release
+     Secure Boot QEMU acceptance are verified for the currently installed
+     7.2.6 and 7.2.9 releases. The host is still running 7.2.6 with the
+     previous Btrfs module loaded; reboot and verify the new build ID, host
+     accounting, and rollback path. Final accounting and live-host cleanup
+     acceptance remain outstanding. Evidence and hashes are in `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
      actual 7.2.6 header and image hooks passed. Maintain matching modules for
      every installed kernel, including the currently running release and

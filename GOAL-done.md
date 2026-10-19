@@ -4554,3 +4554,16 @@ specified in `GOAL.md`.
   collective reports remained `CONSISTENT`. No live cleanup has run through
   the new Kingston path yet; verify the first scheduled cleanup and compare
   counters afterward before closing live cleanup coverage.
+
+## Retained journal boundary for the first host inconsistency (2026-10-19)
+
+- `journalctl --list-boots` retains host boots back to 2026-08-15, but the
+  earliest Btrfs qgroup entry in the retained kernel journal is
+  `qgroup scan completed (inconsistency flag cleared)` on 2026-10-18 22:27:29
+  for `nvme0n1p5`. No earlier `qgroup marked inconsistent` or rescan event
+  appears in the retained kernel log. No rotated `kern.log` or `syslog` files
+  are present.
+- Therefore the retained logs do not identify the event that first made
+  Kingston inconsistent. The controlled QEMU snapshot reproductions identify
+  a repeatable trigger for the tested hierarchy, but do not prove that it was
+  the original cause on the host.

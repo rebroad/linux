@@ -3408,8 +3408,28 @@ specified in `GOAL.md`.
   found an upstream comment explaining that flushing delayed refs before
   inheritance narrows, but does not eliminate, a race: the source tree can
   still change before or during `btrfs_qgroup_inherit()`. This is a plausible
-  separate route to wrong counters and is not exercised by the existing
-  serial snapshot workloads. Add exact-7.2.6 paired stock/candidate QEMU stress
-  coverage with concurrent source writes, then reconcile counters against a
-  completed scan and an independent reference before concluding whether this
-  race is relevant to the host incident.
+  separate route to wrong counters and was not exercised by the prior serial
+  snapshot workloads.
+- Paired QEMU stress runs on the exact `7.2.6+deb13-amd64` kernel then created
+  32 snapshots per module across the four separate root/home configs, with four
+  concurrent writers modifying the source subvolume during each snapshot.
+  Both used a full scan before starting the writers and another after stopping
+  them, so the writer overlap tested snapshot accounting rather than writing
+  during a rescan. The stock module (`9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`)
+  emitted the expected `qgroup inherit needs a rescan` warning for all 32
+  snapshots; its counters changed on each post-snapshot scan. The candidate
+  module (`f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`)
+  emitted no inconsistency warnings, started no extra automatic scans beyond
+  the 64 explicit per-snapshot scans, and had no changes to snapshot-group or
+  tracker counters across any of those scans.
+- After each run, `btrfs check --readonly --force --qgroup-report` returned
+  success for both filesystem images and matched all 50 stored/computed
+  counter pairs per image (zero mismatches). Thus the stock counters matched
+  an independent extent walk after rescanning, and candidate counters matched
+  it without accounting for a scan-required flag. The source-accounting race
+  was not reproduced by this workload; this does not prove the race impossible
+  or establish why Kingston previously became inconsistent. Serial logs,
+  offline reports, initrd overlay, and disposable images are in
+  `/var/tmp/linux.build/qgroup-concurrent-race-heavy-20261019/`. Continue to
+  treat this as a bounded negative result pending live correlation and any
+  stronger reproduction evidence.

@@ -53,14 +53,14 @@ from reinstalling Snapper left both filesystems consistent without a scan. A
 Kingston full rescan after the first three hourly cycles changed no qgroup
 counters. The p8 diagnostic scan and subsequent live counter
 readings are inconclusive because filesystem activity continued during
-measurement. A fresh live query found p8-root's collective is not fully
-queryable: retained Snapper snapshot 2176 (`verify var-tmp symlink exclusion`,
-created 2026-08-16) has no parent qgroup, while the other three collectives
-report consistent accounting. Its intended membership and safe repair or
-exclusion still need investigation. The newer signed DKMS modules for
-installed 7.2.6 and 7.2.9 are not active; reboot, live accounting validation,
-and rollback checks remain open. The onset of the historical Kingston
-inconsistency is unknown. See
+measurement. A fresh live query found retained Snapper snapshot 2176 (`verify
+var-tmp symlink exclusion`, created 2026-08-16) missing from p8-root's
+snapshot-only qgroup. It has now been assigned to `1/100`, and a full p8
+rescan completed with all four collectives reporting consistent accounting.
+Independent quiescent counter validation remains open. The newer signed DKMS
+modules for installed 7.2.6 and 7.2.9 are not active; reboot, live accounting
+validation, and rollback checks remain open. The onset of the historical
+Kingston inconsistency is unknown. See
 `GOAL-done.md` for the complete chronology and evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
@@ -161,10 +161,10 @@ with the alternate root. The current source/config match is recorded in
    `GOAL-done.md`; run further QEMU coverage only for an uncovered Btrfs layout
    required by the patch.
 
-   Remaining: establish whether p8-root snapshot 2176 belongs in the required
-   collective and safely repair or explicitly account for its missing parent;
-   then complete the p8 independent accounting comparison, live cleanup and
-   rollback checks under the paired host runtime, and verify the counters
+   The retained p8 root snapshot 2176 is now included in `1/100` and a full
+   rescan has completed. Remaining: complete the p8 independent accounting
+   comparison, live cleanup and rollback checks under the paired host runtime,
+   and verify the counters
    remain accurate through repeated snapshots and deletion. The 21:41 host
    cleanup timer currently targets only the default `root` and `home`
    configs; Kingston's alternate-root configs are not in that helper's

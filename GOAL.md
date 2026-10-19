@@ -447,13 +447,17 @@ quota-based cleanup must wait until the counters are consistent.
    guard is pushed to the home repository branch `codex/snapper-timeline-sleep-guard` at `17d09379`. The
    host now has the local timeline and daily cleanup timers restored under
    `/etc/systemd/system`; the hourly wrapper invokes the installed Snapper
-   directly. The enabled sleep.target unit and system-sleep hook use one
-   root-owned helper under `/usr/local/libexec` for timer control. Current host
-   state is recorded in `GOAL-done.md`. No actual suspend/resume has yet been
-   used to verify ordering or the timer's catch-up behavior. Verify that a real
-   resume cannot start a fresh scan through either the wrapper or Snapper's
-   internal path. The timer catch-up guard is separate from the `force-suspend`
-   hold, whose release deadline is controlled by its own setting.
+   directly. The enabled `sleep.target` service and system-sleep hook both
+   invoke the same root-owned helper under `/usr/local/libexec`; static review
+   confirms it stops the timeline timer before sleep and refreshes the hold
+   before restarting the timer. They share a `/run` state file to make the
+   duplicate calls idempotent. The timer and guard are enabled, and no stale
+   sleep state or active hold marker was present at the latest audit. Actual
+   suspend/resume ordering and timer catch-up behavior remain unverified. Verify
+   that a real resume cannot start a fresh scan through either the wrapper or
+   Snapper's internal path. The timer catch-up guard is separate from the
+   `force-suspend` hold, whose release deadline is controlled by its own
+   setting. See `GOAL-done.md` for the live audit.
    Restore the original
    `SPACE_LIMIT="0.5"` settings only after both changes are deliberately
    deployed and their initialization scan, quota accounting, and cleanup

@@ -3983,3 +3983,25 @@ specified in `GOAL.md`.
   `0` and no rescan in progress. This verifies live config/path operation; it
   does not independently validate qgroup counter accuracy, cleanup, or
   suspend/resume behavior.
+
+## APT kernel security-track audit (2026-10-19 14:34 BST)
+
+- The live APT index selects installed `7.2.9-1~bpo13+1` for
+  `linux-image-amd64` and `linux-headers-amd64`; `apt-get -s full-upgrade`
+  reports no package changes, and `apt list --upgradable` is empty.
+- The installed kernel preference file assigns Debian's available
+  `linux-image-6.12.113+deb13-amd64` and matching headers priority `-1`, so
+  they have no installation candidate. Debian's tracker identifies
+  `6.12.113-1` as a high-urgency Trixie security update, while the latest
+  package index here offers the separate 7.2.9 stable-backports build. The
+  available stable-security kernel is a different, older kernel series than
+  the installed backports kernel.
+- This does not by itself prove the installed 7.2.9 lacks any particular fix,
+  nor that APT is proposing a downgrade for this host. The selected 7.2.9
+  source's coverage of the security fixes in 6.12.113 has not been verified.
+  Do not treat “no APT upgrades” or available non-kernel upgrades as proof of
+  kernel security-update coverage. Compare the relevant fixes; if the
+  selected branch lacks them, prepare and validate a signed matching module
+  for the security kernel before allowing it through the kernel guard.
+- Sources: [Debian's 6.12.113 stable-security announcement](https://tracker.debian.org/news/1811640/accepted-linux-612113-1-source-into-stable-security/),
+  [Debian's 7.2.9 backports announcement](https://tracker.debian.org/news/1812073/accepted-linux-729-1bpo131-source-into-stable-backports/).

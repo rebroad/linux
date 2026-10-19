@@ -26,11 +26,24 @@ material only when the repository asks for it; make commit references clickable
 and avoid duplicate URLs. See `GOAL-done.md` for the closed PR history.
 
 The reproducible stock-kernel cycle is identified for the tested hierarchy:
-Btrfs marks qgroup accounting inconsistent during snapshot inheritance, and
-Snapper's next quota-tracked operation checks that state and may start a full
-scan. Distinct root/home snapshot QGROUPs still encounter the fallback, so
-sharing their ID is not the cause. QEMU workload, source, and scan-attribution
-evidence is in `GOAL-done.md`.
+the existing quick-inherit path does not handle the source and snapshot-only
+QGROUP as siblings under their two-member tracker, so Btrfs takes its
+conservative full-rescan fallback and marks accounting inconsistent. Snapper's
+next quota-tracked operation sees that flag and may start a full scan. Distinct
+root/home snapshot QGROUPs still encounter this fallback, so sharing their ID
+is not the cause. Repeated stock-kernel QEMU cycles showed the newest snapshot's
+counters short until a full scan; the scan restored the values that the tested
+fast path maintained directly. This is evidence of the cost of the supported
+accounting topology, not a general Btrfs accounting-corruption bug. The
+Snapper-only alternatives were also tested on the exact 7.2.6 stock module.
+Untracked snapshots still marked qgroups inconsistent and did not contribute
+to the snapshot collectives; post-creation assignment left stale counters until
+a full scan. Together with the four-group QEMU matrix, this establishes that
+the bounded kernel fast path is currently required to avoid recurring scans
+while preserving four accurate, separate snapshot collectives through
+Snapper's existing QGROUP interface. This is a hierarchy-specific accounting
+limitation, not a general Btrfs corruption bug. QEMU workload, source, and
+scan-attribution evidence is in `GOAL-done.md`.
 
 The host currently runs the shared-parent fast path on `7.2.6+deb13-amd64`
 (build ID `258e41d2`). Its 11:00-14:00 hourly runs created all four snapshots
@@ -94,11 +107,13 @@ with the alternate root. The current source/config match is recorded in
    `codex/local-debian-package-builder` branch; generated files belong in its
    sibling build tree. This packaging work is separate from closed PR #1203.
 
-3. **Make the fix durable across APT upgrades — 80% done.** Prefer a
-   Snapper-only fix if it fully corrects the cause and meets the rescan limit;
-   retain the kernel companion only if the evidence requires it. Keep any
-   required Snapper and Btrfs changes under APT-managed installation. The
-   signed DKMS package currently has exact sources for installed 7.2.6 and 7.2.9, and
+3. **Make the fix durable across APT upgrades — 80% done.** Snapper-only
+   alternatives tested on the exact 7.2.6 stock module do not preserve fresh
+   counters with the required four snapshot-only QGROUPs; the bounded
+   shared-parent kernel fast path avoids the fallback on that hierarchy. Keep
+   the tested fast path and qgroup-teardown fix under APT-managed installation.
+   The signed DKMS package currently has exact sources for installed 7.2.6 and
+   7.2.9, and
    modules selected in both initramfs images. Before a kernel can be selected
    for boot, every installed release—including rollback kernels and the next
    APT candidate—must have a matching module built, signed, selected by
@@ -164,11 +179,17 @@ can still see the last-known quota numbers and their stale status; quota-based
 deletion waits until the numbers are current. The host's configured preference is
 05:00-21:00 local time for every Snapper configuration sharing the filesystem;
 the timeline wrapper's separate explicit rescan commands remain disabled.
-Prefer a Snapper-only fix. If the kernel/module must change, it is automatically
-reapplied and active after every kernel APT upgrade/reinstall, without blocking
-security updates; the installed Snapper fix also survives its APT
-upgrade/reinstall. Verify the running kernel, loaded module, Snapper package,
-and rescan rate.
+The bounded kernel fast path supplies accurate counters without a full scan
+for the tested four-collective hierarchy; the stock fallback leaves the newest
+snapshot counters stale until a full scan. Exact-7.2.6 QEMU alternatives using
+untracked snapshots or post-creation qgroup assignment also fail the accounting
+requirement. The kernel/module fix must be automatically reapplied and active
+after every kernel APT upgrade/reinstall without blocking security updates; the
+installed Snapper fix must also survive its APT upgrade/reinstall. Revisit the
+kernel requirement only if a tested Snapper-only hierarchy preserves all four
+snapshot-only totals, stale-value semantics, and cleanup behavior without
+repeated scans. Verify the running kernel, loaded module, Snapper package, and
+rescan rate.
 
 ## Completed evidence
 

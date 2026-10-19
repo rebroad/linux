@@ -4055,3 +4055,38 @@ specified in `GOAL.md`.
   and the no-scan sentinel, with no `INCONSISTENT` flag. This establishes their
   status at this observation only; it does not validate the recorded counters
   against a quiescent full-accounting report.
+
+## Exact 7.2.6 Snapper-only alternative comparison (2026-10-19 15:00 BST)
+
+- Booted the exact Debian `7.2.6+deb13-amd64` kernel in QEMU TCG, with the
+  stock Btrfs module (SHA-256
+  `9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`) and
+  Snapper 0.13.2 / libsnapper 8.2.0. The test used freshly formatted p8-like
+  and Kingston-like filesystems, four independent snapshot collectives, and
+  two snapshot rounds per config. The kernel image SHA-256 is
+  `21c3ef4de887b1d65443d44f6b8a5a35c9a41314275a6bae45f532e2929e1521`.
+- On p8, the untracked-snapshot alternative temporarily cleared `QGROUP` for
+  each Snapper snapshot and left it unset. The first snapshot marked qgroups
+  inconsistent; no scan ran during either round. After the explicit final
+  rescan, groups `1/100` and `1/101` still contained only their respective
+  `.snapshots` subvolumes (16,384 referenced / 16,384 exclusive bytes). The
+  snapshot leaf qgroups were unparented. This alternative avoids assigning
+  snapshots to the configured collectives, so it cannot report their
+  snapshot-only totals.
+- On Kingston, the post-assignment alternative also cleared `QGROUP` while
+  creating snapshots, then assigned each new snapshot qgroup to its configured
+  group with `btrfs qgroup assign --no-rescan`. The assignment reported that
+  quotas may be inconsistent; `btrfs qgroup show` confirmed inconsistent data.
+  No scan ran during either round. Before the final rescan the group values
+  were stale (`1/100`: 16,384/16,384; `1/101`: 49,152/49,152). After the scan,
+  both separate collectives reported 4,243,456 referenced / 49,152 exclusive
+  bytes. Post-assignment therefore preserves membership but leaves quota
+  accounting stale until a full scan.
+- The run ended `SNAPPER-ALT-726: PASS` for harness completion. It confirms on
+  the exact currently used kernel that neither workaround meets the
+  requirement to avoid scans while retaining current, separately queryable
+  snapshot totals. It changes no host filesystem. The serial log is
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-snapper-alternatives-7.2.6-20261019/final.serial.log`
+  (SHA-256
+  `8ae6c24e3e751ce090367202bd1b50e760dbabec6c6fae9cfcef892461ed5acd`); the
+  init script, fresh images, and initrd overlay are alongside it.

@@ -4183,6 +4183,27 @@ specified in `GOAL.md`.
   A host rollback/runtime check and a later local-build upgrade check remain
   open.
 
+## Host cleanup scheduling and quota-limit semantics (2026-10-19 16:50 BST)
+
+- The enabled `snapper-cleanup.timer` runs daily at 21:41. Its installed helper
+  reads `SNAPPER_CONFIGS="root home"` and its dry-run lists the number,
+  timeline, and empty-pre-post cleanup commands for those two default configs.
+  It does not include Kingston's alternate-root configs. The packaged
+  `/etc/cron.hourly/snapper.upstream` file is not selected by `run-parts`, and
+  neither root nor the user's crontab schedules the exponential-retention
+  script. That script exists as a manual tool; no automated Kingston cleanup
+  schedule was found.
+- All four configs currently enable number/timeline/empty-pre-post cleanup,
+  set `SPACE_LIMIT="1.0"`, and set `FREE_LIMIT="0.2"`. In the installed
+  Snapper source, `MaxUsedLimit::is_enabled()` returns false for fractional
+  `SPACE_LIMIT` values at 1.0, which disables quota-aware cleanup. It does not
+  disable number/timeline cleanup or the free-space cleanup path. When
+  quota-aware cleanup is enabled, `Cleaner::is_quota_satisfied()` defers it on
+  stale counters before calculating used-space limits.
+- This was a read-only source/config/service audit plus the cleanup helper's
+  built-in dry-run; no cleanup ran. The intended Kingston retention mechanism
+  and live cleanup behavior on all four roots remain unverified.
+
 ## Isolated Snapper package rollback cycle (2026-10-19)
 
 - In a disposable `/var/tmp` dpkg root, installed the previous local package

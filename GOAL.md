@@ -108,9 +108,10 @@ with the alternate root. The current source/config match is recorded in
    Remaining: complete host stale-quota, cleanup, and package rollback/runtime
    checks, and verify an upgrade to a subsequent local build. During
    investigation keep the timeline wrapper's explicit rescan block disabled
-   and `SPACE_LIMIT="1.0"` so quota-based cleanup remains disabled. Recheck
-   the shared window and hold path after future package configuration
-   migrations. The build recipe is
+   and `SPACE_LIMIT="1.0"` so quota-aware cleanup remains disabled. This does
+   not disable the current free-space or snapshot-count cleanup limits;
+   validate their behavior separately. Recheck the shared window and hold
+   path after future package configuration migrations. The build recipe is
    `scripts/build-local-debian-package.sh` on the Snapper fork's
    `codex/local-debian-package-builder` branch; generated files belong in its
    sibling build tree. This packaging work is separate from closed PR #1203.
@@ -156,7 +157,11 @@ with the alternate root. The current source/config match is recorded in
 
    Remaining: complete the p8 independent accounting comparison, live cleanup
    and rollback checks under the paired host runtime, and verify the counters
-   remain accurate through repeated snapshots and deletion. Restore the normal
+   remain accurate through repeated snapshots and deletion. The 21:41 host
+   cleanup timer currently targets only the default `root` and `home`
+   configs; Kingston's alternate-root configs are not in that helper's
+   `SNAPPER_CONFIGS`. Confirm the intended Kingston retention path and test its
+   behavior before claiming four-root cleanup coverage. Restore the normal
    quota-cleanup limit (`SPACE_LIMIT="0.5"`) only after accounting and cleanup
    pass.
 

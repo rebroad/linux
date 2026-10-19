@@ -4104,6 +4104,10 @@ specified in `GOAL.md`.
 
 ## Live Snapper package reinstall check (2026-10-19 15:09 BST)
 
+- APT/dpkg logs show the current local Snapper build was upgraded at 09:01 from
+  `0.13.2-1+local1.20261018183503.g017efa146426`; both `snapper` and
+  `libsnapper` reached `status installed` after configuration. APT recorded
+  the transaction as completed at 09:01:30.
 - Reinstalled the exact locally built `snapper` and `libsnapper` packages,
   version `0.13.2-1+local1.20261019003646.g7d4db17085ce`, using APT. The
   transaction reinstalled only those two packages; `dpkg --audit` remained

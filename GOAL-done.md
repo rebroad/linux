@@ -4203,6 +4203,14 @@ specified in `GOAL.md`.
 - This was a read-only source/config/service audit plus the cleanup helper's
   built-in dry-run; no cleanup ran. The intended Kingston retention mechanism
   and live cleanup behavior on all four roots remain unverified.
+- Ran `/home/rebroad/bin/snapper-exponential-retention --dry-run` for root and
+  home on both p8 and Kingston. It would keep 9 timeline snapshots per config
+  and delete 25 p8-home, 25 p8-root, 29 Kingston-home, and 29 Kingston-root
+  snapshots (108 total). No deletion was applied. A post-run check still
+  reported no rescan in progress and inconsistency flags `0` on both
+  filesystems. This preview does not prove that actual deletion preserves
+  accurate counters, and on p8 it overlaps with the separate built-in cleanup
+  timer; test and reconcile those paths before applying it.
 
 ## Isolated Snapper package rollback cycle (2026-10-19)
 

@@ -4598,3 +4598,22 @@ specified in `GOAL.md`.
 - The loaded module was still 7.2.6 build ID `258e41d2`, not the newer signed
   DKMS replacement. This adds a successful live snapshot round on the active
   module; post-reboot validation and the scheduled cleanup run remain open.
+
+## Scheduled four-root timeline cycle (2026-10-19 18:00 BST)
+
+- The scheduled `snapper-timeline.timer` fired at 18:00:02; the service
+  completed successfully at 18:00:04. The wrapper skipped duplicate p8 mount
+  aliases and created one snapshot for each unique target: p8-root 3871,
+  p8-home 2814, Kingston-root 2732, and Kingston-home 2525.
+- Their Btrfs subvolume IDs are respectively `0/6976`, `0/6977`, `0/5534`,
+  and `0/5533`. The live qgroup tree places them under the intended parent
+  groups: root snapshots under `1/100` and home snapshots under `1/101`.
+- Both filesystem inconsistency flags were `0`; `btrfs quota rescan -s`
+  reported no scan in progress on either filesystem. No qgroup scan or
+  inconsistency event appeared in the kernel journal for the cycle. Current
+  exclusive counters were p8-root 31,131,078,656 bytes, p8-home
+  23,299,461,120 bytes, Kingston-root 15,672,688,640 bytes, and Kingston-home
+  20,291,358,720 bytes.
+- This is one additional scheduled snapshot round on the loaded 7.2.6 module.
+  It does not validate repeated cleanup behavior, the newer signed module at
+  runtime, or the host suspend/resume hold path.

@@ -4843,3 +4843,34 @@ specified in `GOAL.md`.
   retry the kernel transaction. Debian's actual kernel postinst path,
   transaction rollback, boot/initramfs gating, and same-transaction module
   source updates remain open.
+## Btrfs stall diagnosis evidence (2026-10-19)
+
+- The host booted Debian kernel `7.2.6+deb13-amd64` with the out-of-tree
+  `btrfs-qgroup/7.2.6+rebroad1.z20261019.g89f68effaaf87` DKMS module loaded.
+  Its packaged source map selects the 7.2.6 Btrfs source for this release.
+- A live capture found a Kingston `btrfs-transaction` thread sleeping in
+  `btrfs_commit_transaction+0xb87`, while unrelated writers accumulated in
+  `wait_current_trans`. Disassembly of the installed module mapped this
+  instruction to `schedule()` in the wait for
+  `extwriter_counter_read(cur_trans) == 0`: the transaction was waiting for
+  external writers to drain before continuing the commit.
+- At the same time, `btrfs-cleaner` was observed blocked in
+  `read_extent_buffer_pages`; an earlier capture of Btrfs ordered-write
+  workers showed metadata reads/tree-lock waits, including a stack through
+  `btrfs_qgroup_trace_extent_post`. These observations connect qgroup work to
+  some blocked ordered completion, but do not establish that it held the
+  external writer count or caused the transaction delay.
+- Both filesystem commit counters advanced during observation and the active
+  transaction later completed. At one sample, Kingston's current commit age
+  was about 236 seconds; a later sample caught a second current commit at
+  about 264 seconds. Peak recorded commit durations were about 307 seconds on
+  p8 and 376 seconds on Kingston. D-state pressure eased afterward; latest
+  samples had no blocked tasks. Btrfs device error counters were zero.
+- The changed source is limited to `fs/btrfs/qgroup.c`, its header, and qgroup
+  sanity tests; `transaction.c` has no diff from the module's source baseline.
+  This weakens a direct link to the external-writer wait, but qgroup accounting
+  executes during ordered-write completion and remains a possible indirect
+  contributor. The evidence does not identify which external writer delayed
+  the observed transaction, nor distinguish a software dependency from
+  transient metadata/storage latency. The transaction stalls are therefore
+  still an open diagnosis, not a verified kernel-patch regression or exoneration.

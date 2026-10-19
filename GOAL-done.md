@@ -4617,3 +4617,17 @@ specified in `GOAL.md`.
 - This is one additional scheduled snapshot round on the loaded 7.2.6 module.
   It does not validate repeated cleanup behavior, the newer signed module at
   runtime, or the host suspend/resume hold path.
+
+## Regenerate GRUB entries from installed kernels (2026-10-19 18:04 BST)
+
+- The generated GRUB menu contained stale 7.1.13 and 7.1.8 entries, but their
+  kernel images, initramfs files, and `/lib/modules` trees were absent. The
+  installed 7.2.9 target and 7.2.6 rollback images and initramfs files were
+  present.
+- Ran `update-grub`. The regenerated menu contains the default Debian entry
+  loading 7.2.9, plus Advanced options for 7.2.9 and 7.2.6 and their recovery
+  entries; the nonexistent 7.1 entries are gone. Windows entries were also
+  retained. `grub-script-check /boot/grub/grub.cfg` passed, and
+  `GRUB_DEFAULT=0` remains set.
+- The running kernel remains 7.2.6. This prepares the intended next boot but
+  does not verify live activation of the signed 7.2.9 Btrfs module.

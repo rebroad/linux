@@ -3269,3 +3269,34 @@ specified in `GOAL.md`.
   `0.13.2-1+local1.20261018183503.g017efa146426`; the current PR-head build
   remains uninstalled pending sudo authentication. These checks and remaining
   gates are tracked in `GOAL.md`.
+
+## Live qgroup state via read-only Btrfs sysfs (2026-10-19 02:24 BST)
+
+- Mapped sysfs filesystem UUID `d09493d6-16e4-4253-83b7-a5334dd892c7`
+  (device `259:5`, p8 `/dev/nvme0n1p5`) and
+  `ee36ee29-e720-4f55-a7a7-abc0e7a8185e` (device `8:1`, Kingston
+  `/dev/sda1`). The local kernel's `fs/btrfs/sysfs.c` confirms that the
+  read-only per-qgroup `referenced` and `exclusive` files expose the live
+  `rfer` and `excl` counters under `qgroup_lock`, and `qgroups/inconsistent`
+  reads the Btrfs inconsistency flag.
+- p8 reported `inconsistent=0`. Its `1/100` counters were
+  `187287556096 referenced / 23325188096 exclusive` bytes; `1/101` were
+  `288737132544 / 21641932800` bytes. The tracker groups `2/0` and `2/1`
+  reported `187313635328 / 85175504896` and
+  `288814657536 / 288812109824` bytes, respectively.
+- Kingston reported `inconsistent=1`. Group `1/100` reported
+  `144916480 referenced / 2330951680 exclusive` bytes, and `1/101` reported
+  `559206400 / 4080107520` bytes. Exclusive exceeds referenced for both
+  groups, so these values are not trustworthy while the inconsistency flag is
+  set. Trackers `2/0` and `2/1` reported `712634368 / 710557696` and
+  `145063936 / 145063936` bytes. Historical config evidence maps Kingston
+  root/home to `1/100` and `1/101`; the current root-owned configs could not be
+  reread without sudo.
+- The loaded Btrfs module build ID
+  (`258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`) matches the selected 7.2.6 DKMS
+  module; its compressed SHA-256 is
+  `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`. No
+  `btrfs-qgroup-rescan` worker was visible. This captures the live flags and
+  counters but does not identify when Kingston became inconsistent or prove
+  what its counters become after a full rescan; those privileged checks remain
+  open in `GOAL.md`.

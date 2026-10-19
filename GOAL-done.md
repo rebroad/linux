@@ -3602,3 +3602,25 @@ specified in `GOAL.md`.
   keep counters explicitly stale and prevent quota-based cleanup from using
   them. Reassess upstream follow-up after activating the newest installed
   module and checking live accounting.
+
+## Pre-reboot module and GRUB audit (2026-10-19 12:18 BST)
+
+- The running kernel is `7.2.6+deb13-amd64`; its loaded Btrfs build ID is
+  `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. The newly installed 7.2.6 DKMS
+  module has build ID `46d2150765693e6b09846490c74ebdf710c0661b`, matching
+  vermagic `7.2.6+deb13-amd64 SMP preempt mod_unload` and signer `Rebroad's
+  module signing key`. `modprobe --show-depends` selects that module under
+  `/lib/modules/7.2.6+deb13-amd64/updates/dkms/`, and its path is in the 7.2.6
+  initramfs.
+- `GRUB_DEFAULT=0` selects the main Debian menu entry, which points to
+  `7.2.9+deb13-amd64`. Its selected DKMS module has build ID
+  `29eef0f63dbf1853b12c4714903b7f53be56015f`, matching its kernel vermagic and
+  the enrolled signing key; a complete `lsinitramfs` listing returned zero
+  with empty stderr and included that module. The 7.2.6 kernel image and
+  initramfs remain present in Advanced options. Secure Boot is enabled,
+  `dpkg --audit` is empty, and Kingston has no active qgroup rescan.
+- A reboot will select 7.2.9 by default, not the currently running 7.2.6.
+  The 7.2.9 module passed exact-release QEMU Secure Boot acceptance, but its
+  live host activation and qgroup behavior remain unverified. Boot 7.2.6
+  explicitly afterward to verify that release's newly installed module and
+  rollback path. No reboot was initiated during this audit.

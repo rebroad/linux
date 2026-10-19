@@ -415,11 +415,16 @@ quota-based cleanup must wait until the counters are consistent.
 
    **Next steps for safe local production use:**
    - Build, signing, module selection, initramfs inclusion, and exact-release
-     Secure Boot QEMU acceptance are verified for the currently installed
-     7.2.6 and 7.2.9 releases. The host is still running 7.2.6 with the
-     previous Btrfs module loaded; reboot and verify the new build ID, host
-     accounting, and rollback path. Final accounting and live-host cleanup
-     acceptance remain outstanding. Evidence and hashes are in `GOAL-done.md`.
+     Secure Boot QEMU acceptance are verified for installed 7.2.6 and 7.2.9.
+     The host still runs 7.2.6 with build ID `258e41d2` loaded; the installed
+     7.2.6 DKMS module is signed, selected, and in its initramfs with build ID
+     `46d21507`. `GRUB_DEFAULT=0` will boot 7.2.9 next; its signed DKMS module
+     (build ID `29eef0f6`) is also selected and in its initramfs. The 7.2.6
+     kernel and initramfs remain installed for rollback. After an approved
+     reboot, verify the 7.2.9 loaded build ID and live qgroup behavior, then
+     explicitly boot 7.2.6 to verify its replacement module and rollback path.
+     Final accounting and live-host cleanup acceptance remain outstanding.
+     Evidence and hashes are in `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
      actual 7.2.6 header and image hooks passed. Maintain matching modules for
      every installed kernel, including the currently running release and

@@ -4488,3 +4488,23 @@ specified in `GOAL.md`.
   snapshot 2176 are established. No snapshot or qgroup was changed during this
   audit. The next timeline run was scheduled for 18:00 and cleanup for 21:41;
   the default cleanup timer still excludes Kingston's alternate-root configs.
+
+## Add retained snapshot 2176 to p8-root collective (2026-10-19 17:23 BST)
+
+- Snapshot 2176 remains in Snapper config `root`, so it belongs in the
+  required p8-root snapshot-only collective. The available August journal did
+  not retain its creation command, so why it was initially ungrouped remains
+  unknown.
+- Assigned Btrfs subvolume qgroup `0/3978` to snapshot qgroup `1/100` on p8 and
+  requested a rescan. The rescan completed at 17:22:53 BST; the kernel logged
+  `qgroup scan completed (inconsistency flag cleared)`. Neither p8 nor Kingston
+  has a scan in progress now.
+- The post-scan `forget --collective` queries report `CONSISTENT` for all four
+  required collectives: p8-root `1/100` (87 snapshots, 28.90 GiB exclusive),
+  p8-home `1/101` (35 snapshots, 21.66 GiB), Kingston-root `1/100` (93
+  snapshots, 14.60 GiB), and Kingston-home `1/101` (39 snapshots, 18.89 GiB).
+  The p8 qgroup inventory confirms `0/3978` is now a child of `1/100`, itself
+  under tracker `2/0` with live source `0/262`.
+- This restores a queryable four-collective state after a full scan; it does
+  not establish long-term counter stability through subsequent snapshots and
+  cleanup, nor does it replace the planned quiescent independent comparison.

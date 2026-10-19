@@ -1774,6 +1774,26 @@ specified in `GOAL.md`.
   revision. Patch SHA-256:
   `64781dca15601157ad574b0115ab737e4d5d1f3539af761ace4fb02afd239c0c`.
 
+## Exact-7.2.6 direct and tracker overflow coverage (2026-10-19)
+
+- Review found the overflow tests covered the four ancestor counters, but not
+  the fast path's separate preflight of the snapshot group's `excl` and
+  `excl_cmpr`, or the four counters on the shared tracker itself. Extended the
+  existing test to trigger overflow in those six counters and verify that all
+  snapshot, tracker, and ancestor counters remain unchanged.
+- The test-enabled external Btrfs module rebuilt against
+  `/usr/src/linux-headers-7.2.6+deb13-amd64`; sanity tests were enabled for
+  this build. Its uncompressed module SHA-256 is
+  `fb2d000cd4a26ad7b832bb145a6aa23eff9d649e84ef7aec151e5fd627241196`.
+- Booted the exact Debian 7.2.6 kernel in QEMU. Shared-parent, topology
+  fallback, and counter-overflow tests ran at nodesizes 4, 8, 16, 32, and 64
+  KiB; no selftest failure appeared, and the four-group workload reached
+  `HOST-TOPOLOGY: CLEANUP-COMPLETE`. The serial log SHA-256 is
+  `e26868e65def4e28a13c52d6501507fcd129730b00e4ab4d69ef3deb30fb799a` at
+  `/var/tmp/linux.build/qgroup-san-overflow-7.2.6-20261019/qemu-rerun.serial.log`.
+  This verifies the added overflow cases and this QEMU workload; host runtime
+  and full Secure Boot acceptance remain open.
+
 ## Cross-config rescan policy enforcement (2026-10-18)
 
 - The latest-upstream Snapper candidate now enumerates `SNAPPER_CONFIGS` when

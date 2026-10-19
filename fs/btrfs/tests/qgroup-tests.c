@@ -655,7 +655,7 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 	struct btrfs_qgroup *overflow_parent;
 	struct btrfs_qgroup *overflow_shared_parent;
 	struct btrfs_qgroup *overflow_ancestor;
-	u64 *overflow_counters[4];
+	u64 *overflow_counters[10];
 	u64 *tracked_counters[12];
 	u64 counters_before[ARRAY_SIZE(tracked_counters)];
 	u64 saved_counter;
@@ -756,8 +756,8 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 		return -EINVAL;
 	}
 
-	/* Ancestor counter overflow must fall back before changing any counters. */
-	test_msg("running snapshot quick-inherit ancestor overflow tests");
+	/* Counter overflow must fall back before changing any counters. */
+	test_msg("running snapshot quick-inherit counter overflow tests");
 	ret = create_test_qgroup(&trans, overflow_srcid);
 	if (ret)
 		return ret;
@@ -804,10 +804,16 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 	overflow_ancestor->excl = 3 * root->fs_info->nodesize;
 	overflow_ancestor->excl_cmpr = root->fs_info->nodesize;
 
-	overflow_counters[0] = &overflow_ancestor->rfer;
-	overflow_counters[1] = &overflow_ancestor->rfer_cmpr;
-	overflow_counters[2] = &overflow_ancestor->excl;
-	overflow_counters[3] = &overflow_ancestor->excl_cmpr;
+	overflow_counters[0] = &overflow_parent->excl;
+	overflow_counters[1] = &overflow_parent->excl_cmpr;
+	overflow_counters[2] = &overflow_shared_parent->rfer;
+	overflow_counters[3] = &overflow_shared_parent->rfer_cmpr;
+	overflow_counters[4] = &overflow_shared_parent->excl;
+	overflow_counters[5] = &overflow_shared_parent->excl_cmpr;
+	overflow_counters[6] = &overflow_ancestor->rfer;
+	overflow_counters[7] = &overflow_ancestor->rfer_cmpr;
+	overflow_counters[8] = &overflow_ancestor->excl;
+	overflow_counters[9] = &overflow_ancestor->excl_cmpr;
 	tracked_counters[0] = &overflow_parent->rfer;
 	tracked_counters[1] = &overflow_parent->rfer_cmpr;
 	tracked_counters[2] = &overflow_parent->excl;
@@ -830,12 +836,12 @@ static int test_qgroup_inherit_parent_fallbacks(struct btrfs_root *root)
 							       overflow_srcid,
 							       overflow_parentid);
 		if (ret != 1) {
-			test_err("ancestor counter overflow unexpectedly returned %d", ret);
+			test_err("counter overflow unexpectedly returned %d", ret);
 			return -EINVAL;
 		}
 		for (j = 0; j < ARRAY_SIZE(tracked_counters); j++) {
 			if (*tracked_counters[j] != counters_before[j]) {
-				test_err("ancestor overflow changed qgroup counters");
+				test_err("counter overflow changed qgroup counters");
 				return -EINVAL;
 			}
 		}

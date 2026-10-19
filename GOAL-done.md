@@ -4530,3 +4530,27 @@ specified in `GOAL.md`.
   by a full rescan. Thus the alternate-root cleanup command is QEMU-verified;
   the host timer's omission of Kingston and live cleanup/counter behavior
   remain open.
+
+## Schedule configured cleanup for mounted alternate roots (2026-10-19 17:35 BST)
+
+- Extended the tracked root-repository helper
+  `/usr/local/libexec/snapper-cleanup-all-roots` to discover mounted
+  `/mnt/*` Snapper config roots, invoke each enabled cleanup algorithm with
+  `snapper --root`, ensure the alternate home bind points at its Btrfs
+  subvolume, and suppress duplicate targets by device and Btrfs root ID. This
+  prevents the p8 alias from being cleaned twice while adding Kingston's
+  alternate-root `root` and `home` configs.
+- `sh -n` passed. The installed helper's `SNAPPER_CLEANUP_DRY_RUN=1` output
+  contains the six enabled cleanup commands for default `root`/`home` and six
+  for Kingston `root`/`home`; it reports and skips p8 aliases. No cleanup
+  algorithm was invoked during the dry-run.
+- Installed helper SHA-256 is
+  `4fbe339470bb47f5143726e65d5f66391d6d29a5bbd289fc3f349b919be12d42`.
+  Root config-repository commit `7c69972fb` contains only this helper change
+  and was pushed to `origin/master` after confirming the remote parent and
+  reviewing the commit for private data.
+- At 17:35 the cleanup service was inactive with successful last result; the
+  next timer was 21:41. Both filesystems had no scan in progress, and all four
+  collective reports remained `CONSISTENT`. No live cleanup has run through
+  the new Kingston path yet; verify the first scheduled cleanup and compare
+  counters afterward before closing live cleanup coverage.

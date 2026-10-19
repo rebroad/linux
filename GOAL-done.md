@@ -4247,6 +4247,25 @@ specified in `GOAL.md`.
   `fs/btrfs` sources and installed DKMS sources were left unchanged; the Linux
   checkout reported clean afterward.
 
+## Installed-kernel module coverage preflight (2026-10-19 16:26 BST)
+
+- Package status (`dpkg-query` `ii` entries), `/boot/vmlinuz-*`, and
+  `/lib/modules/*` confirm the only installed kernel releases are
+  `7.2.6+deb13-amd64` and `7.2.9+deb13-amd64`. Old package records for other
+  kernel versions are not installed images. DKMS reports a signed Btrfs module
+  installed for each of the two actual releases.
+- Secure Boot is enabled. For the default 7.2.9 entry, the signed DKMS module
+  has vermagic `7.2.9+deb13-amd64 SMP preempt mod_unload`, signer
+  `Rebroad's module signing key`, compressed SHA-256
+  `2b94d9a03652ad61fdf8c019fa15b85581121680304ada9dc594be7ff8837e4a`, and
+  build ID `29eef0f63dbf1853b12c4714903b7f53be56015f`. `modprobe` selects it,
+  and the same DKMS module path is present in the 7.2.9 initramfs. GRUB's first
+  normal entry is 7.2.9 and 7.2.6 remains available as the next entry.
+- This confirms preboot coverage for every installed release, not successful
+  runtime activation. The running kernel remains 7.2.6 with build ID
+  `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`; post-boot verification is still
+  required.
+
 ## Current Snapper hold and stale-quota validation on exact 7.2.6 (2026-10-19)
 
 - Rebuilt an isolated QEMU rootfs from the current local Snapper packages built

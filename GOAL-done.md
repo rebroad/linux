@@ -4005,3 +4005,44 @@ specified in `GOAL.md`.
   for the security kernel before allowing it through the kernel guard.
 - Sources: [Debian's 6.12.113 stable-security announcement](https://tracker.debian.org/news/1811640/accepted-linux-612113-1-source-into-stable-security/),
   [Debian's 7.2.9 backports announcement](https://tracker.debian.org/news/1812073/accepted-linux-729-1bpo131-source-into-stable-backports/).
+
+## DSA-6393 and installed-module follow-up (2026-10-19)
+
+- Rechecked the live host with elevated access because the unprivileged
+  filesystem view does not expose the host's `/lib/modules` contents. The
+  running kernel remains `7.2.6+deb13-amd64`; the loaded Btrfs module build ID
+  is `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. Only kernel image packages
+  `7.2.6-1~bpo13+1` and `7.2.9-1~bpo13+1` are installed. DKMS reports the
+  `btrfs-qgroup` module installed for both releases. For each release,
+  `modprobe --show-depends` selects
+  `/lib/modules/<release>/updates/dkms/btrfs.ko.xz`, `modinfo` reports the
+  `Rebroad's module signing key`, and the matching initramfs contains
+  that DKMS module. `linux-image-amd64` remains at 7.2.9 as both installed and
+  candidate; the available 6.12.113 security kernel remains pinned at -1 and
+  is not an installation candidate.
+- The 12 CVEs referenced by [DSA-6393-1](https://security-tracker.debian.org/tracker/DSA-6393-1)
+  are each marked fixed by 7.2.9 or earlier in Debian's tracker:
+  [CVE-2025-21807](https://security-tracker.debian.org/tracker/CVE-2025-21807)
+  (7.2.6), [CVE-2026-46093](https://security-tracker.debian.org/tracker/CVE-2026-46093)
+  (7.2.6), [CVE-2026-53027](https://security-tracker.debian.org/tracker/CVE-2026-53027)
+  (7.1.12), [CVE-2026-53226](https://security-tracker.debian.org/tracker/CVE-2026-53226)
+  (7.2.9), [CVE-2026-53392](https://security-tracker.debian.org/tracker/CVE-2026-53392)
+  (7.2.8), [CVE-2026-53399](https://security-tracker.debian.org/tracker/CVE-2026-53399)
+  (7.2.9), [CVE-2026-53402](https://security-tracker.debian.org/tracker/CVE-2026-53402)
+  (7.1.13), [CVE-2026-63815](https://security-tracker.debian.org/tracker/CVE-2026-63815)
+  (7.2.9), [CVE-2026-63816](https://security-tracker.debian.org/tracker/CVE-2026-63816)
+  (7.2.9), [CVE-2026-63818](https://security-tracker.debian.org/tracker/CVE-2026-63818)
+  (7.2.6), [CVE-2026-64187](https://security-tracker.debian.org/tracker/CVE-2026-64187)
+  (7.2.8), and [CVE-2026-64189](https://security-tracker.debian.org/tracker/CVE-2026-64189)
+  (7.2.8). The DSA page itself lists Trixie's 6.12.107 and 6.12.113 packages
+  as fixed; the individual tracker records show these same fixes in Debian's
+  7.2 series by 7.2.9. This supports keeping the selected 7.2.9 backport for
+  these fixes, rather than enabling 6.12.113 solely for DSA-6393. The exact
+  Debian `~bpo13+1` source patch set was not compared byte-for-byte against the
+  fixed Debian source records, and the comparison does not establish that
+  7.2.9 contains every later stable-security fix.
+- Debian's tracker reports 7.2.11 migrated to testing on 2026-10-18, while
+  the host's configured stable-backports index still selects 7.2.9. Before
+  changing the kernel allowlist or claiming ongoing security coverage, compare
+  each newer Debian security advisory against the actual selected backports
+  source.

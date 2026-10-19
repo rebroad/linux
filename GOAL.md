@@ -147,31 +147,29 @@ quota-based cleanup must wait until the counters are consistent.
    orders, and the eight-round repeated-cycle checks now also match in both
    orders. The repeated eight-round timeline cleanup and synchronous deletion
    passed with the candidate and baseline modules, without additional scans or
-   stale-qgroup errors; see `GOAL-done.md`. The deletion-fallback patch has
-   been reviewed locally and now has an in-kernel sanity regression test that
-   passes at all five configured node sizes under QEMU. Live-host cleanup
-   validation and broader root-cause reconciliation remain.
+   stale-qgroup errors; see `GOAL-done.md`. The qgroup teardown failure is
+   already fixed in the Btrfs maintainer `for-next` branch; do not file a
+   duplicate upstream report. Stable 7.2.6 and 7.2.9-7.2.11 still contain the
+   affected code. The exact 7.2.6 checkout now backports both upstream
+   teardown fixes and has sanity coverage for the rescan-required and missing
+   info-item paths; both pass at all five node sizes in QEMU. Port and verify
+   these fixes in every release-matched DKMS source variant before relying on
+   them across installed kernels. Live-host cleanup validation and broader
+   root-cause reconciliation remain.
    The second-rescan `qgroup info item update error
    -2` is traced to Btrfs snapshot-qgroup teardown: relation removal marks
    accounting inconsistent and returns a positive “rescan required” result,
    which caused `btrfs_remove_qgroup()` to exit after deleting the info item
-   but before freeing the in-memory qgroup. A narrow fix is now implemented
-   in this exact 7.2.6 source checkout. It preserves the positive fallback
-   result unless the relation was actually removed, and checks the result of
-   the in-memory relation deletion before proceeding. The complete external
-   Btrfs module built against the installed 7.2.6 headers and passed the
-   matched four-collective QEMU cleanup/deletion workload: the module hash
-   was confirmed in the guest, both final rescans completed, the stale-qgroup
-   `-ENOENT` warning did not recur, and final quota status was consistent.
-   The local source review and durable regression coverage are complete: the
-   new test forces relation deletion onto the positive rescan-required path
-   and verifies that qgroup teardown still removes the qgroup and relation.
-   The test and full four-group cleanup workload pass in QEMU. Keep this
-   deletion fix separate from the six ordinary snapshot-creation fallback
-   scans, which remain unresolved. The retention script was not needed to
-   reproduce the warning, though its snapshot deletions may exercise the same
-   lifecycle. Live-host confirmation remains; evidence and limits are in
-   `GOAL-done.md`.
+   but before freeing the in-memory qgroup. The maintainer `for-next` branch
+   already contains the reviewed fix and a follow-up for leaking a tolerated
+   `-ENOENT`; neither appears in stable 7.2.6 or 7.2.9-7.2.11. Both are now
+   backported and tested in this exact 7.2.6 source checkout. The in-kernel
+   cases verify that positive rescan status still frees the qgroup and that a
+   missing on-disk item does not leak as the return value. Keep this teardown
+   fix separate from the six ordinary snapshot-creation fallback scans, which
+   remain unresolved. Port the backport to every release-matched DKMS source
+   variant and verify the installed modules. Do not raise a duplicate upstream
+   report; evidence and source references are in `GOAL-done.md`.
 
    Then continue developing and validating the Snapper fix against the latest
    revision in the official upstream repository
@@ -235,13 +233,16 @@ quota-based cleanup must wait until the counters are consistent.
    operations, then decide whether the fast path is needed to meet the
    operating constraints. See `GOAL-done.md` for results and limits.
 
-   The kernel companion is based on the Btrfs maintainer tree's
+   The shared-parent fast-path kernel companion is based on the Btrfs
+   maintainer tree's
    [`for-next` branch](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git).
-   Its exact-release QEMU tests, including ancestor-counter overflow fallback,
-   and current patch checks are recorded in `GOAL-done.md`. The patch has not
-   been submitted. Review the exact patch and obtain the user's DCO sign-off
-   before adding a `Signed-off-by` trailer or sending it to the mailing list;
-   this public-submission gate does not block local testing or deployment.
+   The separate qgroup teardown fix is already present in that branch; the
+   shared-parent fast path is not. Its exact-release QEMU tests, including
+   ancestor-counter overflow fallback, and current patch checks are recorded
+   in `GOAL-done.md`. The fast-path patch has not been submitted. Review its
+   exact diff and obtain the user's DCO sign-off before adding a
+   `Signed-off-by` trailer or sending it to the mailing list; this
+   public-submission gate does not block local testing or deployment.
    The unsigned mail-formatted draft is
    `linux.build/submissions/0001-btrfs-qgroup-shared-parent-fast-inherit.patch`.
 2. **Deploy and maintain our latest-upstream Snapper build — 80% done.** The host
@@ -333,15 +334,16 @@ quota-based cleanup must wait until the counters are consistent.
      remain outstanding. Evidence and hashes are in
      `GOAL-done.md`.
    - The DKMS package now maps exact sources for 7.2.6 and 7.2.9, and the
-     actual 7.2.6 header and image hooks passed. Before rebooting into the
-     next kernel version APT will install or select, prepare its matching
-     source and verify the DKMS build, signature, module selection, and
-     initramfs. Keep matching modules ready for every installed kernel,
-     including the running release and rollback versions. For each later
-     kernel release, complete these checks before it can be selected for boot.
-     Prove an unmapped or failed build cannot silently boot stock Btrfs or
-     leave package configuration broken; keep normal security upgrades
-     available.
+     actual 7.2.6 header and image hooks passed. Maintain matching modules for
+     every installed kernel, including the currently running release and
+     rollback versions. Also prepare and validate the module for the next
+     kernel version APT will install or select, before rebooting into it: add
+     its matching source, verify the DKMS build and Secure Boot signature,
+     confirm module selection and initramfs inclusion, and complete these
+     checks before that release can be selected for boot. Repeat this for
+     every later kernel version. Prove an unmapped or failed build cannot
+     silently boot stock Btrfs or leave package configuration broken; keep
+     normal security upgrades available.
    - Keep the verified boot selection and signed stock-module rollback path
      documented. Verify the new p8 groups through Snapper operations and
      cleanup, and retain the active 7.2.6 release as the acceptance kernel.

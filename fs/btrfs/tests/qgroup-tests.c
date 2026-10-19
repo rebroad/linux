@@ -503,6 +503,7 @@ static int test_qgroup_remove_after_rescan_fallback(struct btrfs_root *root)
 	struct btrfs_trans_handle trans;
 	const u64 qgroupid = TEST_QGROUP(1, 10040);
 	const u64 parentid = TEST_QGROUP(2, 10040);
+	const u64 orphanid = TEST_QGROUP(1, 10041);
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup *parent;
 	int ret;
@@ -529,13 +530,28 @@ static int test_qgroup_remove_after_rescan_fallback(struct btrfs_root *root)
 	/* Force relation removal to require a full qgroup rescan. */
 	qgroup->rfer = root->fs_info->nodesize;
 	ret = btrfs_remove_qgroup(&trans, qgroupid);
-	if (ret) {
-		test_err("qgroup removal returned %d after removing its relation", ret);
+	if (ret != 1) {
+		test_err("qgroup removal returned %d instead of requesting a rescan", ret);
 		return ret < 0 ? ret : -EINVAL;
 	}
 	if (find_test_qgroup(fs_info, qgroupid) ||
 	    !list_empty(&parent->members)) {
 		test_err("qgroup or relation remained after successful removal");
+		return -EINVAL;
+	}
+
+	/* A missing on-disk item is tolerated and must not leak as the result. */
+	test_msg("running qgroup removal with a missing info item test");
+	ret = create_test_qgroup(&trans, orphanid);
+	if (ret)
+		return ret;
+	ret = btrfs_remove_qgroup(&trans, orphanid);
+	if (ret) {
+		test_err("qgroup removal returned %d for an absent info item", ret);
+		return ret < 0 ? ret : -EINVAL;
+	}
+	if (find_test_qgroup(fs_info, orphanid)) {
+		test_err("qgroup remained after successful removal without an info item");
 		return -EINVAL;
 	}
 	return 0;

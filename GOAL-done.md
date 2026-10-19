@@ -2984,35 +2984,39 @@ specified in `GOAL.md`.
   validation were open at the time; the first two are covered by the next
   section.
 
-## Qgroup removal rescan-fallback regression test (2026-10-19)
+## Upstream qgroup teardown fixes and 7.2.6 backport (2026-10-19)
 
-- Reviewed the qgroup-removal patch against its callers. The on-disk relation
-  deletion helpers return zero or negative errors; the positive
-  rescan-required result comes from `quick_update_accounting()`. The helper
-  sets `relation_removed` only after the in-memory relation is deleted.
-  `btrfs_del_qgroup_relation()` still returns the positive rescan request to
-  its caller, while `btrfs_remove_qgroup()` suppresses it only after that
-  relation was actually removed so it can finish qgroup teardown.
-- Added an in-tree Btrfs sanity case that creates a qgroup with a parent,
-  makes its referenced count differ from its exclusive count, and removes it.
-  This forces the positive rescan-required path and asserts that removal
-  succeeds, the qgroup leaves the tree, and the parent no longer has the
-  relation. The test-enabled external module compiled against the exact
-  `/usr/src/linux-headers-7.2.6+deb13-amd64` headers.
-- Booted the exact Debian `7.2.6+deb13-amd64` kernel in QEMU under TCG with the
-  test-enabled module. The test ran at all five configured metadata node
-  sizes (4, 8, 16, 32, and 64 KiB); each run continued through the remaining
-  Btrfs sanity suite, module load, and the four-group eight-round
-  snapshot/cleanup/deletion workload. The guest confirmed compressed module
-  SHA-256
-  `773594aa80f25060fb434d4b90107ca43207c427e77d68bf735a2e81dfd962bd` and
-  reached `HOST-TOPOLOGY: CLEANUP-COMPLETE`. No
-  `qgroup info item update error -2` appeared.
+- Checked the live Btrfs maintainer `for-next` ref
+  (`2789b2c034d7c0c8687355921a38c5ac41a565fa`). It already contains the
+  reviewed [positive-rescan teardown fix](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/commit/?id=dd906477cc2c33c82ec17e6301bd4be4ea588565),
+  which matches the observed `btrfs_remove_qgroup()` failure, and a follow-up
+  [tolerated `-ENOENT` return fix](https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/commit/?id=727bb633fea9a3b37061b837c85647218dc28485).
+  The live stable `linux-7.2.y` branch was at `v7.2.11`; source checks of
+  `v7.2.6`, `v7.2.9`, `v7.2.10`, and `v7.2.11` found neither change. Do not
+  file a duplicate upstream report. Release-matched local modules still need
+  these backports until the selected kernel packages include them.
+- Updated the exact 7.2.6 source to use the maintainer fix's semantics:
+  positive rescan-required status does not abort qgroup teardown, and a
+  tolerated missing qgroup info item does not leak `-ENOENT` when there are no
+  relations. Added in-tree sanity coverage for both cases. It verifies the
+  rescan-required call returns `1` while removing the qgroup and relation, and
+  that removing a qgroup whose on-disk item is absent returns success.
+- The test-enabled external module built against the exact
+  `/usr/src/linux-headers-7.2.6+deb13-amd64` headers. QEMU booted the exact
+  Debian 7.2.6 kernel under TCG; both cases passed at all five configured
+  metadata node sizes (4, 8, 16, 32, and 64 KiB), and the guest completed the
+  four-group eight-round snapshot/cleanup/deletion workload. It reached
+  `HOST-TOPOLOGY: CLEANUP-COMPLETE`; no test failure, module-load failure, or
+  `qgroup info item update error -2` appeared. The guest-confirmed compressed
+  module SHA-256 is
+  `c9ca139550f1b057f96239b77f369666abcf8216d586afa7a2a66bd794d3bd88`.
 - The serial log is
-  `/var/tmp/linux.build/qgroup-removal-7.2.6/test-enabled-qgroup-sanity-rerun.serial.log`;
-  the module build and overlay are in
-  `/var/tmp/linux.build/qgroup-removal-7.2.6/`. This validates the regression
-  and paired workload in QEMU. Live-host cleanup validation remains open.
+  `/var/tmp/linux.build/qgroup-removal-7.2.6/upstream-backport-test-rerun.serial.log`;
+  the test module and initrd overlay are in
+  `/var/tmp/linux.build/qgroup-removal-7.2.6/`. This is exact-kernel QEMU
+  validation, not the signed DKMS rollout. Port the backport to each installed
+  release-matched source variant and verify its signed module and initramfs;
+  live-host cleanup validation remains open.
 
 ## Snapper rescan hold, window, and stale quota values (2026-10-19)
 

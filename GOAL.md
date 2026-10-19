@@ -93,6 +93,15 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
+**First priority: diagnose and fix the current Btrfs stalls.** Investigate the
+transaction waits, blocked writeback workers, and long commits with live kernel
+stacks and commit-progress evidence. Establish whether the loaded modified
+qgroup module caused or contributed to the stalls. If it did not, identify the
+specific kernel path or dependency responsible and fix that cause. Treat these
+stalls as a separate issue from qgroup inconsistency unless evidence connects
+them. Complete this investigation before resuming lower-priority deployment
+validation.
+
 1. **Finish root-cause and live-accounting validation — 95% done.** The
    controlled QEMU matrix and source trace identify the stock-kernel fallback
    for the tested hierarchy; full evidence and limits are in `GOAL-done.md`.

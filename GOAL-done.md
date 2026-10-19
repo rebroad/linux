@@ -3166,3 +3166,36 @@ specified in `GOAL.md`.
   installed signed modules still have the previous hashes recorded above;
   package installation, DKMS build/sign, initramfs verification, and host
   runtime checks remain open in `GOAL.md`.
+
+## Current Snapper package build and host runtime audit (2026-10-19)
+
+- The official Snapper `master` fetched for this audit is
+  `5a2dd6a8559c1a04c5575bf184acb347dce0d8f7`. PR #1203 is open with that exact
+  base and head `7d4db17085ce12fcd8e7c371d3aae2ff61a44cf0`; all seven PR checks
+  report success. The local Snapper checkout is clean at that head.
+- Built the local Debian package from the current PR head using the
+  `codex/local-debian-package-builder` recipe. Its source sync, configure,
+  `make check`, package build, and binary feature audit completed successfully
+  in `/mnt/kingston/builds/rebroad/src/snapper.build/local-package-builds/0.13.2-7d4db17085ce-20261019T003621Z/`.
+  The Snapper testsuite log records 20 passed, 0 failed, and 0 errors. The
+  optional zypp-plugin shell tests were skipped because Ruby and ShellCheck
+  are not installed.
+- The `snapper` package is
+  `0.13.2-1+local1.20261019003646.g7d4db17085ce`, SHA-256
+  `0c472e7d295c551d3b635f8334c0cc3c889f400aaa45889613be876f25cdca93`; the
+  matching `libsnapper` package has SHA-256
+  `07231bafde012b18fad6103e35e7a9b2c537d5d683d82ac781af811e343af7d7`.
+  The candidate executable reports Btrfs quota support. An APT simulation
+  installing only these two packages upgrades `snapper` and `libsnapper` with
+  no package additions or removals.
+- The installed host Snapper package is still
+  `0.13.2-1+local1.20261018183503.g017efa146426`; it has not yet been upgraded
+  to the current PR head. The running kernel is `7.2.6+deb13-amd64`. Read-only
+  module inspection found the loaded Btrfs build ID matches the selected
+  signed DKMS module at `/lib/modules/7.2.6+deb13-amd64/updates/dkms/`, whose
+  compressed SHA-256 remains the pre-teardown-backport value
+  `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`.
+- `sudo -n` reports that a password is required, and the configured
+  `ssh-askpass` cannot open the sandbox display. The packages were not
+  installed; daemon restart, post-install config verification, and live
+  Snapper acceptance remain open in `GOAL.md`.

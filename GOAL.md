@@ -169,9 +169,12 @@ with the alternate root. The current source/config match is recorded in
    scheduled cleanup path: its alternate-root configs enable built-in cleanup,
    but the 21:41 helper runs only the host `root` and `home` configs. The
    exponential-retention tool has no scheduled invocation; its current dry-run
-   proposes deleting 60 Kingston snapshots. Decide which existing retention
-   policy is intended, then safely configure and verify it before claiming
-   four-root cleanup coverage. Restore the normal quota-cleanup limit
+   proposes deleting 60 Kingston snapshots. The configs select built-in
+   Snapper cleanup, and the exact-kernel four-config QEMU run exercises
+   alternate-root timeline cleanup. Extend the host cleanup path to invoke
+   those configured algorithms for Kingston, then verify live deletion and
+   counters before claiming four-root cleanup coverage. Keep the unscheduled
+   exponential tool out of that path. Restore the normal quota-cleanup limit
    (`SPACE_LIMIT="0.5"`) only after accounting and cleanup pass.
 
 5. **Preserve temporary host containment, including after resume — 94% done.**

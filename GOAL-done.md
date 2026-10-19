@@ -3300,3 +3300,40 @@ specified in `GOAL.md`.
   counters but does not identify when Kingston became inconsistent or prove
   what its counters become after a full rescan; those privileged checks remain
   open in `GOAL.md`.
+
+## Kingston full-rescan reconciliation and post-rescan timeline cycle (2026-10-19)
+
+- At 09:34 BST, the host was running `7.2.6+deb13-amd64`; both filesystems had
+  no rescan in progress. Kingston's `qgroups/inconsistent` flag was `1`, and
+  `btrfs qgroup show` warned that its qgroup data was inconsistent. The
+  configured local window was open (05:00-21:00), both Kingston configs had
+  `QGROUP_RESCAN_DAILY_LIMIT="no"`, and the shared hold marker was absent.
+- Started a controlled full Kingston rescan with `btrfs quota rescan -w`.
+  The kernel logged completion at 09:47:09 BST and explicitly reported that it
+  cleared the inconsistency flag. The rescan status then reported no operation
+  in progress. Kingston's `qgroup show` no longer warned, both snapshot groups
+  had exclusive counters below their referenced counters, and p8 remained
+  consistent throughout. This reconciled the previously impossible stale
+  Kingston counters; it does not identify when or which operation first made
+  them stale.
+- The 10:00 BST hourly service completed successfully and created one timeline
+  snapshot in each of p8-root, p8-home, Kingston-root, and Kingston-home.
+  At 10:02, both filesystem inconsistency flags were still `0`, both rescan
+  status queries reported no scan in progress, and the kernel journal contained
+  no new qgroup event after the Kingston scan-completion message. This is one
+  live post-rescan snapshot cycle on the 7.2.6 host, not yet evidence of stable
+  behavior over repeated cycles or of the original onset cause.
+- The host's installed package is now
+  `0.13.2-1+local1.20261019003646.g7d4db17085ce` for both `snapper` and
+  `libsnapper`. The installed binary reports Snapper 0.13.2, libsnapper 8.2.0,
+  and Btrfs quota support; `snapper list-configs` lists p8 `root` and `home`.
+  The daemon started on demand, and the 10:00 timeline run completed. The four
+  live configs retain separate qgroups (`1/100` root, `1/101` home),
+  `SPACE_LIMIT="1.0"`, the 05:00-21:00 window, the shared hold path, and the
+  disabled daily limit.
+- This evidence establishes a successful counter reconciliation and one
+  candidate-host snapshot cycle afterward. Repeat the live observation and
+  compare with the controlled stock-kernel QEMU results before treating the
+  recurring inconsistency cause as fully resolved. A real suspend/resume,
+  quota cleanup, package rollback/reinstall, and kernel-upgrade acceptance
+  remain open in `GOAL.md`.

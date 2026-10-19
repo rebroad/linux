@@ -41,8 +41,10 @@ and creates snapshots, Btrfs marks qgroups inconsistent during snapshot
 inheritance, and the wrapper starts another scan. A preserved Kingston config
 pair shows distinct root/home QGROUPs (`1/100` and `1/101`) during a later
 instance of this cycle, so a shared root/home snapshot group is not required
-for it. The current 7.2.6 host has completed two more hourly cycles after
-reconciliation without a scan; longer current-kernel observation and the
+for it. The current 7.2.6 host has completed three more hourly cycles after
+reconciliation without a scan on the previously loaded shared-parent fast-path
+module; the newly rebuilt module is installed but still needs a reboot before
+its live behavior can be checked. Longer current-kernel observation and the
 original onset remain open. See `GOAL-done.md`.
 For the tested 7.2.6 four-group hierarchy, the source-level cycle is now
 identified: stock Btrfs marks accounting inconsistent on snapshot inheritance
@@ -268,13 +270,15 @@ quota-based cleanup must wait until the counters are consistent.
    flags and Snapper did not start a rescan. A separate diagnostic full scan
    manually started on Kingston at 10:12 completed at 10:23 and adjusted the
    `1/101` and `2/0` exclusive counters by 180,224 bytes even though no
-   inconsistency was reported before the scan. The 11:00 hourly run then
-   created the next Kingston root and home snapshots; both filesystems still
-   had clear inconsistency flags, and neither had a scan in progress or a new
-   kernel rescan event. This is a second observed live snapshot cycle after
-   Kingston's reconciliation, not proof that the condition stays fixed over
-   longer operation or that it explains when Kingston first became
-   inconsistent. See `GOAL-done.md`.
+   inconsistency was reported before the scan. The 11:00 and 12:00 hourly runs
+   each created Kingston root and home snapshots; both filesystems still had
+   clear inconsistency flags, and neither had a scan in progress or a new
+   kernel rescan event. The 12:00 cycle used the previously loaded fast-path
+   module (build ID `258e41d2`), not the newly installed module (build ID
+   `46d21507`). This is a third observed live snapshot cycle after Kingston's
+   reconciliation, not proof that the condition stays fixed over longer
+   operation or that it explains when Kingston first became inconsistent.
+   See `GOAL-done.md`.
 
    The candidate kernel fast path has passed the documented four-group QEMU
    workload on both the former 7.1.13 release and current 7.2.6 release. On

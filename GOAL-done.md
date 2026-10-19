@@ -3476,6 +3476,29 @@ specified in `GOAL.md`.
   became inconsistent before the 09:35 `-w` command or prove long-term
   stability.
 
+## Third post-rescan live Snapper cycle (2026-10-19 12:00 BST)
+
+- The 12:00:05 `snapper-timeline.service` run used the required locally built
+  Snapper 0.13.2 / libsnapper 8.2.0 package. Kingston root snapshot 2724 and
+  home snapshot 2517 were created as Btrfs subvolumes 5518 and 5517,
+  respectively. Their qgroups were attached to the separate root/home groups
+  `1/100` and `1/101`, under trackers `2/1` and `2/0`.
+- At 12:00:49, both p8 and Kingston had `inconsistent=0`; Btrfs reported no
+  Kingston rescan in progress, and the kernel journal had no qgroup-rescan
+  messages after the 10:23:32 completion. The timeline service completed at
+  12:00:06; its journal only reported duplicate p8 targets.
+- This cycle ran with the previously loaded 7.2.6 shared-parent fast-path
+  module, build ID `258e41d21460c34eaca2b1cfbed8a8f651d2a4bc`. The newly
+  installed and signed module has build ID
+  `46d2150765693e6b09846490c74ebdf710c0661b`, so this observation does not
+  validate that newest module. Reboot and verify the loaded build ID before
+  attributing subsequent live results to it.
+- Together with the 10:00 and 11:00 runs, this is a third hourly snapshot
+  cycle after Kingston's reconciliation without a new inconsistency flag or
+  automatic rescan. The observation remains limited to these cycles; it does
+  not explain the earlier inconsistency or independently validate every live
+  qgroup counter.
+
 ## Historical Kingston snapshot/rescan feedback loop on stock Btrfs (2026-10-16/17)
 
 - The retained previous-boot journal identifies the running kernel as stock

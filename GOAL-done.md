@@ -3694,3 +3694,25 @@ specified in `GOAL.md`.
   DKMS module build IDs are `46d2150765693e6b09846490c74ebdf710c0661b` and
   `29eef0f63dbf1853b12c4714903b7f53be56015f`, respectively. The host reports
   the locally built Snapper package `0.13.2-1+local1.20261019003646.g7d4db17085ce`.
+
+## Resume hold deadline configuration fix (2026-10-19)
+
+- Static review found that `/usr/local/libexec/snapper-timeline-sleep` invokes
+  `/usr/local/libexec/snapper-rescan-hold refresh` before restarting the
+  timeline timer after resume, but the hold helper hardcoded the next 04:00 or
+  16:00 deadline. It did not read the configured
+  `FORCE_SUSPEND_RESCAN_RESUME_TIME`; it also ignored
+  `FORCE_SUSPEND_RESCAN_HOLD_FILE`, so a customized hold path could leave
+  Snapper ungated after resume.
+- Fixed the tracked root-repository helper to read both values from
+  `/etc/default/force-suspend`, preserving explicit environment overrides and
+  the 04:00 default. It validates the local `HH:MM` deadline, leaves any later
+  active hold intact, and calculates the next configured deadline. Commit
+  [`433f4dd5b`](https://github.com/rebroad/btcdevlaptop/commit/433f4dd5b309c5a023e3c38defdacde21406e538)
+  contains only this helper and is pushed to the root-repository `master`.
+- Shell syntax and isolated checks passed for the configured 04:00 default, an
+  overridden 13:00 deadline, a custom hold-file path, preservation of a later
+  active hold, and fail-closed handling of an invalid time. The installed
+  helper was then checked with the real 04:00 default and an isolated 13:00
+  override. This verifies the helper's inputs and deadline calculation; a
+  real suspend/resume cycle and timer catch-up behavior remain unverified.

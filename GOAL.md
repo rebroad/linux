@@ -522,12 +522,15 @@ quota-based cleanup must wait until the counters are consistent.
    directly. The enabled `sleep.target` service and system-sleep hook both
    invoke the same root-owned helper under `/usr/local/libexec`; static review
    confirms it stops the timeline timer before sleep and refreshes the hold
-   before restarting the timer. They share a `/run` state file to make the
-   duplicate calls idempotent. The timer and guard are enabled, and no stale
-   sleep state or active hold marker was present at the latest audit. Actual
-   suspend/resume ordering and timer catch-up behavior remain unverified. Verify
-   that a real resume cannot start a fresh scan through either the wrapper or
-   Snapper's internal path. The timer catch-up guard is separate from the
+   before restarting the timer. The resume hold helper formerly hardcoded
+   04:00/16:00 and ignored `FORCE_SUSPEND_RESCAN_RESUME_TIME`; it is now fixed
+   and verified to honor that setting and the configured hold-file path. The
+   hooks share a `/run` state file to make duplicate calls idempotent. The timer
+   and guard were enabled, and no stale sleep state or active hold marker was
+   present at the latest audit. Actual suspend/resume ordering and timer
+   catch-up behavior remain unverified. Verify that a real resume cannot start
+   a fresh scan through either the wrapper or Snapper's internal path. The timer
+   catch-up guard is separate from the
    `force-suspend` hold, whose release deadline is controlled by its own
    setting. See `GOAL-done.md` for the live audit.
    Restore the original

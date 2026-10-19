@@ -4074,6 +4074,23 @@ specified in `GOAL.md`.
   status at this observation only; it does not validate the recorded counters
   against a quiescent full-accounting report.
 
+## Live qgroup inventory (2026-10-19 16:40 BST)
+
+- The documented read-only `btrfs quota rescan -s` check reported no scan in
+  progress on either p8 or Kingston. Both kernel qgroup inconsistency flags
+  read `0`.
+- `btrfs qgroup show -pc --raw` displayed both configured snapshot collectives
+  on each filesystem, along with their latest timeline snapshot rows:
+  p8-root `1/100` / snapshot `0/6970` (snapshot 3868), p8-home `1/101` /
+  snapshot `0/6971` (snapshot 2811), Kingston-root `1/100` / snapshot
+  `0/5528` (snapshot 2729), and Kingston-home `1/101` / snapshot `0/5527`
+  (snapshot 2522). This corrects the limited display from an earlier query
+  that showed only Kingston's top-level qgroup.
+- These are live stored counters with the inconsistency flags clear; they have
+  not been reconciled against an independent full-accounting report while
+  filesystem updates are quiesced. Do not treat this observation as completing
+  the host accounting acceptance check.
+
 ## Exact 7.2.6 Snapper-only alternative comparison (2026-10-19 15:00 BST)
 
 - Booted the exact Debian `7.2.6+deb13-amd64` kernel in QEMU TCG, with the

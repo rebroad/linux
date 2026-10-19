@@ -4046,3 +4046,12 @@ specified in `GOAL.md`.
   changing the kernel allowlist or claiming ongoing security coverage, compare
   each newer Debian security advisory against the actual selected backports
   source.
+
+## Live qgroup status check (2026-10-19 14:49 BST)
+
+- On the running `7.2.6+deb13-amd64` host, `btrfs quota rescan -s` reported no
+  scan in progress on either `/` (`/dev/nvme0n1p5`) or `/mnt/kingston`
+  (`/dev/sda1`). The quota-tree status item for each filesystem had `flags ON`
+  and the no-scan sentinel, with no `INCONSISTENT` flag. This establishes their
+  status at this observation only; it does not validate the recorded counters
+  against a quiescent full-accounting report.

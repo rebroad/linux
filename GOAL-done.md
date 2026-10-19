@@ -3936,3 +3936,17 @@ specified in `GOAL.md`.
 - Source reviewed at `snapper/BtrfsUtils.cc:963-979`,
   `snapper/QGroupRescanLimiter.cc:312-345`, and
   `/home/rebroad/bin/force-suspend:58-99`.
+
+## Kingston live rescan check (2026-10-19 14:25 BST)
+
+- On the running `7.2.6+deb13-amd64` host, Kingston's Btrfs inconsistency
+  flag was `0`, and `btrfs quota rescan -s /mnt/kingston` reported no scan
+  in progress. Its four configured groups remained present: snapshot groups
+  `1/100` and `1/101`, under trackers `2/1` and `2/0` respectively.
+- The scan the user observed was no longer running at this check. The sudo
+  audit records an explicit `btrfs quota rescan -w /mnt/kingston` at 13:27:42;
+  the kernel recorded completion at 13:40:24 with the inconsistency flag
+  cleared. The 14:00 timeline run completed at 14:00:06 and no Kingston scan
+  started then. The evidence attributes that scan to the explicit diagnostic
+  command, not the Snapper timeline service. Its counters were not independently
+  reconciled in this check.

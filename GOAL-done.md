@@ -3248,8 +3248,11 @@ specified in `GOAL.md`.
 - `snapper-timeline.timer` is active, with last trigger at 02:00 BST and next
   trigger at 03:00 BST. The 00:00, 01:00, and 02:00 services exited
   successfully and logged duplicate-target skips for the already-seen p8
-  root/home paths. This confirms the service and deduplication path ran; it
-  does not verify the number of snapshots created or the qgroup totals.
+  root/home paths. Read-only `info.xml` metadata confirms exactly one timeline
+  snapshot per target directory per run: p8-root IDs 3847-3849, p8-home
+  2794-2796, Kingston-root 2712-2714, and Kingston-home 2505-2507. The qgroup
+  totals and whether any of these runs followed a real resume remain
+  unverified.
 - The Kingston configs are at
   `/mnt/kingston/@/etc/snapper/configs/{root,home}` (root-owned mode 0640), not
   `/mnt/kingston/etc/snapper/configs/`. Their policy values could not be read

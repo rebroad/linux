@@ -4522,6 +4522,11 @@ specified in `GOAL.md`.
   selected by `run-parts`. The custom retention tool's read-only preview
   proposed retaining 9 and deleting 30 snapshots in each Kingston config (60
   total); the p8 preview proposed 52 deletions. No cleanup was applied.
-- The retention policy for Kingston remains undecided. Do not enable a cleanup
-  job or apply either preview until the intended policy is selected and its
-  effect is verified; four-root live cleanup coverage is still open.
+- The active configs select built-in Snapper cleanup; the exponential tool is
+  a separate, unscheduled alternative and should not be mixed into the cleanup
+  timer. The exact-kernel four-config QEMU harness already exercises
+  `snapper --root /mnt/kingston -c <config> cleanup timeline` and subsequent
+  synchronous deletion, then confirms the four qgroup counters are unchanged
+  by a full rescan. Thus the alternate-root cleanup command is QEMU-verified;
+  the host timer's omission of Kingston and live cleanup/counter behavior
+  remain open.

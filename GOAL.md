@@ -55,13 +55,15 @@ tracking qgroup for calculating exclusive space at snapshot creation; the
 current separate snapshot-group plus common-parent layout follows that model.
 The same source tree's `qgroup_account_snapshot()` comment acknowledges a
 remaining race window if the source tree changes between flushing delayed refs
-and qgroup inheritance. Add a paired exact-7.2.6 QEMU stress case that writes
-to the source during repeated snapshots with stock and candidate modules, then
-checks flags, cleanup behavior, and counters against a full rescan and an
-independent extent/accounting reference. This tests whether the observed
-inconsistency is only the conservative hierarchy fallback or whether concurrent
-source mutations can also leave incorrect counters. Current documentation and
-live hierarchy evidence are in `GOAL-done.md`.
+and qgroup inheritance. A paired exact-7.2.6 QEMU run now exercised 32 snapshots
+per module with four concurrent source writers. The stock module marked each
+snapshot accounting inconsistent and its group counters changed on the full
+rescan; the candidate module stayed consistent and all snapshot/tracker
+counters were unchanged across the rescans. Offline `btrfs check --qgroup-report`
+matched the stored and independently computed qgroup values for both modules.
+This did not reproduce the source-accounting race; it does not prove that race
+impossible or explain the earlier live Kingston inconsistency. The scripts,
+counter comparisons, hashes, and limits are recorded in `GOAL-done.md`.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,

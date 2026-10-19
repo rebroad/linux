@@ -3359,6 +3359,16 @@ specified in `GOAL.md`.
 
 ## Kingston post-snapshot qgroup counter reconciliation (2026-10-19)
 
+- The sudo journal records `btrfs quota rescan -w /mnt/kingston` at 09:35:08
+  and 10:12:22 BST. The local `btrfs-quota(8)` documentation says `-w` starts
+  a rescan and waits, and may join one already in progress. Kernel messages
+  record scan completions at 09:47:09 and 10:23:32. The 10:12 command was
+  preceded by a status check showing no scan in progress and a clear
+  inconsistency flag, so that diagnostic definitely initiated the 10:23 scan;
+  exclude it from Snapper's automatic scan frequency. The available journal
+  does not preserve the output of the 09:34 status check, so the 09:35 command
+  might have joined a scan already started by Snapper or started it itself.
+  The initiator of the 09:47 completion remains unproven.
 - After the 10:00 BST hourly Snapper run created the four configured snapshots,
   Kingston's inconsistency flag was clear and no scan was in progress. At
   10:12:21 BST, a diagnostic full scan was manually started with
@@ -3402,7 +3412,7 @@ specified in `GOAL.md`.
 - This is the second observed hourly snapshot cycle after Kingston's
   reconciliation scan. It shows the candidate host did not request or require
   another rescan for these two hourly runs. It does not establish why Kingston
-  became inconsistent before the 09:34 diagnostic scan or prove long-term
+  became inconsistent before the 09:35 `-w` command or prove long-term
   stability.
 
 ## Historical Kingston snapshot/rescan feedback loop on stock Btrfs (2026-10-16/17)

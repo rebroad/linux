@@ -151,11 +151,14 @@ with the alternate root. The current source/config match is recorded in
    behavior. Isolated tests found that a failed DKMS build in either Debian's
    kernel-image hook or our DKMS package's own `postinst` leaves a package
    half-configured. The kernel-image case also moves `/vmlinuz` before stopping
-   later hooks. See `GOAL-done.md` for evidence. Remaining: redesign the module
-   preparation and activation flow so build failures happen before dpkg changes
-   kernel-package state, and cannot make an unverified kernel bootable. Preserve
-   a usable rollback. The actual APT rejection check left package state and
-   boot selection unchanged. Keep unrelated updates available and maintain the
+   later hooks. See `GOAL-done.md` for evidence. A scratch DKMS archive
+   experiment shows that an already-built, signed module can be imported and
+   installed without compiling; this is not yet a package or upgrade solution.
+   Remaining: make module preparation and activation source-controlled so
+   build failures happen before dpkg changes kernel-package state, and cannot
+   make an unverified kernel bootable. Preserve a usable rollback. The actual
+   APT rejection check left package state and boot selection unchanged. Keep
+   unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's
    tracker marks all 12 CVEs in DSA-6393 fixed by upstream
    7.2.9 or earlier. This supports keeping the selected 7.2.9 backport for

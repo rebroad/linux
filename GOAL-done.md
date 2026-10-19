@@ -3104,3 +3104,31 @@ specified in `GOAL.md`.
 - This read-only check did not establish the exact number of new snapshots per
   target, inspect live qgroup accounting, or verify suspend/resume ordering.
   Those checks remain open in `GOAL.md`.
+
+## Live DKMS selection and production-config module build (2026-10-19)
+
+- `uname -r` reports `7.2.6+deb13-amd64`; installed kernel directories are
+  7.2.6 and 7.2.9. `/usr/sbin/dkms status` reports the Btrfs DKMS package
+  installed for both. `modprobe --show-depends -S` selects
+  `updates/dkms/btrfs.ko.xz` for each release.
+- Both selected modules have the expected release-specific vermagic and a
+  PKCS#7 signature from the enrolled `Rebroad` module key. Their compressed
+  hashes are `f50e898b36ccb15189fb7ac63b7c3fdb04f5fa88e3627880329f5ecd4e423a10`
+  (7.2.6) and
+  `aab0c4b4e297f6814b167381956c6147d63c8adef5d1dde8aed8e5122acdce5f`
+  (7.2.9). They match the previously recorded pre-teardown-backport builds;
+  the new backport is not yet deployed in the installed DKMS modules.
+- Synced the committed 7.2.6 Btrfs source into the external build tree and
+  built a production-configuration module against
+  `/usr/src/linux-headers-7.2.6+deb13-amd64` with
+  `CONFIG_BTRFS_FS_RUN_SANITY_TESTS=n`. It built successfully with vermagic
+  `7.2.6+deb13-amd64 SMP preempt mod_unload`; SHA-256 of the unsigned `.ko` is
+  `d1082f81fb340a755f0d671d2088ebc4d8c55487c521cd0da24d9f8074c46c87`. Symbol
+  inspection found only the no-op `btrfs_run_sanity_tests` stub and no linked
+  qgroup test functions. The artifact is under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-production-7.2.6-20261019/`.
+- This verifies the production-config compile, not a signed installation or
+  runtime load. The shell's `sudo -n` request required a password, so this
+  audit could not recheck privileged live module state, Secure Boot policy,
+  initramfs contents, or qgroup accounting. Backporting, signing, deployment,
+  and exact-kernel runtime verification remain open.

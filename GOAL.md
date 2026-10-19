@@ -310,7 +310,13 @@ quota-based cleanup must wait until the counters are consistent.
    still running 7.2.6; exact 7.2.9 Secure Boot QEMU acceptance has passed,
    but host boot and rollback verification remain. Package build, module
    hashes, APT result, and per-kernel verification are in
-   `GOAL-done.md`. The installed selector passes for a supported release and
+   `GOAL-done.md`. A 2026-10-19 live package audit finds the signed DKMS
+   modules selected for both installed releases, but their hashes still match
+   the pre-teardown-backport builds; deploy the new backport to both release
+   variants before treating the installed module as current. An unsigned
+   production-configuration 7.2.6 module has now built from the updated source
+   against the exact headers; signing, installing, and host verification
+   remain. The installed selector passes for a supported release and
    returns an explicit error for an unmapped release. However, source
    inspection shows that this failure propagates through DKMS and Debian's
    `linux-run-hooks --exit-on-error`; an unsupported candidate can therefore

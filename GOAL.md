@@ -48,7 +48,13 @@ The two earlier 09:47:09 and 10:23:32 scan completions came from explicit
 diagnostic `btrfs quota rescan -w /mnt/kingston` commands logged at 09:35:08
 and 10:12:22; the 10:00 Snapper timer finished at 10:00:02 and initiated
 neither. These diagnostic scans are separate from the historical automatic
-stock-kernel cycle. Longer current-kernel observation, p8 live reconciliation,
+stock-kernel cycle. The diagnostic Kingston scan at 13:27:42 completed at
+13:40:24 with all four qgroup counters unchanged. The diagnostic p8 scan at
+13:42:31 completed at 13:58:06 with the inconsistency flag clear, but its
+counters changed during the scan and continued changing after filesystem sync
+through 14:01:53. Because p8 was live and counters did not settle, this is not
+yet evidence of incorrect accounting; quiescent/independent reconciliation is
+still required. Longer current-kernel observation, p8 live reconciliation,
 and the original onset remain open. The running Btrfs module is still build ID
 `258e41d2`; the installed, signed 7.2.6 DKMS module is `46d21507` and is
 included in the initramfs. The new teardown backport needs a reboot before live

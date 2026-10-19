@@ -151,12 +151,15 @@ with the alternate root. The current source/config match is recorded in
    behavior. Isolated tests found that a failed DKMS build in either Debian's
    kernel-image hook or our DKMS package's own `postinst` leaves a package
    half-configured. The kernel-image case also moves `/vmlinuz` before stopping
-   later hooks. See `GOAL-done.md` for evidence. A scratch DKMS archive
-   experiment shows that an already-built, signed module can be imported and
-   installed without compiling; this is not yet a package or upgrade solution.
-   Remaining: make module preparation and activation source-controlled so
-   build failures happen before dpkg changes kernel-package state, and cannot
-   make an unverified kernel bootable. Preserve a usable rollback. The actual
+   later hooks. See `GOAL-done.md` for evidence. The source-controlled
+   `scripts/local-btrfs-qgroup-dkms-preflight` now builds and verifies modules
+   in an alternate DKMS tree and emits a separate signed archive for each
+   release. Each archive imported and staged in its own scratch DKMS tree.
+   This is a preparation prototype, not yet a package or upgrade solution.
+   Remaining: integrate the preflight artifacts with kernel package
+   preparation and activation so build failures happen before dpkg changes
+   kernel-package state, and an unverified kernel cannot become bootable.
+   Preserve a usable rollback. The actual
    APT rejection check left package state and boot selection unchanged. Keep
    unrelated updates available and maintain the
    visible APT kernel allowlist before each candidate. Debian's

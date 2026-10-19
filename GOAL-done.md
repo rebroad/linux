@@ -3387,3 +3387,29 @@ specified in `GOAL.md`.
   the pre-scan counters were wrong, or identify the earlier cause of
   Kingston's inconsistency. More repeated live cycles and independent
   accounting reconciliation remain necessary.
+
+## Qgroup tracking layout and snapshot race source review (2026-10-19)
+
+- The upstream Btrfs documentation says qgroups can form hierarchies and
+  describes a tracking qgroup used to preserve correct exclusive-space
+  accounting when snapshots are created. The host's separate per-config
+  snapshot groups and per-config parent trackers are consistent with that
+  documented model; root and home use different snapshot groups. This is
+  evidence against the mere existence of parent/tracking groups being a
+  Snapper misconfiguration, but does not by itself prove live counter accuracy.
+  See the [Btrfs qgroup design documentation](https://btrfs.readthedocs.io/en/latest/Qgroups.html).
+- A live hierarchy read at 10:32 BST found both p8 and Kingston flags clear.
+  On p8, snapshot groups `1/100` and `1/101` have tracker parents `2/0` and
+  `2/1` respectively; on Kingston, root `1/100` is under `2/1` and home
+  `1/101` under `2/0`. Each tracker has the source subvolume qgroup and its
+  corresponding snapshot group as children. This matches the intended separate
+  four-collective layout.
+- Source review of `fs/btrfs/transaction.c` (`qgroup_account_snapshot()`)
+  found an upstream comment explaining that flushing delayed refs before
+  inheritance narrows, but does not eliminate, a race: the source tree can
+  still change before or during `btrfs_qgroup_inherit()`. This is a plausible
+  separate route to wrong counters and is not exercised by the existing
+  serial snapshot workloads. Add exact-7.2.6 paired stock/candidate QEMU stress
+  coverage with concurrent source writes, then reconcile counters against a
+  completed scan and an independent reference before concluding whether this
+  race is relevant to the host incident.

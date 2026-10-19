@@ -50,6 +50,18 @@ the remaining live and longer-cycle cases before treating every observed host
 rescan as explained. Eight-round QEMU snapshot and cleanup/deletion cycles
 now confirm the scan and counter behavior with stock and candidate modules;
 live-host cases remain. See `GOAL-done.md` for the source and log evidence.
+The upstream Btrfs qgroup documentation describes hierarchical groups and a
+tracking qgroup for calculating exclusive space at snapshot creation; the
+current separate snapshot-group plus common-parent layout follows that model.
+The same source tree's `qgroup_account_snapshot()` comment acknowledges a
+remaining race window if the source tree changes between flushing delayed refs
+and qgroup inheritance. Add a paired exact-7.2.6 QEMU stress case that writes
+to the source during repeated snapshots with stock and candidate modules, then
+checks flags, cleanup behavior, and counters against a full rescan and an
+independent extent/accounting reference. This tests whether the observed
+inconsistency is only the conservative hierarchy fallback or whether concurrent
+source mutations can also leave incorrect counters. Current documentation and
+live hierarchy evidence are in `GOAL-done.md`.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,

@@ -5554,3 +5554,17 @@ window and returned `Deferred` without starting a rescan worker. This exactly
 matches the observed 62-second 20:00 run, the one-second later runs, and the
 zero-worker trace. The behavior is therefore the configured Snapper policy,
 not evidence that every snapshot intrinsically starts a scan.
+
+## Upstream documentation on qgroup trade-offs (2026-10-20)
+
+The Btrfs quota documentation describes two relevant behaviors as known
+limitations: deleting a subvolume can break unshared-space accounting until it
+is rebuilt, and using many snapshots can cause performance problems, especially
+while deleting snapshots. This supports treating our accuracy-versus-latency
+question as an existing accounting trade-off to measure, rather than assuming
+that the inconsistent flag alone identifies a kernel defect. The documentation
+does not establish that our four-group hierarchy or the observed host stalls
+are safe; those still require the scoped tests and live stack capture recorded
+in `GOAL.md`.
+
+Source: https://github.com/btrfs-wiki/btrfs.wiki/blob/master/Quota%20support

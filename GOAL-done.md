@@ -5527,3 +5527,17 @@ returns. Both filesystems remained `qgroups/inconsistent=1`. This follow-up
 weakens the hypothesis that every snapshot creation starts a rescan; the long
 20:00 run appears to have involved a particular pre-existing or state-transition
 condition rather than a repeatable per-snapshot cost.
+
+## Snapper's snapshot-side rescan trigger (2026-10-20)
+
+The live Snapper 0.13.2 source on branch `codex/qgroup-rescan-hold` confirms
+that the snapshot path itself can request a rescan. `Btrfs::createSnapshot()`
+calls `prepareQGroupTracking()`, which calls `quota_rescan_if_needed()` after
+checking the source/snapshot qgroup tracker. If the status is inconsistent and
+no hold or rate-limit policy defers it, `quota_rescan_if_needed()` issues
+`BTRFS_IOC_QUOTA_RESCAN` and waits with `BTRFS_IOC_QUOTA_RESCAN_WAIT`. This is
+the source-level mechanism that can make a Snapper snapshot command absorb
+rescan latency. The 20:00 host timing is consistent with this path. The 21:00
+and 22:00 runs did not show a rescan worker, so the exact status/policy branch
+used by those later calls still needs live tracing; the source does not justify
+claiming that every snapshot starts a scan.

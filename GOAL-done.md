@@ -5619,3 +5619,13 @@ combined diff for `fs/btrfs/qgroup.c`, `fs/btrfs/qgroup.h`, and
 zero warnings across 680 changed lines. The check intentionally excluded the
 repository's historical goal documents and DCO metadata; it is a source-style
 result, not an upstream submission review.
+
+## Stock transaction trace sample (2026-10-20)
+
+A temporary kprobe sample on stock 7.2.9 captured three ordinary
+`btrfs_commit_transaction()` calls. The returns were from Btrfs transaction
+kernel threads and took approximately 19 ms, 303 ms, and 294 ms. The initiating
+contexts were not resolved by this short sample, and it did not overlap a
+long-commit event, so it does not identify the writer behind the historical
+140.825-second maximum. The probes were disabled and removed afterward;
+`tracing_on` is zero and no diagnostic kprobe events remain.

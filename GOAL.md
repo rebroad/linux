@@ -130,9 +130,9 @@ short-circuits those backref searches after inconsistency. These guest timings
 use TCG and small synthetic filesystems, so they do not establish host-scale
 latency or prove that our patch caused every stall. The 30.986-second host
 commit remains unreproduced, and its external transaction writer is unknown.
-The stock run also exposed a separate `qgroup info item update error -2`
-during final rescans; source control flow matches the branch's qgroup-teardown
-fix.
+An earlier stock 7.2.6 run also exposed a separate
+`qgroup info item update error -2` during final rescans; source control flow
+matches the branch's qgroup-teardown fix.
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
 for snapshot accounting during balance relocation. A 30.986-second host

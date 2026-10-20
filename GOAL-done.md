@@ -5724,3 +5724,14 @@ This does not prove that the modified module cannot contribute to latency: by
 keeping accounting consistent, it avoids stock's inconsistent-state shortcut
 and can therefore leave more qgroup subtree/backref accounting work active
 during snapshot deletion. Host-scale runtime evidence is still required.
+
+## Immediate D-state watcher (2026-10-21)
+
+`tools/btrfs-stall-watch.sh` was added to address the timing gap in the
+one-shot collector. It polls the task table at a configurable interval and,
+the first time each task enters D-state, immediately saves its task and kernel
+stack, status, load/PSI, Btrfs commit counters, and recent kernel log. It does
+not start a rescan or alter filesystem state. A privileged two-second run on
+the stock `7.2.9+deb13-amd64` host completed successfully with no D-state event
+and no task-capture directory. Use it during a suspected stall, for example:
+`sudo ./tools/btrfs-stall-watch.sh -t 900 -i 0.2`.

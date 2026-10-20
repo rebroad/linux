@@ -48,6 +48,12 @@ if command -v btrfs >/dev/null 2>&1; then
 	done
 fi
 
+for stats in /sys/fs/btrfs/*/commit_stats; do
+	[ -f "$stats" ] || continue
+	fsid=$(basename "$(dirname "$stats")")
+	run "commit-stats-$fsid" cat "$stats"
+done
+
 sysrq=$(cat /proc/sys/kernel/sysrq 2>/dev/null || printf 0)
 printf 'sysrq_before=%s\n' "$sysrq" >"$out/sysrq"
 case "$sysrq" in

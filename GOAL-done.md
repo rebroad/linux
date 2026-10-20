@@ -5591,3 +5591,15 @@ that either accounting method is defective: the qgroup values are explicitly
 stale until a completed full rescan reconciles them. A future comparison must
 repeat both measurements after the rescan and while filesystem updates are
 quiesced.
+
+## Stock-kernel diagnostic baseline (2026-10-20)
+
+The new `tools/btrfs-stall-capture.sh` was run against the healthy stock
+`7.2.9+deb13-amd64` host at 22:42 BST. It captured no D-state tasks and no
+command failures; the Btrfs mounts were read-write and no qgroup rescan was in
+progress. The live `/sys/fs/btrfs/*/commit_stats` counters nevertheless showed
+historical maximum transaction commit times of `140825 ms` for p8 and
+`32042 ms` for Kingston. These counters are not a stack trace and do not prove
+what caused either long commit, but they establish that long commits exist in
+the stock runtime and must be distinguished from any regression introduced by
+the modified module.

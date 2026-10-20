@@ -66,6 +66,10 @@ does not isolate the cause because both the kernel release and module changed
 and the reboot cleared prior runtime state. The earlier 7.2.6 runtime and
 snapshot-cycle observations are historical, not the current host state. Exact
 module and boot evidence is in `GOAL-done.md`.
+The redundant `snapper-boot.timer` has since been disabled and is inactive;
+the hourly `snapper-timeline.timer` remains enabled and active. The next clean
+host observation must therefore begin after a completed rescan and use the
+hourly path only.
 
 The user subsequently reported another roughly eight-minute system hang while
 this stock 7.2.9 setup was running. Psensor's saved sensor history has a

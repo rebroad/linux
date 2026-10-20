@@ -93,10 +93,10 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-**First priority: diagnose and fix the Btrfs qgroup inconsistency and system
-stalls.** Determine whether our Btrfs changes caused or contributed to the
-stalls. If they did not,
-identify the responsible kernel path or dependency and fix the cause. For the
+**First priority: diagnose and fix the Btrfs issues, including qgroup
+inconsistency and system stalls.** Establish whether our Btrfs changes caused
+or contributed to each issue. If our changes are not responsible, trace the
+issue to the responsible kernel path or dependency and fix it there. For the
 stalls, investigate transaction waits, blocked writeback workers, and long
 commits with live kernel stacks and commit-progress evidence. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and

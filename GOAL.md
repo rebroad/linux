@@ -46,9 +46,15 @@ Untracked snapshots still marked qgroups inconsistent and did not contribute
 to the snapshot collectives; post-creation assignment left stale counters until
 a full scan. The bounded kernel fast path is the only tested approach so far
 that avoids rescans while maintaining four accurate, separate snapshot
-collectives through Snapper's existing QGROUP interface. This does not prove
-that a kernel change is necessary: the fallback may be Btrfs's intended
-correctness/performance trade-off, or its eligibility check may be too narrow.
+collectives through Snapper's existing QGROUP interface. The staged exact-stock
+7.2.9 reproduction now shows that Snapper already supplies the inheritance
+target, yet this required source/tracker/snapshot-parent topology still takes
+the stock fallback. Avoiding that fallback therefore requires either a
+kernel-side accounting change or a different qgroup topology. Making live and
+snapshot groups share one parent would mix live usage into the snapshot-only
+collective, so it does not satisfy the stated accounting requirement. The
+kernel change remains provisional until its host-scale latency and stall
+behavior are validated.
 QEMU workload, source, and scan-attribution evidence is in `GOAL-done.md`.
 
 The host now boots `7.2.9+deb13-amd64` through the explicit stock-Btrfs GRUB

@@ -5592,6 +5592,26 @@ stale until a completed full rescan reconciles them. A future comparison must
 repeat both measurements after the rescan and while filesystem updates are
 quiesced.
 
+## Disposable stock snapshot-hierarchy reproduction (2026-10-20)
+
+A 2-GiB loopback Btrfs filesystem was created and mounted only for this test
+under `/var/tmp`; it was removed afterward and no host rescan remained active.
+The exact stock `7.2.9+deb13-amd64` module was used with 16-KiB nodes. Two
+source subvolumes (root and home) had separate snapshot parents (`1/100` and
+`1/101`), each parent sharing a distinct tracker parent (`2/0` and `2/1`) with
+its live source qgroup. After creating one read-only snapshot for each source
+and assigning the snapshot qgroups with `--no-rescan`, stock Btrfs reported
+`qgroup data inconsistent; rescan recommended`; the snapshot qgroups showed
+their source referenced bytes but only a 16-KiB exclusive value, while the
+snapshot-parent qgroups remained at zero. A full rescan restored the parent
+totals and cleared the warning. Deleting the root snapshot afterward did not
+introduce a new inconsistency in this small workload.
+
+This is a direct kernel-only reproduction of the live four-group shape without
+Snapper. It makes snapshot creation, including the source/snapshot-parent
+hierarchy transition, the first root-cause target; it does not prove that every
+deletion workload is harmless or that the custom fast path is correct.
+
 ## Stock-kernel diagnostic baseline (2026-10-20)
 
 The new `tools/btrfs-stall-capture.sh` was run against the healthy stock

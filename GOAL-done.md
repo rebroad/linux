@@ -5706,3 +5706,21 @@ and 6 ms on Kingston; the historical maxima remained 140.825 s and 32.042 s.
 This is evidence of a transient metadata-read wait in the stock runtime, not a
 demonstration that qgroup accounting caused the event. A future occurrence
 needs a stack capture while the task is still blocked.
+
+## Static audit of the qgroup patch's lock path (2026-10-21)
+
+The modified `qgroup_snapshot_quick_inherit()` path was compared with stock
+7.2.9. It is called from `btrfs_qgroup_inherit()` while the existing
+`fs_info->qgroup_lock` is held; the test wrapper uses the same lock. Its new
+ancestor walk uses the existing qgroup iterator lists, whose add and cleanup
+operations only link and unlink already allocated nodes. The path performs no
+allocation, I/O, wait, or second lock acquisition, and cleans the iterators
+before releasing `qgroup_lock`. The deletion option only reads its sysfs toggle
+under that lock and then follows the existing qgroup ioctl mutex and relation
+update path. No new lock inversion or blocking operation was found in this
+static review.
+
+This does not prove that the modified module cannot contribute to latency: by
+keeping accounting consistent, it avoids stock's inconsistent-state shortcut
+and can therefore leave more qgroup subtree/backref accounting work active
+during snapshot deletion. Host-scale runtime evidence is still required.

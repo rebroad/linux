@@ -5471,3 +5471,17 @@ specified in `GOAL.md`.
   of median end-to-end cycle time in this harness, while satisfying the
   independent counter check that stock fails. The stock log and images are in
   `host-counts-stock-32k/` under the same external build directory.
+
+## Stock-host blocked-task evidence (2026-10-20)
+
+The stock 7.2.9 host captured blocked-task dumps during the reported midday
+stall. At 12:50:27, a `find` process (PID 203534 in that historical dump) was
+in `read_extent_buffer_pages()` -> `btrfs_read_extent_buffer()` and waiting in
+`bit_wait_io`; its caller chain continued through `read_block_for_search()` and
+`btrfs_read_locked_inode()` into `path_openat()`. No task in that dump was in
+qgroup accounting, `btrfs_commit_transaction()`, or `wait_current_trans()`.
+This is direct evidence of a Btrfs metadata-read I/O wait during that event,
+not evidence that qgroup accounting caused it. A separate HID IRQ thread was
+also in a D state, but that stack was unrelated to Btrfs. The evidence narrows
+the host diagnosis while leaving the qgroup-scan and transaction paths open for
+capture during a future event.

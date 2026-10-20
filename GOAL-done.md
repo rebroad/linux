@@ -5495,3 +5495,15 @@ are disabled, or the runtime cancel-rescan flag is set. The message therefore
 does not by itself mean that accounting is slow or that a qgroup lock blocked
 other workloads. The host's repeated hourly messages need attribution to one
 of those stop conditions before they can be used as stall evidence.
+
+## Host timeline/rescan correlation (2026-10-20)
+
+The 20:00 local timeline run started at 20:00:05 and finished at 20:01:07,
+a 62-second service interval. It created root snapshot 3905 at 20:00:05 and
+home snapshot 2840 at 20:00:36. The kernel logged `qgroup scan paused` at
+20:00:36 and 20:01:07. The following 21:00 run created root snapshot 3906 and
+home snapshot 2841 at 21:00:05 and finished immediately, with no qgroup pause
+message. This is temporal correlation between the first snapshot run while
+qgroups were inconsistent and the long service/rescan activity; it is not by
+itself proof that the snapshot ioctl caused the pause. The exact stop condition
+and the rescan caller still require a live trace.

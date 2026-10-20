@@ -5449,3 +5449,8 @@ specified in `GOAL.md`.
   host NVMe/USB latency or make threshold 1 a production recommendation. The
   log and images are in `host-counts-131k-threshold-1/` under the same external
   build directory.
+  Across all 217 snapshot cycles, the modified run measured 240 ms minimum,
+  1.34 s median, 3.01 s p95, and 3.32 s maximum. Per-config medians were
+  1.66 s (p8 root), 975 ms (p8 home), 1.845 s (Kingston root), and 865 ms
+  (Kingston home). These include the source change, Snapper create, and `sync`;
+  they are not isolated ioctl timings.

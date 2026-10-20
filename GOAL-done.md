@@ -5612,6 +5612,19 @@ Snapper. It makes snapshot creation, including the source/snapshot-parent
 hierarchy transition, the first root-cause target; it does not prove that every
 deletion workload is harmless or that the custom fast path is correct.
 
+## Staged snapshot inheritance result (2026-10-20)
+
+A smaller one-source variant separated the operations. After establishing a
+consistent source qgroup under tracker parent `2/0`, creating a read-only
+snapshot immediately produced `WARNING: qgroup data inconsistent, rescan
+recommended`, before any assignment of the new snapshot qgroup to `1/100`.
+The new snapshot qgroup had the source's referenced count but only a 16-KiB
+exclusive count and no parent. Assigning it to `1/100` did not clear the stale
+state; the explicit full rescan then populated `1/100` and the tracker parent
+correctly. This isolates the first failing transition to snapshot qgroup
+inheritance when the source already has a parent and the new snapshot initially
+has none.
+
 ## Stock-kernel diagnostic baseline (2026-10-20)
 
 The new `tools/btrfs-stall-capture.sh` was run against the healthy stock

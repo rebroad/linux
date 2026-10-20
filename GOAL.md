@@ -263,8 +263,14 @@ images.
 
 **Immediate next step: validate and, if possible, optimize the threshold-1
 deletion/backref policy before deciding whether it is an acceptable optional
-policy.** The
-small 131,072-file runs establish that the fast-path counters match full-rescan
+policy.**
+The new disposable stock-7.2.9 reproduction shows that the four-group
+source/snapshot-parent transition itself can mark qgroups inconsistent before
+any deletion. Therefore, treat snapshot creation and qgroup-parent assignment
+as the first root-cause path to isolate; do not frame the investigation as a
+deletion-only problem. Keep the deletion/backref measurements below because
+they remain necessary for the latency verdict. The small 131,072-file runs
+establish that the fast-path counters match full-rescan
 qgroup tables before deletion, and that a test-only threshold of 2 can defer
 the accounting fallback until deletion. The host-count run establishes that
 this policy currently fails the latency requirement during its first final

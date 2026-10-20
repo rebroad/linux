@@ -5507,3 +5507,13 @@ message. This is temporal correlation between the first snapshot run while
 qgroups were inconsistent and the long service/rescan activity; it is not by
 itself proof that the snapshot ioctl caused the pause. The exact stop condition
 and the rescan caller still require a live trace.
+
+## Scheduled cleanup did not exercise deletion (2026-10-20)
+
+The 21:41 BST `snapper-cleanup.service` run started at 21:41:01 and exited
+successfully at 21:41:04 (3.181 seconds). Its only output was duplicate-target
+messages for the p8 paths; it emitted no qgroup or transaction messages. The
+latest listed root/home timeline snapshots remained 3906/2841, and both live
+filesystems still reported `qgroups/inconsistent=1`. This scheduled run did
+not delete a snapshot and therefore provides no host deletion-accounting
+measurement.

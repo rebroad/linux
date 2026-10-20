@@ -117,32 +117,56 @@ backref walk. A matched four-group QEMU workload on exact 7.2.9, with 32,768
 metadata files per source and 32 Snapper snapshots per config, reproduced the
 same stock/fallback inconsistency and automatic-rescan behavior. With the
 custom fast path enabled, snapshots, timeline cleanup, and deletion stayed
-consistent without automatic rescans; however, deleting one root snapshot
-took 114 seconds versus 9 seconds with stock and 7 seconds with the custom
-fallback. Sampled maximum commit times were also higher with the fast path
-(2.8/3.7 seconds versus 0.5/0.6 seconds stock and 0.9/0.8 seconds fallback).
-This strengthens the evidence that keeping full qgroup accounting active can
-make snapshot deletion and commits much more expensive, even though the
-fast-path code does not change the backref walker itself. The earlier matched
-7.2.6 function-graph comparison traced the custom path through
-`btrfs_qgroup_trace_subtree()` and `btrfs_find_all_roots()`; `NO_ACCOUNTING`
-short-circuits those backref searches after inconsistency. These guest timings
-use TCG and small synthetic filesystems, so they do not establish host-scale
-latency or prove that our patch caused every stall. The 30.986-second host
-commit remains unreproduced, and its external transaction writer is unknown.
+consistent without automatic rescans. The initial 114-second
+`snapper delete --sync` measurement followed timeline cleanup that had queued
+124 asynchronous snapshot drops, so it did not measure one snapshot in
+isolation. In a follow-up with the same exact kernel, module, and workload,
+explicitly draining that queue took 128 seconds; deleting the remaining root
+snapshot afterward took 3 seconds. Matched drain-separated runs took 16
+seconds with stock and 9 seconds with custom fallback accounting; their final
+root deletions took 2 and 1 seconds, respectively. Together with the trace
+capturing queued drop work, these results strongly indicate that the original
+114-second phase was dominated by the cleanup backlog, not the final snapshot
+alone. A function-graph trace during the undrained cleanup recorded
+115 `btrfs_qgroup_trace_subtree()` return entries, with 105 of 106 parseable
+durations over one second and a maximum of 5.84 seconds. It also recorded
+thousands of qgroup extent/backref searches. This identifies qgroup subtree
+and backref accounting during snapshot drops as the work to optimize, but does
+not yet isolate its per-snapshot cost. Source control flow shows
+`btrfs_qgroup_trace_subtree()` walking the dropped tree, then tracing newly
+encountered extents through `btrfs_qgroup_trace_extent_post()` and
+`btrfs_find_all_roots()`; the dirty-extent xarray deduplicates bytenrs within
+a transaction. Sampled maximum commit times were also
+higher with the fast path (2.8/3.7 seconds versus 0.5/0.6 seconds stock and
+0.9/0.8 seconds fallback); the cause of those maxima remains to be isolated.
+The fast-path code does not change the backref walker, but keeps full
+accounting active during these drops. The earlier matched 7.2.6 function-graph
+comparison also traced the custom path through
+`btrfs_qgroup_trace_subtree()` and `btrfs_find_all_roots()`;
+`NO_ACCOUNTING` short-circuits those searches after inconsistency. These guest
+timings use TCG and small synthetic filesystems, so they do not establish
+host-scale latency or prove that our patch caused every stall. The
+30.986-second host commit remains unreproduced, and its external transaction
+writer is unknown.
 An earlier stock 7.2.6 run also exposed a separate
 `qgroup info item update error -2` during final rescans; source control flow
 matches the branch's qgroup-teardown fix.
 
-**Immediate next step: explain and reduce the fast path's snapshot-deletion
-cost.** Instrument the exact 7.2.9 root-snapshot deletion that took 114 seconds,
-identify which qgroup/backref work dominates it, and compare that path against
-the stock and switch-disabled runs. Then develop and test an accounting design
-that keeps all four snapshot-only qgroups accurate without the observed
-deletion and commit slowdown. Acceptance requires matched snapshot, cleanup,
-and deletion workloads to keep the counters accurate without automatic
-rescans, while deletion and transaction costs are brought back under control.
-Keep the modified module off the host until this is understood and validated.
+**Immediate next step: reduce the cost of batched snapshot cleanup.** The
+matched 7.2.9 drain-separated runs measured 16 seconds for stock, 9 seconds
+for custom fallback, and 128 seconds for custom fast accounting; the final
+root deletion itself took only 1-3 seconds in each run. The function trace
+attributes the fast-path backlog to qgroup subtree and backref accounting.
+Inspect how these deletion transactions repeat extent root discovery. The
+source path is `btrfs_qgroup_trace_subtree()` ->
+`btrfs_qgroup_trace_extent_post()` -> `btrfs_find_all_roots()` for each new
+dirty extent. Determine whether correct membership/reference information can
+be reused or accounted incrementally without the full per-extent backref walk.
+Develop and test a faster accounting design that keeps all four snapshot-only
+qgroups accurate without automatic rescans. Acceptance requires matched
+snapshot, cleanup, and deletion workloads to keep counters accurate while
+reducing total cleanup and transaction costs. Keep the modified module off
+the host until this is understood and validated.
 
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
@@ -178,10 +202,9 @@ gaps are in `GOAL-done.md`.
    shared-parent fast path remains provisional, not a claim of a general
    Btrfs correctness bug.
 
-   Remaining: first instrument the exact 7.2.9 root-snapshot deletion and
-   identify the work responsible for its 114-second runtime. Develop and test
-   a faster design that preserves accurate four-group counters without
-   automatic rescans, then validate it against larger and host-representative
+   Remaining: develop and test a faster design that preserves accurate
+   four-group counters without automatic rescans, then validate it against
+   larger and host-representative
    tree size and storage. Capture the external writer and blocked-task stacks
    during a live stall as part of the same root-cause investigation.
    After review and safe activation of a signed module, verify sustained

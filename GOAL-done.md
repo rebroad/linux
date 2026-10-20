@@ -5228,17 +5228,20 @@ specified in `GOAL.md`.
   snapshot creation, timeline cleanup, or deletion; its counters stayed
   consistent through that workload. Explicit full rescans were run afterward
   in all cases to leave the guest counters independently refreshed.
-- Deleting the retained root snapshot took 9 seconds with stock, 7 seconds
-  with custom fallback accounting, and 114 seconds with the custom fast path
-  enabled. The other three deletions took 1-4 seconds with stock, 1-7 seconds
-  with fallback, and 1-15 seconds with the fast path. During the runs,
+- The synchronous `snapper delete --sync` phase after timeline cleanup took
+  9 seconds with stock, 7 seconds with custom fallback accounting, and 114
+  seconds with the custom fast path enabled. The other three delete phases
+  took 1-4 seconds with stock, 1-7 seconds with fallback, and 1-15 seconds
+  with the fast path. These figures include already-queued asynchronous
+  snapshot cleanup that the synchronous delete had to wait behind; they do
+  not isolate the final snapshot's own deletion cost. During the runs,
   sampled maximum transaction commit times were 516/639 ms for stock,
   920/762 ms for custom fallback, and 2,781/3,662 ms for the fast path (two
   filesystems per run). These measurements strongly support the tradeoff seen
   in the earlier host profile: preventing the inconsistency fallback keeps
   accounting active, but the resulting snapshot-drop/backref accounting can
-  be much more expensive. They do not establish why that one deletion reached
-  114 seconds or reproduce the host's 30.986-second transaction.
+  be much more expensive. They do not reproduce the host's 30.986-second
+  transaction.
 - This test does not prove that the patch caused every host stall. The guest
   uses TCG and small synthetic filesystems, so timings are not representative
   of Kingston or p8 storage and scale. SysRq-W was sampled during the runs but
@@ -5255,3 +5258,48 @@ specified in `GOAL.md`.
   `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/`;
   `stock.serial.log`, `custom-fast.serial.log`, and
   `custom-fallback.serial.log` each contain the full guest transcript.
+
+## Isolated 7.2.9 snapshot cleanup trace (2026-10-20)
+
+- Repeated the four-config workload with explicit `btrfs subvolume sync` on
+  both filesystems after timeline cleanup. This separates asynchronous drop
+  backlog time from the remaining `snapper delete --sync`. Stock measured 16
+  seconds to drain the queue and 2 seconds for the final root deletion;
+  custom fallback measured 9 and 1 seconds; custom fast measured 128 and 3
+  seconds. Each mode completed the four-root workload successfully. The
+  fallback and stock runs had already completed two automatic rescans and
+  reported four inconsistency warnings before cleanup; the counts did not
+  increase during cleanup. The fast run had no inconsistency warnings or
+  rescans and retained accurate accounting through cleanup. These repeated
+  measurements strongly indicate that the earlier 114-second synchronous
+  phase was dominated by previously queued snapshot drops, not the final root
+  deletion.
+- A function-graph trace enabled only after draining the fast-path cleanup
+  queue recorded no `btrfs_qgroup_trace_subtree()` or backref calls over its
+  10 ms threshold during the isolated final root deletion. An earlier
+  un-drained trace run's five-second progress samples bracketed its queue
+  drain at about 102 seconds; the direct timer in the matched repeat measured
+  128 seconds.
+- The earlier instrumented run began tracing after timeline cleanup but
+  without draining that queue. Its 531-second synchronous phase was therefore
+  also a measurement of the cleanup backlog under heavy tracing overhead. The
+  trace contains 115 subtree return entries (106 with parseable durations;
+  105 exceed one second, maximum 5.84 seconds), 4,751
+  `btrfs_find_all_roots_safe()` returns over 10 ms, and 122
+  `find_parent_nodes()` returns over 10 ms. These function-graph durations are
+  nested and some run concurrently, so their sums must not be treated as wall
+  time. They show the qgroup subtree/backref path is active during the queued
+  drop workload, but the trace does not yet measure its isolated per-snapshot
+  cost.
+- The isolated guest completed with exit status 0 and the four-root topology
+  completion marker. The drain-separated guest logs are
+  `stock-drain.serial.log`, `fallback-drain.serial.log`, and
+  `fast-drain.serial.log`; their QEMU stderr logs have matching names. The
+  tested initramfs images are `initrd-current-stress-stock-drain.cpio` and
+  `initrd-current-stress-custom-trace-isolated-timed.cpio`. The earlier
+  isolated trace log is `custom-isolated.serial.log`, using
+  `initrd-current-stress-custom-trace-isolated.cpio`. All are generated
+  artifacts in the external build tree, not source changes.
+- Next inspect whether correct qgroup membership and extent root information
+  can be reused or accounted incrementally across snapshot drops, avoiding
+  repeated full backref walks without weakening qgroup accuracy.

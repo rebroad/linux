@@ -5485,3 +5485,13 @@ not evidence that qgroup accounting caused it. A separate HID IRQ thread was
 also in a D state, but that stack was unrelated to Btrfs. The evidence narrows
 the host diagnosis while leaving the qgroup-scan and transaction paths open for
 capture during a future event.
+
+## Meaning of the recurring `qgroup scan paused` log (2026-10-20)
+
+In the exact 7.2.9 source, `btrfs_qgroup_rescan_worker()` emits
+`qgroup scan paused` only when `rescan_should_stop()` returns true. That
+function stops the worker when the filesystem is closing, remounting, qgroups
+are disabled, or the runtime cancel-rescan flag is set. The message therefore
+does not by itself mean that accounting is slow or that a qgroup lock blocked
+other workloads. The host's repeated hourly messages need attribution to one
+of those stop conditions before they can be used as stall evidence.

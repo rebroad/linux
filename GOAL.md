@@ -525,3 +525,9 @@ kernel, loaded module, Snapper package, and rescan rate for the chosen design.
 See [`GOAL-done.md`](GOAL-done.md) for completed investigation, reproduction
 results, kernel baseline, and temporary containment details. That file is
 historical reference; the items above are the active work.
+
+The recurring hourly `qgroup scan paused` message is not itself proof of a
+slow qgroup scan: in the exact 7.2.9 source it is emitted when the rescan
+worker stops because the filesystem is closing/remounting, qgroups are
+disabled, or cancellation is requested. Attribute that stop condition before
+using the message as stall evidence.

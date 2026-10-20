@@ -5411,3 +5411,27 @@ specified in `GOAL.md`.
   used for the timing comparison. Its log is in
   `trace-delete-subtree-levels/`; the stock baseline log is in
   `stock-131k-baseline/` under the same external build directory.
+- A host-count-sized run used 79 p8-root snapshots, 28 p8-home snapshots, 82
+  Kingston-root snapshots, and 28 Kingston-home snapshots, matching the live
+  counts measured on the host. It completed 217 snapshot cycles with the fast
+  path enabled and the test-only threshold set to 2. Both complete qgroup
+  tables matched their full-rescan tables; the scans took 90.28 and 108.83
+  seconds. Snapshot creation remained consistent, and timeline cleanup
+  completed without stale accounting. The first final synchronous deletion did
+  not complete within the one-hour TCG timeout. At timeout, commit statistics
+  showed a 110.16-second lifetime maximum and a 43.79-second latest completed
+  commit; repeated SysRq-W requests were emitted, but no blocked-task stack was
+  captured in the serial log. This is a negative scalability result for the
+  tested design, not proof that an optimized design is impossible. The full log
+  and 8 GiB guest images are in `host-snapshot-counts/` under the same external
+  build directory.
+- A second host-count run used the same 217 snapshot counts but 32,768
+  metadata files per source and a test-only `drop_subtree_threshold=1`.
+  Snapshot qgroup tables again matched full rescans (13.29 s and 12.87 s),
+  and all 217 snapshot cycles completed without inconsistency. Timeline
+  cleanup marked one filesystem stale, after which the four remaining deletes
+  took 9.59 s, 1.32 s, 1.37 s, and 1.29 s. This is substantially better than
+  the threshold-2 one-hour timeout at the same snapshot population, but the
+  smaller tree, TCG execution, and cleanup-time stale transition leave
+  production suitability unproven. Its artifacts are in
+  `host-counts-threshold-1/` under the same external build directory.

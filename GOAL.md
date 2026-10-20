@@ -201,26 +201,59 @@ coexist in this controlled workload with about 45 ms additional median cycle
 time, but the sample is small, QEMU uses TCG, and it does not prove host-scale
 latency or rule out the separately observed system stalls.
 
-**Immediate next step: decide whether a deletion threshold that makes the
-current four-group workload stale is an acceptable optional policy, and
-determine whether accurate snapshots remain acceptably low-latency at
-host-representative scale.** The 131,072-file runs establish that the
-fast-path counters match full-rescan qgroup tables before deletion, and that a
-test-only threshold of 2 can defer the accounting fallback until deletion.
-Threshold 3 did not make these deletes stale. Source inspection shows the
+The host-count workload was then scaled to 79 p8-root snapshots, 28 p8-home
+snapshots, 82 Kingston-root snapshots, and 28 Kingston-home snapshots, matching
+the live host counts observed before the run. The modified fast path with a
+test-only deletion threshold of 2 kept all 217 snapshot cycles free of
+inconsistency and both complete qgroup tables matched the full-rescan result
+(the scans took 90.28 s and 108.83 s). Cleanup completed, but the first final
+snapshot deletion did not complete within the one-hour TCG timeout. During the
+stalled deletion, sampled transaction commits reached 110.16 s maximum and
+43.79 s for the latest completed commit. This is a failed scalability result
+for the tested design: accurate snapshot accounting and a deletion-only stale
+policy are feasible for small populations, but that policy currently does not
+meet the low-latency requirement at the host's snapshot population. It does
+not prove that every possible accounting design is impossible; it identifies
+the deletion/backref path as the next optimization target.
+
+As a narrower control, the same host snapshot counts were tested with 32,768
+metadata files per source and a test-only deletion threshold of 1. All 217
+snapshot cycles remained accurate against the later full-rescan tables; the
+scans took 13.29 s and 12.87 s. Timeline cleanup marked one filesystem stale,
+and the remaining four final deletes completed in 9.59 s, 1.32 s, 1.37 s, and
+1.29 s. This suggests threshold 1 can keep deletion work bounded enough for
+the host snapshot population while allowing deletion to make counters stale,
+but it is not yet a production conclusion: the metadata tree was smaller than
+the threshold-2 run, the test used TCG, and the stale transition occurred
+during routine cleanup rather than only the final explicit delete.
+
+**Immediate next step: validate and, if possible, optimize the threshold-1
+deletion/backref policy before deciding whether it is an acceptable optional
+policy.** The
+small 131,072-file runs establish that the fast-path counters match full-rescan
+qgroup tables before deletion, and that a test-only threshold of 2 can defer
+the accounting fallback until deletion. The host-count run establishes that
+this policy currently fails the latency requirement during its first final
+deletion, despite accurate snapshot counters. Threshold 1 completed the same
+snapshot-count population with the smaller tree, but its cleanup made one
+filesystem stale. Threshold 3 did not make the
+smaller test deletes stale. Source inspection shows the
 threshold is checked against a shared child subtree's level during the drop
 walk, not the whole source tree's root level. A separate privileged read-only
 inspection found the live host's p8 root/home tree levels are 2/3 and
 Kingston root/home are 2/3, so those root levels alone do not prove that the
 default threshold will trigger. Next, record the actual shared-subtree levels
-passed into `btrfs_qgroup_trace_subtree()` for host-shaped deletes, then compare
-the threshold-2 stale-on-delete policy with threshold 3 and fast-path-off for
-snapshot, cleanup, deletion, commit, and recovery cost. Keep the modified
-module off the host. QEMU remains TCG-only; use the live blocked-task and
-transaction evidence to check stalls separately, and do not call either
-requirement satisfied until representative host-scale measurements and
-independent accounting checks support it. Continue investigating repeated
-extent-root discovery in `btrfs_qgroup_trace_subtree()` ->
+passed into `btrfs_qgroup_trace_subtree()` for host-shaped deletes, identify
+which extent/backref work dominates the timeout, and implement an optimization
+that preserves exact counters or makes the fallback happen before the long
+walk. Then compare threshold 1, threshold 2, threshold 3, and fast-path-off
+for snapshot,
+cleanup, deletion, commit, and recovery cost. Keep the modified module off the
+host. QEMU remains TCG-only; use the live blocked-task and transaction evidence
+to check stalls separately, and do not call either requirement satisfied until
+representative host-scale measurements and independent accounting checks
+support it. Continue investigating repeated extent-root discovery in
+`btrfs_qgroup_trace_subtree()` ->
 `btrfs_qgroup_trace_extent_post()` -> `btrfs_find_all_roots()` for a design
 that keeps snapshot counters accurate without unacceptable commit-path cost.
 

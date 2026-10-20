@@ -5577,3 +5577,17 @@ completed successfully and produced a fresh `fs/btrfs/btrfs.ko` in the build
 tree (Build ID `7a1b45e58057c0d856693d235c7ee55d9cd7aa19`). The source checkout
 remained clean. This verifies reproducible compilation only; the module was not
 installed, signed, loaded, or accepted for host use.
+
+## Independent p8 accounting check remains stale (2026-10-20)
+
+The retained p8 root snapshot 2176 is present at
+`/mnt/p8/@/.snapshots/2176/snapshot`. Its qgroup row currently reports
+`500.43MiB` referenced and `100.31MiB` exclusive, while the independent,
+read-only `btrfs filesystem du -s --raw` measurement reports
+`132415950848` total bytes and `10640781312` exclusive bytes (about 126 GiB and
+9.91 GiB). The filesystem simultaneously reports qgroup accounting as
+inconsistent. This is therefore a failed current consistency check, not proof
+that either accounting method is defective: the qgroup values are explicitly
+stale until a completed full rescan reconciles them. A future comparison must
+repeat both measurements after the rescan and while filesystem updates are
+quiesced.

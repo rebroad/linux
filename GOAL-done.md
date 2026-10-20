@@ -5640,6 +5640,14 @@ snapshot groups share one parent would avoid this particular fallback but would
 also mix live usage into the snapshot-only collective, which does not satisfy
 our accounting requirement.
 
+The live hierarchy has the same shape. On p8, `0/262` and `1/100` are
+siblings under `2/0`, while `0/263` and `1/101` are siblings under `2/1`. On
+Kingston the source IDs and root/home labels are arranged differently, but
+each source qgroup and its separate snapshot-parent qgroup are likewise the
+two members of a distinct level-2 tracker. Thus the disposable reproduction
+matches the relevant topology on both filesystems, rather than only an
+abstract qgroup arrangement.
+
 ## Stock-kernel diagnostic baseline (2026-10-20)
 
 The new `tools/btrfs-stall-capture.sh` was run against the healthy stock

@@ -227,6 +227,17 @@ but it is not yet a production conclusion: the metadata tree was smaller than
 the threshold-2 run, the test used TCG, and the stale transition occurred
 during routine cleanup rather than only the final explicit delete.
 
+The decisive follow-up combined the host snapshot counts with 131,072-file,
+level-3 trees and threshold 1. All 217 snapshot cycles again matched the
+full-rescan qgroup tables; the scans took 75.73 s and 81.65 s. Cleanup finished
+with both filesystems still consistent, then the four final deletes marked
+both filesystems stale and completed in 15.46 s, 1.46 s, 6.45 s, and 1.31 s.
+This is the strongest controlled evidence so far that accurate snapshot stats
+and a deletion-triggered stale state can coexist at the current snapshot
+population. It remains a TCG guest result, so it does not establish latency on
+the host's NVMe and USB storage or prove that the threshold-1 setting is safe
+to install permanently.
+
 **Immediate next step: validate and, if possible, optimize the threshold-1
 deletion/backref policy before deciding whether it is an acceptable optional
 policy.** The

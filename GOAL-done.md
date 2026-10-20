@@ -5435,3 +5435,17 @@ specified in `GOAL.md`.
   smaller tree, TCG execution, and cleanup-time stale transition leave
   production suitability unproven. Its artifacts are in
   `host-counts-threshold-1/` under the same external build directory.
+- The decisive threshold-1 run combined the same 217 snapshot counts with
+  131,072 metadata files per source and 4 KiB nodes (all four roots level 3).
+  All 217 snapshot cycles remained consistent and both complete qgroup tables
+  matched their full-rescan results; the scans took 75.73 s and 81.65 s.
+  Timeline cleanup finished with both filesystems still consistent. The four
+  final synchronous deletes then marked both filesystems inconsistent and
+  completed in 15.46 s, 1.46 s, 6.45 s, and 1.31 s. No automatic scan ran
+  during cleanup or deletion; the later explicit rescans restored the status.
+  This is the strongest controlled evidence that accurate stats for routine
+  snapshots and a deletion-triggered stale state can coexist at the current
+  snapshot population. It remains a TCG guest result and does not establish
+  host NVMe/USB latency or make threshold 1 a production recommendation. The
+  log and images are in `host-counts-131k-threshold-1/` under the same external
+  build directory.

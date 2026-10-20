@@ -100,13 +100,18 @@ identify the responsible kernel path or dependency and fix the cause. For the
 stalls, investigate transaction waits, blocked writeback workers, and long
 commits with live kernel stacks and commit-progress evidence. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
-unrelated tasks waiting at transaction start, but do not yet prove that the
-former caused the latter. These observed paths are not changed by our patch.
-Compare the exact 7.2.6 stock and modified modules under a representative
-deletion workload, tracing transaction progress and blocked stacks; then
-decide whether this is the known cost of full qgroup accounting or an
-additional kernel defect, and fix the identified cause. Do not assume either
-our changes or upstream code is responsible before the evidence supports it.
+unrelated tasks waiting at transaction start. A host CPU profile now confirms
+the cleaner is spending substantial time in the unchanged qgroup subtree and
+backref walk. The exact 7.2.6 stock/custom QEMU deletion comparison did not
+reproduce the long host commit; its custom run had longer final qgroup cleanup.
+These results still do not identify which external writer held the live
+transaction open or prove that our changes caused or did not cause the stalls.
+Capture that writer and compare the same deletion path under a workload and
+storage latency representative of the host. Then decide whether this is the
+known cost of full qgroup accounting or an additional kernel defect, and fix
+the identified cause. Do not assume either our changes or upstream code is
+responsible before the evidence supports it. Full profile, A/B measurements,
+and limitations are in `GOAL-done.md`.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.

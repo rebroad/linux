@@ -4916,9 +4916,43 @@ specified in `GOAL.md`.
   effects or prove an upstream defect. Existing eight-round QEMU cleanup
   cases use only 2 MiB of stable data per subvolume and one 1 MiB changed file
   per snapshot; they prove accounting/cleanup behavior, not stall performance.
-- Remaining: run a reproducible metadata-heavy snapshot-deletion workload on
-  the exact 7.2.6 kernel with the saved Debian module and the current custom
-  module, recording operation duration, commit counters, D-state stacks, and
-  pending deleted-subvolume counts. The current evidence is not yet a matched
-  performance comparison and does not settle whether the custom changes
-  contribute to the stalls.
+  The later matched stress comparison and host CPU profile are recorded below;
+  they add evidence but do not settle whether the custom changes contribute to
+  the stalls.
+
+## Matched snapshot-deletion stress and host CPU profile (2026-10-20 05:13-05:21 BST)
+
+- Ran paired QEMU workloads with the exact Debian 7.2.6 kernel and saved stock
+  Btrfs module versus the exact custom module loaded on the host. Each run used
+  four source subvolumes, 4,096 metadata-heavy files per source, and 32
+  snapshots per configuration (128 total), followed by deletion of the old
+  snapshots and cleanup. The guest disks were tmpfs-backed; QEMU used TCG, so
+  this did not reproduce host NVMe latency.
+- The stock run recorded 127 distinct qgroup-inconsistency events and the
+  expected rescan fallback. The custom run recorded no inconsistency warning
+  during deletion and no post-delete rescan; qgroup reports remained
+  consistent. Both runs completed without a blocked-task report or a long
+  commit. Maximum sampled commit times were 233 ms stock and 223 ms custom.
+  Custom final qgroup deletion took 1, 9, 6, and 1 seconds for the four
+  configurations; stock cleanup took at most 3 seconds. The longer custom
+  cleanup is consistent with the patch continuing qgroup-relation removal
+  after a positive rescan-needed result, whereas stock exits that loop early;
+  this does not explain the host's long transaction by itself.
+- A short host `perf` sample (101 cycle samples over 8 seconds, zero lost
+  samples) captured the active `btrfs-cleaner` in
+  `btrfs_drop_snapshot()` -> `walk_down_tree()` ->
+  `btrfs_qgroup_trace_subtree()` -> `btrfs_qgroup_trace_extent_post()` ->
+  `btrfs_find_all_roots_safe()` / `find_parent_nodes()`. The profile included
+  `read_extent_buffer`, `btrfs_bin_search`, and allocation work in this path.
+  A preceding sample showed the cleaner consuming nearly one CPU core. This
+  confirms expensive qgroup backref traversal is active during snapshot
+  deletion on the host; it does not show that this cleaner held the external
+  writer count during the long commit.
+- The qgroup subtree/backref functions, snapshot-drop traversal, metadata
+  read wait, and transaction external-writer wait have no source changes in
+  our patch. The patch still could affect the amount or timing of this work
+  indirectly. The paired QEMU test did not reproduce the host stall and is
+  not sufficient to clear the patch or to prove a general performance bound.
+  Remaining: capture the external writer that keeps the transaction's writer
+  count nonzero and compare it against a representative large-tree workload
+  with realistic storage latency before attributing or fixing the cause.

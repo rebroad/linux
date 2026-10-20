@@ -1947,6 +1947,8 @@ static void btrfs_init_qgroup(struct btrfs_fs_info *fs_info)
 	fs_info->qgroup_seq = 1;
 	fs_info->qgroup_rescan_running = false;
 	fs_info->qgroup_drop_subtree_thres = BTRFS_QGROUP_DROP_SUBTREE_THRES_DEFAULT;
+	fs_info->qgroup_shared_parent_quick_inherit = true;
+	fs_info->qgroup_remove_after_rescan_fallback = true;
 	mutex_init(&fs_info->qgroup_rescan_lock);
 }
 

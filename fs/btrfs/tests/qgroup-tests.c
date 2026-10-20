@@ -504,11 +504,19 @@ static int test_qgroup_remove_after_rescan_fallback(struct btrfs_root *root)
 	const u64 qgroupid = TEST_QGROUP(1, 10040);
 	const u64 parentid = TEST_QGROUP(2, 10040);
 	const u64 orphanid = TEST_QGROUP(1, 10041);
+	const u64 stock_qgroupid = TEST_QGROUP(1, 10042);
+	const u64 stock_parentid = TEST_QGROUP(2, 10042);
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup *parent;
+	struct btrfs_qgroup *stock_qgroup;
+	struct btrfs_qgroup *stock_parent;
 	int ret;
 
 	test_msg("running qgroup removal after rescan fallback test");
+	if (!fs_info->qgroup_remove_after_rescan_fallback) {
+		test_err("qgroup removal fix should be enabled by default");
+		return -EINVAL;
+	}
 	btrfs_init_dummy_trans(&trans, fs_info);
 	ret = create_test_qgroup(&trans, qgroupid);
 	if (ret)
@@ -553,6 +561,42 @@ static int test_qgroup_remove_after_rescan_fallback(struct btrfs_root *root)
 	if (find_test_qgroup(fs_info, orphanid)) {
 		test_err("qgroup remained after successful removal without an info item");
 		return -EINVAL;
+	}
+
+	/* Disabling the fix restores stock behavior for this rescan case. */
+	test_msg("running stock qgroup removal fallback test");
+	ret = create_test_qgroup(&trans, stock_qgroupid);
+	if (ret)
+		return ret;
+	ret = create_test_qgroup(&trans, stock_parentid);
+	if (ret)
+		return ret;
+	ret = add_test_qgroup_relation(&trans, stock_qgroupid, stock_parentid);
+	if (ret)
+		return ret;
+	stock_qgroup = find_test_qgroup(fs_info, stock_qgroupid);
+	stock_parent = find_test_qgroup(fs_info, stock_parentid);
+	if (!stock_qgroup || !stock_parent) {
+		test_err("stock-mode test qgroups disappeared before removal");
+		return -ENOENT;
+	}
+	stock_qgroup->rfer = fs_info->nodesize;
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_remove_after_rescan_fallback = false;
+	spin_unlock(&fs_info->qgroup_lock);
+	ret = btrfs_remove_qgroup(&trans, stock_qgroupid);
+	if (ret != 1 || find_test_qgroup(fs_info, stock_qgroupid) != stock_qgroup ||
+	    !list_empty(&stock_parent->members)) {
+		test_err("disabled qgroup removal fix did not retain the stock fallback");
+		return ret < 0 ? ret : -EINVAL;
+	}
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_remove_after_rescan_fallback = true;
+	spin_unlock(&fs_info->qgroup_lock);
+	ret = btrfs_remove_qgroup(&trans, stock_qgroupid);
+	if (ret || find_test_qgroup(fs_info, stock_qgroupid)) {
+		test_err("qgroup removal fix did not clean up after stock fallback");
+		return ret < 0 ? ret : -EINVAL;
 	}
 	return 0;
 }
@@ -613,6 +657,33 @@ static int test_qgroup_shared_parent_inherit(struct btrfs_root *root,
 	shared_parent->rfer_cmpr = 3 * nodesize;
 	shared_parent->excl = 3 * nodesize;
 	shared_parent->excl_cmpr = nodesize;
+
+	if (!fs_info->qgroup_shared_parent_quick_inherit) {
+		test_err("shared-parent quick-inherit should be enabled by default");
+		return -EINVAL;
+	}
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_shared_parent_quick_inherit = false;
+	spin_unlock(&fs_info->qgroup_lock);
+	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
+	if (ret != 1 ||
+	    btrfs_verify_qgroup_counts(fs_info, srcid, 4 * nodesize,
+				       3 * nodesize) ||
+	    btrfs_verify_qgroup_counts(fs_info, parentid, 2 * nodesize,
+				       nodesize) ||
+	    btrfs_verify_qgroup_counts(fs_info, shared_parentid, 6 * nodesize,
+				       3 * nodesize) ||
+	    src->rfer_cmpr != 2 * nodesize || src->excl_cmpr != nodesize ||
+	    parent->rfer_cmpr != nodesize ||
+	    parent->excl_cmpr != nodesize / 2 ||
+	    shared_parent->rfer_cmpr != 3 * nodesize ||
+	    shared_parent->excl_cmpr != nodesize) {
+		test_err("disabled shared-parent quick inherit changed counters");
+		return -EINVAL;
+	}
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_shared_parent_quick_inherit = true;
+	spin_unlock(&fs_info->qgroup_lock);
 
 	ret = btrfs_test_qgroup_snapshot_quick_inherit(fs_info, srcid, parentid);
 	if (ret) {

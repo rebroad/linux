@@ -1,0 +1,15 @@
+What:           /sys/fs/btrfs/<uuid>/qgroups/remove_after_rescan_fallback
+Date:           2026-10-20
+Contact:        linux-btrfs@vger.kernel.org
+Description:
+                Controls whether a qgroup is removed from the in-memory tree
+                after relation removal requests a qgroup rescan. The value is
+                a boolean and defaults to 1. When set to 0, qgroup removal
+                returns immediately on the rescan request, matching the
+                original behavior before the cleanup fix.
+
+                Disabling this fix can leave a qgroup in memory after its
+                on-disk info item has been deleted, causing later qgroup
+                accounting to report a missing info item. Use 0 only for
+                isolated diagnostic workloads. Changing the value affects
+                future qgroup removals and does not repair existing state.

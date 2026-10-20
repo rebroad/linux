@@ -1808,9 +1808,14 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 	struct btrfs_fs_info *fs_info = trans->fs_info;
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
+	bool remove_after_rescan_fallback;
 	int ret = 0;
 
 	mutex_lock(&fs_info->qgroup_ioctl_lock);
+	spin_lock(&fs_info->qgroup_lock);
+	remove_after_rescan_fallback = fs_info->qgroup_remove_after_rescan_fallback;
+	spin_unlock(&fs_info->qgroup_lock);
+
 	if (!fs_info->quota_root) {
 		ret = -ENOTCONN;
 		goto out;
@@ -1846,7 +1851,7 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 					struct btrfs_qgroup_list, next_group);
 		ret = __del_qgroup_relation(trans, qgroupid,
 					    list->group->qgroupid);
-		if (ret < 0)
+		if (ret < 0 || (ret > 0 && !remove_after_rescan_fallback))
 			goto out;
 	}
 
@@ -3328,6 +3333,9 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 			return 1;
 		qgroup_to_update = parent;
 	} else {
+		if (!fs_info->qgroup_shared_parent_quick_inherit)
+			return 1;
+
 		/*
 		 * A snapshot-only parent can be updated without a rescan when the
 		 * source and that parent share exactly one parent, and that common

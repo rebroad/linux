@@ -2447,6 +2447,80 @@ static ssize_t qgroup_drop_subtree_thres_store(struct kobject *qgroups_kobj,
 BTRFS_ATTR_RW(qgroups, drop_subtree_threshold, qgroup_drop_subtree_thres_show,
 	      qgroup_drop_subtree_thres_store);
 
+static ssize_t
+qgroup_shared_parent_quick_inherit_show(struct kobject *qgroups_kobj,
+					struct kobj_attribute *a, char *buf)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+
+	spin_lock(&fs_info->qgroup_lock);
+	enabled = fs_info->qgroup_shared_parent_quick_inherit;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t
+qgroup_shared_parent_quick_inherit_store(struct kobject *qgroups_kobj,
+					 struct kobj_attribute *a, const char *buf,
+					 size_t len)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(buf, &enabled);
+	if (ret)
+		return ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_shared_parent_quick_inherit = enabled;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return len;
+}
+BTRFS_ATTR_RW(qgroups, shared_parent_quick_inherit,
+	      qgroup_shared_parent_quick_inherit_show,
+	      qgroup_shared_parent_quick_inherit_store);
+
+static ssize_t
+qgroup_remove_after_rescan_fallback_show(struct kobject *qgroups_kobj,
+					 struct kobj_attribute *a, char *buf)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+
+	spin_lock(&fs_info->qgroup_lock);
+	enabled = fs_info->qgroup_remove_after_rescan_fallback;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t
+qgroup_remove_after_rescan_fallback_store(struct kobject *qgroups_kobj,
+					  struct kobj_attribute *a,
+					  const char *buf, size_t len)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(buf, &enabled);
+	if (ret)
+		return ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_remove_after_rescan_fallback = enabled;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return len;
+}
+BTRFS_ATTR_RW(qgroups, remove_after_rescan_fallback,
+	      qgroup_remove_after_rescan_fallback_show,
+	      qgroup_remove_after_rescan_fallback_store);
+
 /*
  * Qgroups global info
  *
@@ -2456,6 +2530,8 @@ static struct attribute *qgroups_attrs[] = {
 	BTRFS_ATTR_PTR(qgroups, enabled),
 	BTRFS_ATTR_PTR(qgroups, inconsistent),
 	BTRFS_ATTR_PTR(qgroups, drop_subtree_threshold),
+	BTRFS_ATTR_PTR(qgroups, shared_parent_quick_inherit),
+	BTRFS_ATTR_PTR(qgroups, remove_after_rescan_fallback),
 	BTRFS_ATTR_PTR(qgroups, mode),
 	NULL
 };

@@ -1,0 +1,14 @@
+What:           /sys/fs/btrfs/<uuid>/qgroups/shared_parent_quick_inherit
+Date:           2026-10-20
+Contact:        linux-btrfs@vger.kernel.org
+Description:
+                Controls the shared-parent snapshot quick-inherit optimization
+                for this filesystem. The value is a boolean and defaults to
+                1. When set to 0, eligible shared-parent snapshot inheritance
+                uses the conservative rescan fallback, matching stock
+                behavior without this optimization.
+
+                Changing the value only affects future snapshot inheritance.
+                It does not repair or rescan qgroup accounting already marked
+                inconsistent. For comparisons, set the value before starting
+                each workload and use equivalent filesystem state.

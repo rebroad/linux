@@ -815,6 +815,9 @@ struct btrfs_fs_info {
 	/* Holds configuration and tracking. Protected by qgroup_lock. */
 	struct rb_root qgroup_tree;
 	spinlock_t qgroup_lock;
+	/* Qgroup behavior switches. Protected by qgroup_lock. */
+	bool qgroup_shared_parent_quick_inherit;
+	bool qgroup_remove_after_rescan_fallback;
 
 	/*
 	 * Protect user change for quota operations. If a transaction is needed,

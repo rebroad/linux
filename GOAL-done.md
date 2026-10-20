@@ -5610,3 +5610,12 @@ Kbuild's configuration headers with `syncconfig`. The external build tree was
 then restored to the normal `CONFIG_BTRFS_FS=m` configuration. This validates
 compilation of the new test code; the sanity tests themselves have not run on a
 kernel with that option enabled.
+
+## Btrfs source style check (2026-10-20)
+
+`scripts/checkpatch.pl --no-tree --no-signoff --strict` was run against the
+combined diff for `fs/btrfs/qgroup.c`, `fs/btrfs/qgroup.h`, and
+`fs/btrfs/tests/qgroup-tests.c` relative to v7.2.9. It reported zero errors and
+zero warnings across 680 changed lines. The check intentionally excluded the
+repository's historical goal documents and DCO metadata; it is a source-style
+result, not an upstream submission review.

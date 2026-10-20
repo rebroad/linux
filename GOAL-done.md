@@ -4874,3 +4874,51 @@ specified in `GOAL.md`.
   the observed transaction, nor distinguish a software dependency from
   transient metadata/storage latency. The transaction stalls are therefore
   still an open diagnosis, not a verified kernel-patch regression or exoneration.
+
+## Live Btrfs stall recapture (2026-10-20 03:16-03:28 BST)
+
+- The host was still running `7.2.6+deb13-amd64` with the custom
+  `btrfs-qgroup/7.2.6+rebroad1.z20261019.g89f68effaaf87` DKMS module loaded.
+  Decompressed module hashes at capture time were
+  `12bcdc0d2aac7cd28f6e2de3d97bcbeaf44ddd9d076499fdd9fc7bebed56bf1f`
+  (custom) and
+  `c9a0c7fe32dc8e75bc632a8aebc8c4caaea1c238cdb71d2417b3127be83fe392`
+  (saved Debian module in DKMS's `original_module` directory). No rescan was
+  active on either filesystem.
+- At 03:16, `btrfs subvolume list -d` counted 30 deleted subvolumes on p8 and
+  23 on Kingston. The p8 and Kingston commit counters were 3,149 and 2,577;
+  their last completed commits took 30.8 s and 75.7 s, and recorded maxima
+  were 307.0 s and 625.5 s. At 03:25 the counters had advanced to 3,156 and
+  2,582. The p8 commit was then 30.5 s into its current critical section;
+  Kingston's latest commit had taken 53.0 s. This shows slow commits and
+  progress, rather than a permanently stuck commit.
+- A 03:25 SysRq task dump and direct `/proc` stack reads found many unrelated
+  tasks in `wait_current_trans`, including systemd, systemd-journald,
+  ZeroTier, Python, XScreenSaver, psensor, a SQLx worker, and Btrfs
+  endio-write workers. One cleaner was also waiting in
+  `btrfs_drop_snapshot()` at `start_transaction()`. Another cleaner was in
+  `btrfs_drop_snapshot() -> walk_down_tree() -> do_walk_down() ->
+  btrfs_qgroup_trace_subtree() -> btrfs_read_node_slot() ->
+  read_extent_buffer_pages()`.
+- In this kernel source, `read_extent_buffer_pages()` waits
+  uninterruptibly for `EXTENT_BUFFER_READING` to clear after submitting an
+  asynchronous metadata read; the read completion callback clears that bit.
+  Thus the captured qgroup backref walk was waiting for a metadata read
+  completion. The capture does not show why that completion took so long, or
+  establish that this cleaner caused the separate `wait_current_trans`
+  backlog. The Btrfs device error counters were zero. At 03:27, I/O PSI was
+  `some avg10=1.56 avg60=1.84 avg300=3.28` and `full avg10=1.21 avg60=1.57
+  avg300=2.95`; a process snapshot at that time contained no D-state tasks.
+- The custom source delta remains limited to `fs/btrfs/qgroup.c`,
+  `fs/btrfs/qgroup.h`, and qgroup sanity tests. The observed transaction,
+  snapshot-drop, backref-walk, and metadata-read functions are not changed by
+  this patch. This narrows the suspected path but does not rule out indirect
+  effects or prove an upstream defect. Existing eight-round QEMU cleanup
+  cases use only 2 MiB of stable data per subvolume and one 1 MiB changed file
+  per snapshot; they prove accounting/cleanup behavior, not stall performance.
+- Remaining: run a reproducible metadata-heavy snapshot-deletion workload on
+  the exact 7.2.6 kernel with the saved Debian module and the current custom
+  module, recording operation duration, commit counters, D-state stacks, and
+  pending deleted-subvolume counts. The current evidence is not yet a matched
+  performance comparison and does not settle whether the custom changes
+  contribute to the stalls.

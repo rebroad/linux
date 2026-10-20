@@ -99,14 +99,17 @@ whether our Btrfs changes caused or contributed to the stalls. If they did not,
 identify the responsible kernel path or dependency and fix the cause. For the
 stalls, investigate transaction waits, blocked writeback workers, and long
 commits with live kernel stacks and commit-progress evidence. The 2026-10-20
-live capture links them to snapshot deletion and qgroup backref walks, in paths
-our patch does not change. Compare the exact 7.2.6 stock and modified modules
-under a representative deletion workload; decide whether this is the known
-cost of full qgroup accounting or an additional kernel defect, then fix the
-identified cause. Do not assume either our changes or upstream code is
-responsible before the evidence supports it. Complete this investigation
-before resuming lower-priority deployment validation. Detailed captures,
-source comparisons, and remaining diagnostic gaps are in `GOAL-done.md`.
+captures found qgroup backref metadata reads during snapshot deletion and
+unrelated tasks waiting at transaction start, but do not yet prove that the
+former caused the latter. These observed paths are not changed by our patch.
+Compare the exact 7.2.6 stock and modified modules under a representative
+deletion workload, tracing transaction progress and blocked stacks; then
+decide whether this is the known cost of full qgroup accounting or an
+additional kernel defect, and fix the identified cause. Do not assume either
+our changes or upstream code is responsible before the evidence supports it.
+Complete this investigation before resuming lower-priority deployment
+validation. Detailed captures, source comparisons, and remaining diagnostic
+gaps are in `GOAL-done.md`.
 
 1. **Finish root-cause and live-accounting validation — 95% done.** The
    controlled QEMU matrix and source trace identify the stock-kernel fallback

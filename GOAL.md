@@ -298,19 +298,20 @@ Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.
 
-1. **Finish root-cause and live-accounting validation — 75% done.** The
+1. **Finish root-cause and live-accounting validation — 82% done.** The
    controlled QEMU matrix now includes exact 7.2.9 stock, modified-fast-path,
    and modified-fallback runs. The fast path avoids the tested automatic
-   rescans but has a serious snapshot-cleanup cost. The matrix does not show
-   whether the fallback is a bug or an intentional performance trade-off.
-   Full evidence and limits are in `GOAL-done.md`. The shared-parent fast path
-   remains provisional; no general Btrfs correctness bug has been established.
+   rescans. Threshold-1 testing now preserves accurate counters through the
+   host snapshot population and bounds deletion in the tested guest, while
+   threshold 2 timed out at that population. Full evidence and limits are in
+   `GOAL-done.md`. The shared-parent fast path remains provisional; no general
+   Btrfs correctness bug has been established.
 
-   Remaining: establish the intended semantics and acceptability of the
-   fallback, then choose whether to develop a faster design that preserves
-   accurate four-group counters without automatic rescans. Validate the
-   chosen approach against larger and host-representative
-   tree size and storage. Capture the external writer and blocked-task stacks
+   Remaining: establish the intended semantics and production acceptability of
+   the threshold-1 stale-on-delete policy, then choose whether to develop a
+   faster design that preserves accurate four-group counters without automatic
+   rescans. Validate the chosen approach against host p8 storage and capture
+   the external writer and blocked-task stacks
    during a live stall as part of the same root-cause investigation.
    After review and safe activation of a signed module, verify sustained
    four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup

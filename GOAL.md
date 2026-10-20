@@ -1,4 +1,4 @@
-# Goal: fix Snapper-triggered Btrfs qgroup inconsistency
+# Goal: diagnose and fix Btrfs qgroup inconsistency and system stalls
 
 This is the active **to-do** document. It lists remaining work, with rough
 completion percentages for partially completed items. Move verified completed
@@ -93,9 +93,9 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-**First priority: diagnose and fix the current Btrfs issues, including the
-system stalls and recurring qgroup inconsistency/rescan behavior.** Determine
-whether our Btrfs changes caused or contributed to the stalls. If they did not,
+**First priority: diagnose and fix the Btrfs qgroup inconsistency and system
+stalls.** Determine whether our Btrfs changes caused or contributed to the
+stalls. If they did not,
 identify the responsible kernel path or dependency and fix the cause. For the
 stalls, investigate transaction waits, blocked writeback workers, and long
 commits with live kernel stacks and commit-progress evidence. The 2026-10-20

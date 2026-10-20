@@ -5541,3 +5541,16 @@ rescan latency. The 20:00 host timing is consistent with this path. The 21:00
 and 22:00 runs did not show a rescan worker, so the exact status/policy branch
 used by those later calls still needs live tracing; the source does not justify
 claiming that every snapshot starts a scan.
+
+## Rescan timing policy explains the hourly difference (2026-10-20)
+
+The live Snapper `QGroupRescanLimiter::reserve()` implementation applies the
+configured local-time window even when `QGROUP_RESCAN_DAILY_LIMIT="no"`; the
+window is checked before the optional 24-hour cooldown, and its end is
+exclusive. The host configs use `QGROUP_RESCAN_WINDOW="05:00-21:00"`. Thus the
+20:00 snapshot run was inside the allowed window and could issue and wait for
+`BTRFS_IOC_QUOTA_RESCAN`, while the 21:00:05 and 22:00 runs were outside the
+window and returned `Deferred` without starting a rescan worker. This exactly
+matches the observed 62-second 20:00 run, the one-second later runs, and the
+zero-worker trace. The behavior is therefore the configured Snapper policy,
+not evidence that every snapshot intrinsically starts a scan.

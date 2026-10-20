@@ -5021,3 +5021,57 @@ specified in `GOAL.md`.
   unrelated writers behind a long commit. Identify the external writer in the
   initial wait as well. No kernel bug report is ready until this behavior is
   reproduced and the tradeoff is resolved.
+
+## Larger four-group snapshot stress on the exact 7.2.6 kernel (2026-10-20)
+
+- Repeated the stock/custom comparison with the same Debian
+  `7.2.6+deb13-amd64` kernel image, Snapper executable
+  (`917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f`), and
+  libsnapper (`c34dfac310cd204ef4e38b0d62cd5af835ce5c2674ab3f0fda719e50e6ccdb8d`).
+  The stock module hash was
+  `9cd15b503d5f11fc8b8cdab89c7fcfc97467368718e8a3ea60468ec207f5536c`; the
+  custom module hash was
+  `8d3c3c14834cc820fe4ba59004eb3041caeb0e91b3b8256f76d10d9736899f75`.
+- Each 2 GiB TCG guest used two sparse 4 GiB disks in tmpfs, created 32,768
+  metadata files in each of four live source subvolumes, and created 32
+  Snapper snapshots in each of the four independent configs (128 snapshots
+  total). The workload then ran timeline cleanup and synchronous deletion.
+  The complete compressed serial logs are in
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-stall-ab-20261020/` as
+  `32k-stock.serial.log.gz` and `32k-custom.serial.log.gz`.
+- The stock run began with the guest's dmesg counters cleared. By cleanup it
+  reported 126 completed qgroup scans and 128 inconsistency warnings. Its
+  final explicit full scans each emitted `qgroup info item update error -2`
+  immediately before `qgroup scan completed (inconsistency flag cleared)`.
+  The custom run had zero scan completions and zero inconsistency warnings
+  through snapshot creation, cleanup, and deletion; only the harness's four
+  explicit full scans after the workload appeared in its scan counter.
+- This final stock warning matches a separate teardown defect in the 7.2.6
+  source. `btrfs_remove_qgroup()` deletes the on-disk qgroup item, then exits
+  when relation removal returns the positive “rescan needed” result, leaving
+  the qgroup in memory. A later `btrfs_run_qgroups()` then tries to update the
+  absent info item and gets `-ENOENT`. The branch's
+  `d9fe2dab48f08` teardown fix continues removing the qgroup after that
+  positive result; the custom run did not emit this warning. This explains
+  that specific warning sequence, not the earlier per-snapshot inconsistency
+  that triggered the fallback.
+- The last synchronous root-snapshot deletion took 6 seconds with stock
+  accounting and 80 seconds with the custom module; home and Kingston deletes
+  took 1–6 seconds in both runs. The kernel's `max_commit_ms` reached 1,360 ms
+  stock and 1,221 ms custom. Thus the custom deletion's longer elapsed time
+  consisted of work not reflected by a single long transaction in this guest.
+  Neither run reproduced the host's 30.986-second commit. The custom result
+  supports continued investigation of the cost of retaining full qgroup
+  accounting but does not establish that the fast-inherit change caused the
+  host stall. TCG and tmpfs disks also do not model host NVMe latency.
+- The function-graph attempts on the custom deletion selected the tracer but
+  left tracefs recording disabled. The completed qgroup-only attempt reported
+  zero trace entries; the broader attempt was stopped before it dumped a
+  trace. Their 532- and 956-second deletion timings are untrusted and excluded
+  from the comparison above. A short guest probe confirmed that `function_graph`
+  and the Btrfs qgroup functions are available; the function list includes a
+  `[btrfs]` suffix. A corrected low-overhead profile must match that naming,
+  explicitly enable `tracing_on`, and verify nonzero trace entries before its
+  output or timings are used. The failed trace logs and probe are also retained
+  in the same build directory as `32k-custom-trace-disabled-*.serial.log.gz`
+  and `tracefs-probe.serial.log.gz`.

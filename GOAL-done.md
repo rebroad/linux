@@ -5303,3 +5303,45 @@ specified in `GOAL.md`.
 - Next inspect whether correct qgroup membership and extent root information
   can be reused or accounted incrementally across snapshot drops, avoiding
   repeated full backref walks without weakening qgroup accuracy.
+
+## Separate accurate snapshot accounting from deletion fallback (2026-10-20)
+
+- On the exact 7.2.9 guest kernel, the custom module build ID
+  `31c49b216d8a830d72da6158aff81f0d2b3be023` loaded and passed its in-guest
+  verification. The four-group workload created 32 Snapper snapshots for each
+  of p8-root, p8-home, Kingston-root, and Kingston-home (128 total), with
+  `shared_parent_quick_inherit=1`. Both filesystem inconsistency flags stayed
+  clear. Before deletion, each complete `btrfs qgroup show -pc --raw` table was
+  byte-for-byte unchanged by a waited full rescan, proving the counters matched
+  the rescanned values in this guest workload.
+- The snapshot-cycle timer includes qgroup status and table queries, a 1 MiB
+  source change, Snapper snapshot creation, and `sync`; it is not a measurement
+  of the snapshot ioctl alone. Across 128 cycles it measured 380 ms minimum,
+  1.31 s median, 2.11 s p95, and 2.28 s maximum. Sampled maximum transaction
+  commit time was 974 ms. SysRq-W sampling found no blocked-task report or
+  qgroup-rescan worker. These are TCG guest timings, not host-latency
+  measurements.
+- As a same-kernel control, `shared_parent_quick_inherit=0` produced 128 cycles
+  at 360 ms minimum, 550 ms median, 690 ms p95, and 810 ms maximum. Both
+  filesystems were marked inconsistent during snapshot creation, and each
+  qgroup table differed from the one after a completed full rescan. Thus the
+  tested fast path preserves accurate counters, with a measurable timing cost
+  in this end-to-end harness; the test does not establish whether that cost is
+  acceptable on the host.
+- After the accuracy check, the test set
+  `drop_subtree_threshold=0` on both guest filesystems to force the deletion
+  fallback, then timeline-cleaned and synchronously deleted the 128 snapshots.
+  Both filesystems became inconsistent, with the stale-data warning visible;
+  no additional scan completed during cleanup or deletion. The four cleanup
+  commands took 620-810 ms each and the four synchronous delete commands took
+  1.31-5.32 s each. A subsequent explicit full rescan took 2.53 s on Kingston
+  and 2.55 s on p8. Threshold zero is a test-only forcing mechanism, not a
+  proposed production setting; it does not prove that the default threshold
+  will make this workload inconsistent on deletion.
+- This run demonstrates that, for the tested 7.2.9 hierarchy and workload, an
+  optional snapshot fast path can preserve accurate qgroup totals while a
+  deletion fallback later marks them stale. It does not prove acceptable
+  latency at host scale: QEMU used TCG because `/dev/kvm` is unavailable, and
+  the sources contained 32,768 metadata files each. Artifacts and full serial
+  logs are under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/accuracy-latency-test/`.

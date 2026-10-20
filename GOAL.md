@@ -110,6 +110,13 @@ Snapper opens the configured absolute path directly rather than prefixing it
 with the alternate root. The current source/config match is recorded in
 `GOAL-done.md`; a real suspend/resume hold test remains open.
 
+The host's 20:00-versus-21:00 behavior is now explained by Snapper's
+configured rescan window rather than by every snapshot intrinsically starting a
+scan: `05:00-21:00` is local time with an exclusive end. A snapshot inside the
+window may issue and wait for a rescan when qgroups are inconsistent; a
+snapshot at or after 21:00 defers it. Preserve this distinction in further
+latency diagnosis.
+
 ## Next steps
 
 **First priority: reach a clear, evidence-backed verdict on whether our

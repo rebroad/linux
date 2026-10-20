@@ -336,6 +336,9 @@ gaps are in `GOAL-done.md`.
    rescans. Validate the chosen approach against host p8 storage and capture
    the external writer and blocked-task stacks
    during a live stall as part of the same root-cause investigation.
+   `tools/btrfs-stall-capture.sh` now provides the read-only bundle needed for
+   that capture; it triggers SysRq-W only when the existing runtime mask allows
+   it and does not change mount or qgroup state.
    After review and safe activation of a signed module, verify sustained
    four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup
    values against an independent full-accounting report while filesystem

@@ -5640,6 +5640,13 @@ snapshot groups share one parent would avoid this particular fallback but would
 also mix live usage into the snapshot-only collective, which does not satisfy
 our accounting requirement.
 
+A temporary stock-kernel kprobe on `qgroup_mark_inconsistent()` captured one
+call during the inherited-snapshot test, with the snapshot-creating process as
+the current task. This confirms that the stale flag is set inside the snapshot
+ioctl path, rather than being introduced later by Snapper's reporting or by
+snapshot deletion. The probe was removed after the test and no diagnostic
+kprobe events remain.
+
 The live hierarchy has the same shape. On p8, `0/262` and `1/100` are
 siblings under `2/0`, while `0/263` and `1/101` are siblings under `2/1`. On
 Kingston the source IDs and root/home labels are arranged differently, but

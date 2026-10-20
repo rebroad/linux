@@ -1,4 +1,4 @@
-# Goal: diagnose qgroup fallback and Btrfs stalls; fix confirmed defects
+# Goal: determine whether accurate qgroup stats and low-latency snapshots can coexist
 
 This is the active **to-do** document. It lists remaining work, with rough
 completion percentages for partially completed items. Move verified completed
@@ -112,15 +112,19 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-**First priority: diagnose the qgroup inconsistency and system stalls, then
-decide whether a kernel fix is warranted.** Determine whether our Btrfs changes
-caused or contributed to each issue; if not, identify the responsible kernel
+**First priority: establish clearly whether our required qgroup accuracy and
+low-latency snapshot workload can coexist on the supported Btrfs stack and our
+four-group layout.** Do not assume the inconsistency state is a bug or that
+removing it is inherently better. Determine whether our Btrfs changes caused
+or contributed to each observed stall; if not, identify the responsible kernel
 path or dependency. For qgroup inconsistency, establish whether the conservative
-fallback is expected design, a performance/correctness trade-off, or a defect
-before choosing to change it. If the behavior is intentional, evaluate whether
-its scan cost and stale-value interval are acceptable and configure policy
-accordingly. If it violates expected behavior or creates unacceptable
-performance, identify and fix the specific defect. For stalls, investigate
+fallback is expected design, a performance/accuracy trade-off, or a defect.
+Test whether snapshot creation can preserve accurate counters without costly
+accounting or repeated rescans, while allowing infrequent deletion to mark
+values stale and recover later. If this works, make that policy optional and
+document the stale interval and recovery behavior. If it does not, state which
+requirements cannot be met together and quantify the least-cost trade-off; only
+then decide whether a confirmed defect warrants a fix. For stalls, investigate
 transaction waits, blocked writeback workers, and long commits with live kernel
 stacks and commit-progress evidence. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
@@ -165,20 +169,22 @@ An earlier stock 7.2.6 run also exposed a separate
 `qgroup info item update error -2` during final rescans; source control flow
 matches the branch's qgroup-teardown fix.
 
-**Immediate next step: establish whether the rescan fallback is an intended
-trade-off, then choose whether to optimize it.** The matched 7.2.9
+**Immediate next step: resolve the feasibility question with a controlled
+accuracy/latency comparison.** The matched 7.2.9
 drain-separated runs measured 16 seconds for stock, 9 seconds for custom
 fallback, and 128 seconds for custom fast accounting; the final root deletion
 itself took only 1-3 seconds in each run. The function trace attributes the
 fast-path backlog to qgroup subtree and backref accounting. Inspect how these
 deletion transactions repeat extent root discovery. The source path is
 `btrfs_qgroup_trace_subtree()` -> `btrfs_qgroup_trace_extent_post()` ->
-`btrfs_find_all_roots()` for each new dirty extent. Determine whether the
-fallback is expected behavior and compare its scan/stale-data cost with the
-expense of keeping full accounting active. If a lower-cost accurate design is
-available, test whether membership/reference information can be reused or
-accounted incrementally. Keep the modified module off the host until the
-behavior and performance trade-off are understood and validated.
+`btrfs_find_all_roots()` for each new dirty extent. Compare the optional
+snapshot fast path with the stock deletion fallback left enabled. Verify the
+four counters against a completed full rescan after each operation, and measure
+transaction-commit and snapshot latency, rescan duration, and stale-value
+interval. Test whether membership/reference information can be reused or
+accounted incrementally. Scope the answer to the tested kernel, layout, and
+workload; do not present it as a universal claim. Keep the modified module off
+the host until this behavior is understood and validated.
 
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
@@ -361,13 +367,21 @@ p8-root, p8-home, Kingston-root, and Kingston-home; root and home never share
 one snapshot QGROUP. After accounting becomes consistent, totals match a full
 rescan. Quota limits retain their existing snapshot-only scope.
 
-Do not make elimination of the inconsistent state an acceptance condition
-until its cause is classified. First establish whether the fallback is an
-intended correctness/performance trade-off or a defect. If it is intended,
-accept it only with accurate recovery after a full scan, explicit stale-value
-reporting, no scan loops, and a rescan schedule/cap whose cost is acceptable.
-If a defect is confirmed, fix it and verify that repeated snapshots no longer
-trigger unnecessary rescans. Automatic scans must stay inside the configured
+The primary outcome is a clear, evidence-backed answer for the supported
+kernel, four-group layout, and representative host workload: can the required
+stats remain accurate for routine snapshots without unacceptable filesystem
+latency, while infrequent deletion is allowed to make them explicitly stale
+until recovery? Define accuracy by matching all four exclusive-space totals
+against a completed full rescan whenever the status says consistent. Define
+latency with measured snapshot and transaction-commit timings against the stock
+baseline. Treat low latency as no user-visible filesystem stalls and no
+material regression in repeated snapshot/commit timing distributions versus
+stock; report sample counts, distributions, and worst observed stalls rather
+than treating a single fast run as proof. If both requirements coexist in the
+measured workload, demonstrate the optional policy end to end. If not, document
+which requirement cannot be met together and the measured trade-off instead of
+treating inconsistency elimination as mandatory. Fix and regression-test any
+confirmed defect. Automatic scans must stay inside the configured
 local-time window. During investigation, the per-day cap is disabled, while
 `force-suspend` can hold new scans until its configured deadline. If a rescan
 is deferred, users can still see the last-known quota numbers and their stale

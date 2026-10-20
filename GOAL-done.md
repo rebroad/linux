@@ -5603,3 +5603,10 @@ historical maximum transaction commit times of `140825 ms` for p8 and
 what caused either long commit, but they establish that long commits exist in
 the stock runtime and must be distinguished from any regression introduced by
 the modified module.
+
+The shared-parent qgroup self-test object was also compiled successfully with
+`CONFIG_BTRFS_FS=y` and `CONFIG_BTRFS_FS_RUN_SANITY_TESTS=y` after regenerating
+Kbuild's configuration headers with `syncconfig`. The external build tree was
+then restored to the normal `CONFIG_BTRFS_FS=m` configuration. This validates
+compilation of the new test code; the sanity tests themselves have not run on a
+kernel with that option enabled.

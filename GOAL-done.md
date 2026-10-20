@@ -5568,3 +5568,12 @@ are safe; those still require the scoped tests and live stack capture recorded
 in `GOAL.md`.
 
 Source: https://github.com/btrfs-wiki/btrfs.wiki/blob/master/Quota%20support
+
+## Exact 7.2.9 module rebuild (2026-10-20)
+
+The modified source checkout was rebuilt against the external build tree using
+the running Debian `7.2.9+deb13-amd64` configuration. `M=fs/btrfs modules`
+completed successfully and produced a fresh `fs/btrfs/btrfs.ko` in the build
+tree (Build ID `7a1b45e58057c0d856693d235c7ee55d9cd7aa19`). The source checkout
+remained clean. This verifies reproducible compilation only; the module was not
+installed, signed, loaded, or accepted for host use.

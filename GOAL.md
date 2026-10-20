@@ -141,7 +141,13 @@ backref walk. A matched four-group QEMU workload on exact 7.2.9, with 32,768
 metadata files per source and 32 Snapper snapshots per config, reproduced the
 same stock/fallback inconsistency and automatic-rescan behavior. With the
 custom fast path enabled, snapshots, timeline cleanup, and deletion stayed
-consistent without automatic rescans. The initial 114-second
+consistent without automatic rescans.
+The stock host's 12:50 blocked-task dump provides a separate result: `find`
+was waiting in `read_extent_buffer_pages()`/`bit_wait_io` while opening a
+Btrfs path, with no task in qgroup accounting or transaction-wait code. That
+event is evidence of a metadata-read I/O wait, not evidence that qgroup
+accounting caused every host stall. Full stack details are in
+`GOAL-done.md`. The initial 114-second
 `snapper delete --sync` measurement followed timeline cleanup that had queued
 124 asynchronous snapshot drops, so it did not measure one snapshot in
 isolation. In a follow-up with the same exact kernel, module, and workload,

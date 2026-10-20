@@ -267,6 +267,10 @@ support it. Continue investigating repeated extent-root discovery in
 `btrfs_qgroup_trace_subtree()` ->
 `btrfs_qgroup_trace_extent_post()` -> `btrfs_find_all_roots()` for a design
 that keeps snapshot counters accurate without unacceptable commit-path cost.
+The QEMU disk images used for the decisive runs were stored on the mounted
+Kingston Btrfs filesystem, so they include that device's backing-file I/O path;
+TCG still prevents treating the results as direct host workload timings, and
+the p8 NVMe path remains untested.
 
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix

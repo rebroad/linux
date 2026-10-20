@@ -5446,7 +5446,7 @@ specified in `GOAL.md`.
   This is the strongest controlled evidence that accurate stats for routine
   snapshots and a deletion-triggered stale state can coexist at the current
   snapshot population. It remains a TCG guest result and does not establish
-  host NVMe/USB latency or make threshold 1 a production recommendation. The
+  host NVMe latency or make threshold 1 a production recommendation. The
   log and images are in `host-counts-131k-threshold-1/` under the same external
   build directory.
 - `drop_subtree_threshold` is already an upstream Btrfs sysfs control in the
@@ -5458,4 +5458,7 @@ specified in `GOAL.md`.
   1.34 s median, 3.01 s p95, and 3.32 s maximum. Per-config medians were
   1.66 s (p8 root), 975 ms (p8 home), 1.845 s (Kingston root), and 865 ms
   (Kingston home). These include the source change, Snapper create, and `sync`;
-  they are not isolated ioctl timings.
+  they are not isolated ioctl timings. The guest images and initramfs were
+  stored on the mounted Kingston Btrfs filesystem, so these runs include that
+  device's backing-file I/O path; TCG still prevents treating them as direct
+  host workload latency measurements, and they say nothing about p8 NVMe.

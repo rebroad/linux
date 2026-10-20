@@ -5200,3 +5200,58 @@ specified in `GOAL.md`.
   present to print during this check. On the next event, capture SysRq-W
   output, blocked task stacks, repeated commit stats, device latency, and
   qgroup rescan status while the stall is active.
+
+## Exact 7.2.9 four-group stock and modified QEMU comparison (2026-10-20)
+
+- Ran the same four-independent-qgroup topology on the exact Debian
+  `7.2.9+deb13-amd64` kernel image in three 4 GiB TCG guests with two virtual
+  CPUs: Debian stock Btrfs, our modified module with
+  `shared_parent_quick_inherit=1` on both filesystems, and that same module
+  with the switch set to `0` on both filesystems. Each guest created 32,768
+  metadata files in each of four source subvolumes, 32 Snapper snapshots in
+  each of four configs, then performed timeline cleanup and synchronous
+  deletion. The guests used the same Snapper 0.13.2 executable
+  (`917fdd6b8e18aed76de840639d4a8f6daca389ad895e2b3f0c3249f760b89d3f`) and
+  libsnapper (`c34dfac310cd204ef4e38b0d62cd5af835ce5c2674ab3f0fda719e50e6ccdb8d`).
+- The stock module's loaded build ID was
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`. With the custom switch enabled,
+  the loaded module build ID was `31c49b216d8a830d72da6158aff81f0d2b3be023`
+  (raw module SHA-256
+  `ea8f6a9ce850605d433697fca44c97d77e51f9b8d1c1b956035b7e667024b416`). Both
+  custom sysfs values were read back and verified before snapshot creation.
+  The QEMU kernel and module verification emitted an explicit success marker
+  in every completed run.
+- Stock and custom-with-switch-0 each emitted four distinct
+  `qgroup marked inconsistent` warnings (two on each filesystem), then
+  completed one automatic qgroup rescan on each filesystem. The custom
+  fast-path run emitted no inconsistency warnings or automatic rescans during
+  snapshot creation, timeline cleanup, or deletion; its counters stayed
+  consistent through that workload. Explicit full rescans were run afterward
+  in all cases to leave the guest counters independently refreshed.
+- Deleting the retained root snapshot took 9 seconds with stock, 7 seconds
+  with custom fallback accounting, and 114 seconds with the custom fast path
+  enabled. The other three deletions took 1-4 seconds with stock, 1-7 seconds
+  with fallback, and 1-15 seconds with the fast path. During the runs,
+  sampled maximum transaction commit times were 516/639 ms for stock,
+  920/762 ms for custom fallback, and 2,781/3,662 ms for the fast path (two
+  filesystems per run). These measurements strongly support the tradeoff seen
+  in the earlier host profile: preventing the inconsistency fallback keeps
+  accounting active, but the resulting snapshot-drop/backref accounting can
+  be much more expensive. They do not establish why that one deletion reached
+  114 seconds or reproduce the host's 30.986-second transaction.
+- This test does not prove that the patch caused every host stall. The guest
+  uses TCG and small synthetic filesystems, so timings are not representative
+  of Kingston or p8 storage and scale. SysRq-W was sampled during the runs but
+  did not capture a blocked-task stack; this comparison identifies the cost
+  difference, not the exact wait responsible for the long deletion. Continue
+  with a representative tree/storage workload and capture the relevant guest
+  and host stacks before changing the fast-path design or installing it on the
+  host.
+- The first custom run did not reach the workload because the existing module
+  output directory contained stale Btrfs source copies, so that artifact
+  lacked the runtime sysfs switches. The comparison was rerun after building
+  in a fresh external output directory and confirming the new toggle strings
+  in the module. The valid artifacts and logs are under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/`;
+  `stock.serial.log`, `custom-fast.serial.log`, and
+  `custom-fallback.serial.log` each contain the full guest transcript.

@@ -113,19 +113,26 @@ commits with live kernel stacks and commit-progress evidence. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and
-backref walk. A matched 7.2.6 QEMU workload with 32,768 metadata files per
-source reproduced stock inconsistency warnings and rescans, while the custom
-module produced none. In a corrected, identically filtered function-graph
-comparison, the custom root deletion recorded 134 `btrfs_qgroup_trace_subtree`
-calls and 878 `btrfs_find_all_roots` calls over 10 ms; stock recorded one
-subtree call and no backref-walk calls over that threshold. `NO_ACCOUNTING`
-short-circuits these backref searches after inconsistency, while our fast path
-avoids that fallback. This strongly implicates our fast path as a contributor
-to the stall cost, though the trace is instrumented and the 30.986-second host
-commit was not reproduced. The external writer that held that host transaction
-open remains unidentified. The stock run also exposed a separate
-`qgroup info item update error -2` during final rescans; source control flow
-matches the branch's qgroup-teardown fix.
+backref walk. A matched four-group QEMU workload on exact 7.2.9, with 32,768
+metadata files per source and 32 Snapper snapshots per config, reproduced the
+same stock/fallback inconsistency and automatic-rescan behavior. With the
+custom fast path enabled, snapshots, timeline cleanup, and deletion stayed
+consistent without automatic rescans; however, deleting one root snapshot
+took 114 seconds versus 9 seconds with stock and 7 seconds with the custom
+fallback. Sampled maximum commit times were also higher with the fast path
+(2.8/3.7 seconds versus 0.5/0.6 seconds stock and 0.9/0.8 seconds fallback).
+This strengthens the evidence that keeping full qgroup accounting active can
+make snapshot deletion and commits much more expensive, even though the
+fast-path code does not change the backref walker itself. The earlier matched
+7.2.6 function-graph comparison traced the custom path through
+`btrfs_qgroup_trace_subtree()` and `btrfs_find_all_roots()`; `NO_ACCOUNTING`
+short-circuits those backref searches after inconsistency. These guest timings
+use TCG and small synthetic filesystems, so they do not establish host-scale
+latency or prove that our patch caused every stall. The 30.986-second host
+commit remains unreproduced, and its external transaction writer is unknown.
+The stock run also exposed a separate `qgroup info item update error -2`
+during final rescans; source control flow matches the branch's qgroup-teardown
+fix.
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
 for snapshot accounting during balance relocation. A 30.986-second host
@@ -134,33 +141,38 @@ backref walk. Our fast path keeps qgroups consistent, while the fallback's
 `NO_ACCOUNTING` flag skips those walks, so our change is a likely indirect
 contributor to the longer full-accounting commits. The walker itself is
 unchanged. Replace or optimize the fast path so accurate qgroup counters do not
-require expensive per-extent backref walks on the commit path. Establish how
-the target accounting workload scales against realistic tree size and storage,
-and identify the external writer that delayed the host transaction. Do not
-attribute the entire stall to our changes until that writer and the host-scale
-path are captured. Full profile, matched 7.2.6 QEMU trace, and later-version
-review are in `GOAL-done.md`. Repeat the decisive stock-versus-modified
-comparison on the current 7.2.9 source and configuration, using the new
-per-filesystem switches to compare each added behavior with its stock fallback
-without another kernel reboot. Do not install the modified module on the host
-until the matched comparison is reviewed and its system-stall behavior is
-understood. The reported stock-kernel hang makes live capture of blocked task
-stacks and transaction progress the next diagnostic priority; do not attribute
-all freezes to our patch.
+require expensive per-extent backref walks on the commit path. The exact 7.2.9
+comparison is now complete; the custom module was built in a fresh external
+output directory because the older output directory contained stale source
+copies that had omitted the new sysfs toggles. Do not use that stale module
+artifact as evidence. Establish how the target accounting workload scales
+against realistic tree size and storage, and identify the external writer that
+delayed the host transaction. Do not attribute the entire stall to our changes
+until that writer and the host-scale path are captured. Full profile, matched
+7.2.6 and 7.2.9 QEMU results, and later-version review are in `GOAL-done.md`.
+Do not install the modified module on the host until the fast-path deletion
+cost has been reduced or justified and its system-stall behavior is understood.
+The reported stock-kernel hang makes live capture of blocked task stacks and
+transaction progress the next diagnostic priority; do not attribute all
+freezes to our patch.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.
 
 1. **Finish root-cause and live-accounting validation — 75% done.** The
-   controlled QEMU matrix and source trace identify the stock-kernel fallback
-   for the tested hierarchy; full evidence and limits are in `GOAL-done.md`.
-   The shared-parent fast path remains a provisional optimization, not a claim
-   of a general Btrfs correctness bug.
+   controlled QEMU matrix now includes exact 7.2.9 stock, modified-fast-path,
+   and modified-fallback runs. The fast path avoids the tested automatic
+   rescans but has a serious snapshot-deletion cost that must be investigated
+   before deployment. Full evidence and limits are in `GOAL-done.md`. The
+   shared-parent fast path remains provisional, not a claim of a general
+   Btrfs correctness bug.
 
-   Remaining: first compare stock and modified behavior on exact 7.2.9 QEMU
-   with the current source/configuration. After that review and safe activation
-   of the signed module, verify sustained four-root snapshot and cleanup
-   behavior on the host. Reconcile p8 qgroup
+   Remaining: investigate the large root-snapshot deletion cost seen with the
+   exact 7.2.9 fast path, optimize accurate accounting without a full rescan,
+   and validate against larger and host-representative tree size and storage.
+   Then capture the external writer and blocked-task stacks during a live stall.
+   After review and safe activation of a signed module, verify sustained
+   four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup
    values against an independent full-accounting report while filesystem
    updates are quiesced. Retained logs do not establish the first historical
    inconsistency; do not infer its cause from the oldest diagnostic scan.

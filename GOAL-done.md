@@ -5746,3 +5746,9 @@ hourly `snapper-timeline.service` did not start until 12:00:00. This identifies
 the boot snapshot as the immediate trigger for that inconsistency event, rather
 than the hourly timeline timer. It does not by itself establish whether the
 boot snapshot's qgroup transition is an intentional stock fallback or a bug.
+
+The redundant boot snapshot was then disabled on the host by stopping and
+disabling `snapper-boot.timer`. The timer's `OnBootSec=1` trigger is no longer
+enabled or active; `snapper-boot.service` is inactive. The hourly
+`snapper-timeline.timer` remains enabled and active. This removes the known
+boot-time trigger while retaining the requested hourly snapshot schedule.

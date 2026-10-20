@@ -133,6 +133,17 @@ commit remains unreproduced, and its external transaction writer is unknown.
 An earlier stock 7.2.6 run also exposed a separate
 `qgroup info item update error -2` during final rescans; source control flow
 matches the branch's qgroup-teardown fix.
+
+**Immediate next step: explain and reduce the fast path's snapshot-deletion
+cost.** Instrument the exact 7.2.9 root-snapshot deletion that took 114 seconds,
+identify which qgroup/backref work dominates it, and compare that path against
+the stock and switch-disabled runs. Then develop and test an accounting design
+that keeps all four snapshot-only qgroups accurate without the observed
+deletion and commit slowdown. Acceptance requires matched snapshot, cleanup,
+and deletion workloads to keep the counters accurate without automatic
+rescans, while deletion and transaction costs are brought back under control.
+Keep the modified module off the host until this is understood and validated.
+
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
 for snapshot accounting during balance relocation. A 30.986-second host
@@ -167,10 +178,12 @@ gaps are in `GOAL-done.md`.
    shared-parent fast path remains provisional, not a claim of a general
    Btrfs correctness bug.
 
-   Remaining: investigate the large root-snapshot deletion cost seen with the
-   exact 7.2.9 fast path, optimize accurate accounting without a full rescan,
-   and validate against larger and host-representative tree size and storage.
-   Then capture the external writer and blocked-task stacks during a live stall.
+   Remaining: first instrument the exact 7.2.9 root-snapshot deletion and
+   identify the work responsible for its 114-second runtime. Develop and test
+   a faster design that preserves accurate four-group counters without
+   automatic rescans, then validate it against larger and host-representative
+   tree size and storage. Capture the external writer and blocked-task stacks
+   during a live stall as part of the same root-cause investigation.
    After review and safe activation of a signed module, verify sustained
    four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup
    values against an independent full-accounting report while filesystem

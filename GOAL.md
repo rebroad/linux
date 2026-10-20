@@ -176,36 +176,53 @@ An earlier stock 7.2.6 run also exposed a separate
 `qgroup info item update error -2` during final rescans; source control flow
 matches the branch's qgroup-teardown fix.
 
-A focused same-kernel control then compared 128 four-group snapshots with the
+A focused same-kernel control compared 128 four-group snapshots with the
 snapshot fast path enabled and disabled. With it enabled, both qgroup tables
 were byte-for-byte unchanged after full rescans; with it disabled, both tables
-differed and the filesystem inconsistency flags were set. Enabling a
-test-only `drop_subtree_threshold=0` after snapshots caused deletion to mark
-both filesystems stale without starting another scan. The TCG guest's complete
-snapshot-cycle median was 1.31 seconds with accurate accounting versus 0.55
-seconds with the fast path disabled; its worst sampled commit was 0.974 seconds
-and no blocked-task report was captured. The timer includes status/table
-queries, a 1 MiB source change, snapshot creation, and `sync`, and is not an
-isolated snapshot timing. These results show feasibility for this tested
-workload, but do not establish acceptable host-scale latency or show whether
-the default deletion threshold will trigger on the host's snapshots.
+differed and the filesystem inconsistency flags were set. A test-only
+`drop_subtree_threshold=0` made deletion mark both filesystems stale without
+starting another scan. The TCG guest's full snapshot-cycle median was 1.31
+seconds with accurate accounting versus 0.55 seconds with the fast path
+disabled. A later 131,072-file workload showed that this test-only threshold
+should not be confused with the default policy: `drop_subtree_threshold=3`
+left both filesystems consistent through Snapper cleanup and deletion when
+whole source-tree roots were level 2 or 3. Setting the threshold to 2 in the
+same level-3 workload preserved accurate counters across snapshots, then made
+both filesystems explicitly stale when the final retained snapshot was deleted;
+no additional scan started. Snapshot-cycle medians were 585 ms at threshold 3
+and 580 ms at threshold 2. TCG timings do not establish host-scale latency.
 
-**Immediate next step: determine whether deletion reaches Btrfs's default
-fallback on a host-scale tree.** The forced-threshold test shows the policy
-can keep counters accurate through snapshots and make them explicitly stale
-during deletion, but its 32,768-file trees did not establish whether
-`drop_subtree_threshold=3` naturally falls back for our workload. Grow the test
-trees until their root level reaches the default threshold, verify the four
-counters against a full rescan before deletion, and observe whether deletion
-marks them stale. If it does not, assess a narrow, optional deletion-only
-threshold policy rather than disabling accounting for snapshots. Measure
-delete/commit latency and recovery with one rescan, and compare with the
-fast-path-off control. QEMU is TCG-only here, so label all numbers as guest
-measurements; keep the modified module off the host. In parallel, inspect how
-the traced deletion transactions repeat extent root discovery through
-`btrfs_qgroup_trace_subtree()` -> `btrfs_qgroup_trace_extent_post()` ->
-`btrfs_find_all_roots()` and whether membership/reference information can be
-reused without weakening accuracy.
+A matched 131,072-file run with the exact Debian stock 7.2.9 module had a
+535 ms median snapshot cycle, compared with 580 ms for the modified module with
+accurate counters and threshold 2 (12 cycles each). In the stock run both
+qgroup tables differed from the later full-rescan tables; with the modified
+fast path both matched. This is encouraging evidence that the requirements can
+coexist in this controlled workload with about 45 ms additional median cycle
+time, but the sample is small, QEMU uses TCG, and it does not prove host-scale
+latency or rule out the separately observed system stalls.
+
+**Immediate next step: decide whether a deletion threshold that makes the
+current four-group workload stale is an acceptable optional policy, and
+determine whether accurate snapshots remain acceptably low-latency at
+host-representative scale.** The 131,072-file runs establish that the
+fast-path counters match full-rescan qgroup tables before deletion, and that a
+test-only threshold of 2 can defer the accounting fallback until deletion.
+Threshold 3 did not make these deletes stale. Source inspection shows the
+threshold is checked against a shared child subtree's level during the drop
+walk, not the whole source tree's root level. A separate privileged read-only
+inspection found the live host's p8 root/home tree levels are 2/3 and
+Kingston root/home are 2/3, so those root levels alone do not prove that the
+default threshold will trigger. Next, record the actual shared-subtree levels
+passed into `btrfs_qgroup_trace_subtree()` for host-shaped deletes, then compare
+the threshold-2 stale-on-delete policy with threshold 3 and fast-path-off for
+snapshot, cleanup, deletion, commit, and recovery cost. Keep the modified
+module off the host. QEMU remains TCG-only; use the live blocked-task and
+transaction evidence to check stalls separately, and do not call either
+requirement satisfied until representative host-scale measurements and
+independent accounting checks support it. Continue investigating repeated
+extent-root discovery in `btrfs_qgroup_trace_subtree()` ->
+`btrfs_qgroup_trace_extent_post()` -> `btrfs_find_all_roots()` for a design
+that keeps snapshot counters accurate without unacceptable commit-path cost.
 
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix

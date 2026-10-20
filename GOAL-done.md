@@ -5345,3 +5345,69 @@ specified in `GOAL.md`.
   the sources contained 32,768 metadata files each. Artifacts and full serial
   logs are under
   `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/accuracy-latency-test/`.
+
+## Accurate snapshots with a deletion-only stale policy on exact 7.2.9 (2026-10-20)
+
+- Extended the same exact 7.2.9 custom-module/Snapper QEMU setup to
+  131,072 metadata files per live subvolume and three snapshots per config.
+  With 16 KiB nodes, all four source roots were level 2. With 4 KiB nodes, all
+  four were level 3. In both runs the default `drop_subtree_threshold=3` was
+  left unchanged. Each filesystem's complete qgroup table matched byte for
+  byte after a waited full rescan, and snapshot cleanup plus synchronous
+  deletion left both filesystems consistent. The whole-tree root level alone
+  therefore did not establish that the deletion fallback had been reached.
+- Source inspection explains the distinction: the threshold comparison in
+  `btrfs_qgroup_trace_subtree()` uses the level of a shared child subtree
+  passed from `maybe_drop_reference()` in the drop walk, not the source tree's
+  top-level root height. For a root at level 3, the tested shared subtree
+  levels did not reach the default threshold 3.
+- Then, after snapshot tables had again matched full rescans and both
+  inconsistency flags were clear, set the test-only sysfs threshold to 2 on
+  both filesystems. Snapper timeline cleanup reduced each config from three
+  snapshots to one without marking qgroups inconsistent. Deleting the final
+  snapshot in each config marked both filesystems inconsistent (two warnings
+  total), and did not start another rescan. A later explicit full rescan
+  restored consistent status and refreshed the four separate snapshot-only
+  qgroups. This shows the requested accuracy-through-snapshots and
+  stale-on-deletion policy can coexist in this tested layout when the
+  deletion threshold is configured to 2; threshold 2 is experimental, not
+  yet a production recommendation.
+- With the threshold-3 and threshold-2 4 KiB-node runs, respectively, the 12
+  end-to-end snapshot cycles measured 370/390 ms minimum, 585/580 ms median,
+  and 740/690 ms maximum. Those cycles include status and
+  qgroup-table queries, a 1 MiB source change, Snapper creation, and `sync`.
+  Synchronous deletion times by config were 26.72/7.38 seconds (p8 root),
+  4.55/1.38 seconds (p8 home), 18.27/3.11 seconds (Kingston root), and
+  4.25/1.33 seconds (Kingston home). The threshold-2 deletions were faster
+  in these runs, but TCG timing variation and the synthetic 4 KiB-node tree
+  prevent attributing the full difference to the threshold or projecting it
+  to host storage. No user-visible-stall claim follows from these guest runs.
+- A privileged read-only inspection of the live 7.2.9 host's current source
+  trees reported p8 root/home levels 2/3 and Kingston root/home levels 2/3.
+  This is direct evidence for the live source roots at that time, not a capture
+  of the child-subtree levels during actual host snapshot deletion. The
+  modified module remains off the host.
+- Logs and images for the 16 KiB default-threshold run are in
+  `default-threshold-scale/`; the 4 KiB default-threshold run is in
+  `default-threshold-4k/`; and the threshold-2 policy run is in
+  `optional-delete-fallback/`, all under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/`.
+- A matched stock-module control used the exact Debian 7.2.9 kernel image and
+  stock Btrfs module build ID `c2d998d4752632e0f5cf36eaab134a3e73b18940`, the
+  same custom Snapper build, four qgroups, 131,072-file roots, 4 KiB nodes,
+  three snapshots per config, TCG, and the same timed snapshot-cycle procedure.
+  Its 12 cycles measured 390 ms minimum, 535 ms median, and 830 ms maximum.
+  Both filesystem qgroup tables differed from their post-rescan tables after
+  snapshot creation, while the modified fast-path/threshold-2 run's tables
+  matched. The 45 ms median difference favors the stock module in this small
+  guest sample, but it is not a host-storage comparison; hold-file policy
+  suppressed automatic rescans during both runs. This is evidence for
+  feasibility in the measured workload, not a host-level verdict.
+- A temporary kprobe in the threshold-2 guest recorded 2,403 calls to
+  `btrfs_qgroup_trace_subtree()` during cleanup and deletion: 1,347 at level 0,
+  1,048 at level 1, and 8 at level 2; none were at level 3. This confirms why
+  whole-tree root level 3 did not reach the default threshold 3 in this test,
+  while threshold 2 did. The trace was enabled only for deletion and was not
+  used for the timing comparison. Its log is in
+  `trace-delete-subtree-levels/`; the stock baseline log is in
+  `stock-131k-baseline/` under the same external build directory.

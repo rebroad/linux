@@ -5735,3 +5735,14 @@ not start a rescan or alter filesystem state. A privileged two-second run on
 the stock `7.2.9+deb13-amd64` host completed successfully with no D-state event
 and no task-capture directory. Use it during a suspected stall, for example:
 `sudo ./tools/btrfs-stall-watch.sh -t 900 -i 0.2`.
+
+## Boot snapshot identified as an inconsistency trigger (2026-10-20)
+
+The stock 7.2.9 journal gives a precise ordering for the first host warning
+after boot. `snapper-boot.service` started at 11:39:48 and finished at
+11:40:17 after taking its configured root boot snapshot; the kernel emitted
+`qgroup marked inconsistent, qgroup inherit needs a rescan` at 11:40:17. The
+hourly `snapper-timeline.service` did not start until 12:00:00. This identifies
+the boot snapshot as the immediate trigger for that inconsistency event, rather
+than the hourly timeline timer. It does not by itself establish whether the
+boot snapshot's qgroup transition is an intentional stock fallback or a bug.

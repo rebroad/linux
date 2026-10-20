@@ -4956,3 +4956,29 @@ specified in `GOAL.md`.
   Remaining: capture the external writer that keeps the transaction's writer
   count nonzero and compare it against a representative large-tree workload
   with realistic storage latency before attributing or fixing the cause.
+
+## Later upstream Btrfs path review (2026-10-20)
+
+- Compared the exact upstream v7.2.6 source with stable v7.2.11 and mainline
+  v7.3 for the observed qgroup, backref, snapshot-drop, metadata-read, and
+  transaction paths. Through v7.3, `find_parent_nodes()` and the
+  `btrfs_commit_transaction()` external-writer wait are unchanged; the qgroup
+  and extent-tree changes do not alter the captured subtree/backref walk.
+  No later upstream fix for the observed long snapshot-drop/backref traversal
+  or writer-drain stall was identified in those versions.
+- Stable v7.2.11 includes upstream commit `cacf358322929`, which prevents
+  forced relocation-root creation during `qgroup_account_snapshot()`. Its
+  report concerns extent-reference corruption during balance relocation and
+  is distinct from the captured `btrfs_drop_snapshot()` backref traversal.
+  No balance is currently active on either host filesystem; historical
+  balance activity has not been established.
+- Mainline v7.3 also includes `690c2accacb1`, concerning an
+  `EXTENT_BUFFER_READING`/reference-count race during unmount validation. It
+  prevents a false warning while checking extent-buffer release; it does not
+  change the metadata-read completion wait observed in the qgroup backref
+  stack, so it is not evidence that the captured wait is fixed.
+- These source comparisons reduce the chance that the exact observed path was
+  already fixed by v7.2.11 or v7.3; they do not rule out a different later
+  fix, a Debian-specific patch, or a storage-dependent regression. Do not
+  publish a kernel bug report until the external writer is identified and
+  the complete later stable/mainline history is rechecked.

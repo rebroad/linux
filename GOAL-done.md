@@ -4982,3 +4982,42 @@ specified in `GOAL.md`.
   fix, a Debian-specific patch, or a storage-dependent regression. Do not
   publish a kernel bug report until the external writer is identified and
   the complete later stable/mainline history is rechecked.
+
+## Host transaction profile identifies qgroup commit work (2026-10-20 05:41 BST)
+
+- During a p8 transaction, `cur_commit_ms` reached 8,340 ms and the transaction
+  thread stack was `btrfs_commit_transaction+0xb87`, the wait for
+  `extwriter_counter_read(cur_trans) == 0`. Numerous unrelated processes and
+  Btrfs endio-write workers were blocked in `wait_current_trans`.
+- A 10-second `perf` capture of the transaction thread had 311 cycle samples
+  and no lost samples. The sampled call chain was
+  `btrfs_commit_transaction()` -> `btrfs_qgroup_account_extents()` ->
+  `btrfs_find_all_roots()` -> `find_parent_nodes()`. Perf's children view
+  attributed 100% of sampled work to qgroup extent accounting, 91.94% to
+  `btrfs_find_all_roots()`, and 89.50% to `find_parent_nodes()`; the backref
+  walk repeatedly searched metadata with `btrfs_search_slot()` and
+  `read_block_for_search()`. At 05:41:26, the same commit was 20,655 ms old;
+  it completed at 30,986 ms. No qgroup inconsistency warning or active rescan
+  appeared in the subsequent read-only checks.
+- Source inspection explains the likely patch interaction. On inconsistency,
+  `qgroup_mark_inconsistent()` sets `BTRFS_QGROUP_RUNTIME_FLAG_NO_ACCOUNTING`.
+  Both `btrfs_qgroup_trace_extent_post()` and the qgroup-accounting loop skip
+  their backref walks while that flag is set. The shared-parent fast path
+  avoids the inconsistency fallback, so full qgroup accounting remains active
+  and can make these walks part of transaction commits. Our patch does not
+  change the walkers; it changes whether the runtime reaches the fallback that
+  disables them. This makes the patch a likely indirect contributor to the
+  observed commit cost, although the QEMU workload was too small to reproduce
+  a comparable long commit.
+- The initial external-writer drain preceded the qgroup-accounting samples;
+  this capture does not identify the writer that delayed the drain. The perf
+  recording and read-only watch output were kept on `/run` tmpfs. The earlier
+  matched QEMU run used TCG and tmpfs-backed disks, so it cannot establish
+  performance on the host's storage.
+- Remaining: compare the same larger snapshot/deletion workload with stock
+  fallback accounting and the custom consistent-accounting path; quantify how
+  dirty extents and tree size affect commit time; then design and test an
+  accounting path that preserves accurate four-group counters without holding
+  unrelated writers behind a long commit. Identify the external writer in the
+  initial wait as well. No kernel bug report is ready until this behavior is
+  reproduced and the tradeoff is resolved.

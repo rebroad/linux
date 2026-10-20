@@ -5462,3 +5462,12 @@ specified in `GOAL.md`.
   stored on the mounted Kingston Btrfs filesystem, so these runs include that
   device's backing-file I/O path; TCG still prevents treating them as direct
   host workload latency measurements, and they say nothing about p8 NVMe.
+- A matched stock 7.2.9 control used the same 217 snapshot counts, 32,768-file
+  roots, Snapper build, qgroup layout, Kingston-backed guest images, and TCG.
+  Its 217 snapshot cycles measured 240 ms minimum, 320 ms median, 400 ms p95,
+  and 770 ms maximum. Both complete qgroup tables differed from their later
+  full-rescan tables, and inconsistency warnings accumulated during cleanup
+  and deletion. The accurate threshold-1 run therefore costs roughly 1.02 s
+  of median end-to-end cycle time in this harness, while satisfying the
+  independent counter check that stock fails. The stock log and images are in
+  `host-counts-stock-32k/` under the same external build directory.

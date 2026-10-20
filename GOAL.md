@@ -238,6 +238,16 @@ population. It remains a TCG guest result, so it does not establish latency on
 the host's NVMe and USB storage or prove that the threshold-1 setting is safe
 to install permanently.
 
+A matched stock-module control at the same 217 snapshot population and
+32,768-file tree had an overall snapshot-cycle median of 320 ms (p95 400 ms,
+maximum 770 ms), versus 1.34 s (p95 3.01 s, maximum 3.32 s) for the accurate
+threshold-1 run. Stock's p8 and Kingston qgroup tables differed from their
+full-rescan tables and its inconsistency warnings accumulated during cleanup
+and deletion. This makes the measured trade-off explicit: stock is faster but
+does not meet the accuracy requirement; the custom path meets accuracy at a
+measurable accounting cost. Both runs used TCG and Kingston-backed guest
+images.
+
 **Immediate next step: validate and, if possible, optimize the threshold-1
 deletion/backref policy before deciding whether it is an acceptable optional
 policy.** The

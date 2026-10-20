@@ -5517,3 +5517,13 @@ latest listed root/home timeline snapshots remained 3906/2841, and both live
 filesystems still reported `qgroups/inconsistent=1`. This scheduled run did
 not delete a snapshot and therefore provides no host deletion-accounting
 measurement.
+
+## Follow-up timeline run did not start a rescan (2026-10-20)
+
+The 22:00 BST timeline service completed in about one second and created root
+snapshot 3907 and home snapshot 2842. It emitted no qgroup kernel messages, and
+a temporary return probe on `btrfs_qgroup_rescan_worker()` recorded zero worker
+returns. Both filesystems remained `qgroups/inconsistent=1`. This follow-up
+weakens the hypothesis that every snapshot creation starts a rescan; the long
+20:00 run appears to have involved a particular pre-existing or state-transition
+condition rather than a repeatable per-snapshot cost.

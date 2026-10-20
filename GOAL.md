@@ -45,28 +45,36 @@ Snapper's existing QGROUP interface. This is a hierarchy-specific accounting
 limitation, not a general Btrfs corruption bug. QEMU workload, source, and
 scan-attribution evidence is in `GOAL-done.md`.
 
-The host currently runs the shared-parent fast path on `7.2.6+deb13-amd64`
-(build ID `258e41d2`). Its 11:00-14:00 hourly runs created all four snapshots
-without a scan. Later 15:31 and 17:00 runs also created four snapshots without
-a scan; the 17:00 IDs are recorded in `GOAL-done.md`. The two `apt` snapshots
-from reinstalling Snapper left both filesystems consistent without a scan. A
-Kingston full rescan after the first three hourly cycles changed no qgroup
-counters. The p8 diagnostic scan and subsequent live counter
-readings are inconclusive because filesystem activity continued during
-measurement. A fresh live query found retained Snapper snapshot 2176 (`verify
-var-tmp symlink exclusion`, created 2026-08-16) missing from p8-root's
-snapshot-only qgroup. It has now been assigned to `1/100`, and a full p8
-rescan completed with all four collectives reporting consistent accounting.
-At 18:00, the scheduled timeline service added one snapshot to each
-collective on the still-loaded 7.2.6 build (`258e41d2`); all four snapshot
-subvolumes were assigned to their intended qgroups, both filesystems remained
-consistent, and no scan or qgroup warning appeared in the kernel log. The
-18:00 run and exact exclusive-byte readings are recorded in `GOAL-done.md`.
-Independent quiescent counter validation remains open. The newer signed DKMS
-modules for installed 7.2.6 and 7.2.9 are not active; reboot, live accounting
-validation, and rollback checks remain open. The onset of the historical
-Kingston inconsistency is unknown. See
-`GOAL-done.md` for the complete chronology and evidence.
+The host now boots `7.2.9+deb13-amd64` through the explicit stock-Btrfs GRUB
+entry. The loaded Btrfs build ID matches the Debian stock module embedded in
+that entry's initramfs; the installed DKMS module is present on disk but is not
+loaded. The host became responsive after rebooting into this stock setup. This
+supports investigating our modified Btrfs runtime as a likely contributor, but
+does not isolate the cause because both the kernel release and module changed
+and the reboot cleared prior runtime state. The earlier 7.2.6 runtime and
+snapshot-cycle observations are historical, not the current host state. Exact
+module and boot evidence is in `GOAL-done.md`.
+
+The user subsequently reported another roughly eight-minute system hang while
+this stock 7.2.9 setup was running. Psensor's saved sensor history has a
+141-second gap across all six local sensors from 12:00:00 to 12:02:21. The
+12:00 Snapper timeline service overlapped that gap and ran for 3 minutes 42
+seconds while consuming only 5.2 seconds of CPU. Btrfs logged a qgroup scan
+pause at 12:00:00, another at 12:03:33, and an inconsistency warning at
+12:03:41. This is strong temporal evidence of another filesystem stall during
+the snapshot cycle on the stock module, but no blocked-task stack was captured
+and the exact user-reported interval may differ. It shows our modified module
+is not necessary for every stall; capture SysRq `w`, relevant `/proc/*/stack`
+data, and transaction and rescan state during the next occurrence. Full event
+details are in `GOAL-done.md`.
+
+The source branch is now based on upstream `v7.2.9`. The external build tree
+has been reconfigured from `/boot/config-7.2.9+deb13-amd64`, and Kbuild reports
+the exact running release `7.2.9+deb13-amd64`. Any kernel or module comparison
+must use this baseline and distinguish the stock module from our modified
+module. Independent quiescent counter validation and the onset of the
+historical Kingston inconsistency remain open. See `GOAL-done.md` for the
+earlier chronology and current boot evidence.
 Once the cause is established, leave the host with a persistent fix that
 survives normal package upgrades.
 The required accounting has four independent snapshot collectives: p8-root,
@@ -127,20 +135,29 @@ require expensive per-extent backref walks on the commit path. Establish how
 the target accounting workload scales against realistic tree size and storage,
 and identify the external writer that delayed the host transaction. Do not
 attribute the entire stall to our changes until that writer and the host-scale
-path are captured. Full profile, matched QEMU trace, and later-version review
-are in `GOAL-done.md`.
+path are captured. Full profile, matched 7.2.6 QEMU trace, and later-version
+review are in `GOAL-done.md`. Repeat the decisive stock-versus-modified
+comparison on the current 7.2.9 source and configuration, using the new
+per-filesystem switches to compare each added behavior with its stock fallback
+without another kernel reboot. Do not install the modified module on the host
+until the matched comparison is reviewed and its system-stall behavior is
+understood. The reported stock-kernel hang makes live capture of blocked task
+stacks and transaction progress the next diagnostic priority; do not attribute
+all freezes to our patch.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.
 
-1. **Finish root-cause and live-accounting validation — 95% done.** The
+1. **Finish root-cause and live-accounting validation — 75% done.** The
    controlled QEMU matrix and source trace identify the stock-kernel fallback
    for the tested hierarchy; full evidence and limits are in `GOAL-done.md`.
    The shared-parent fast path remains a provisional optimization, not a claim
    of a general Btrfs correctness bug.
 
-   Remaining: after activating the installed signed module, verify sustained
-   four-root snapshot and cleanup behavior on the host. Reconcile p8 qgroup
+   Remaining: first compare stock and modified behavior on exact 7.2.9 QEMU
+   with the current source/configuration. After that review and safe activation
+   of the signed module, verify sustained four-root snapshot and cleanup
+   behavior on the host. Reconcile p8 qgroup
    values against an independent full-accounting report while filesystem
    updates are quiesced. Retained logs do not establish the first historical
    inconsistency; do not infer its cause from the oldest diagnostic scan.
@@ -181,9 +198,10 @@ gaps are in `GOAL-done.md`.
    support before each later kernel release.
 
    Current Snapper with both exact-release modules passed Secure Boot QEMU
-   workloads. Remaining: after an approved reboot, verify the loaded 7.2.9
-   module and live accounting, then explicitly boot 7.2.6 and verify its
-   replacement module and rollback path. Exercise supported and unsupported
+   workloads. The host has since booted 7.2.9 with the stock Btrfs module via
+   the explicit stock initramfs. Remaining: build and validate the modified
+   7.2.9 module against the exact running configuration, then compare it with
+   stock in QEMU before any host installation. Exercise supported and unsupported
    kernel transactions end to end: a failed or unmapped build must neither
    leave package configuration broken nor permit silent boot of stock Btrfs.
    The existing synthetic 7.3.0 APT fixture has no maintainer scripts, so it

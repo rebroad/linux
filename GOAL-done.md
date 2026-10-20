@@ -5119,3 +5119,67 @@ specified in `GOAL.md`.
   read-only check confirmed the host is on `7.2.6+deb13-amd64` with the loaded
   Btrfs build ID beginning `258e41d2`; neither filesystem had a rescan in
   progress.
+
+## Stock 7.2.9 host boot and source baseline (2026-10-20)
+
+- The host now reports `7.2.9+deb13-amd64`. Its GRUB command line selects
+  `/@/boot/vmlinuz-7.2.9+deb13-amd64`; the selected stock initramfs contains
+  Debian's stock `btrfs.ko.xz`. The running module's build ID is
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`, matching the saved Debian stock
+  module. The installed DKMS module at
+  `/lib/modules/7.2.9+deb13-amd64/updates/dkms/btrfs.ko.xz` has a different
+  build ID and is not loaded. This corrects the earlier inference based only
+  on the module present under `updates/dkms`.
+- The user reports that the host became responsive after rebooting through
+  the stock GRUB entry. At the post-boot capture there were no D-state tasks.
+  This supports the modified Btrfs runtime as a likely contributor, but does
+  not isolate it: both the kernel release and Btrfs module changed, and reboot
+  cleared the prior runtime state.
+- The working source branch is `codex/qgroup-root-cause-7.2.9`, rebased onto
+  upstream tag `v7.2.9` in the existing `~/src/linux` checkout. The sole
+  external build tree was reconfigured from
+  `/boot/config-7.2.9+deb13-amd64` and normalized with `olddefconfig`.
+  Kbuild reports the exact release `7.2.9+deb13-amd64`. `olddefconfig` warned
+  that `ANDROID_BINDER_IPC=m` is invalid for the upstream Kconfig, so the
+  normalized config is not byte-identical to Debian's build config. The exact
+  Debian source archive was downloaded for review; its Btrfs code patch adds
+  only the RAID5/6 warning and taint in `fs/btrfs/super.c`, with no qgroup
+  source changes. The modified Btrfs aggregate object compiled successfully
+  in the external build tree after this reconfiguration and checkpatch reported
+  no issues. A loadable `.ko`, QEMU run, and host installation have not been
+  produced from this tree.
+
+## User-reported hang on stock 7.2.9 (2026-10-20)
+
+- The user reported a system hang lasting about eight minutes and ending around
+  11:56, after booting the stock `7.2.9+deb13-amd64` kernel and Btrfs module.
+  At the earlier 11:48 status check, both `/` and `/mnt/kingston` reported no
+  qgroup rescan in progress. Current status queries also report no scan.
+- The kernel journal from 11:45 to 11:58 contains no blocked-task report,
+  hung-task warning, transaction-wait stack, NVMe timeout, or I/O error. The
+  system journal has no journald watchdog report in that interval. The kernel
+  logged qgroups becoming inconsistent at 11:40:17 and a qgroup scan pause at
+  11:57:35, shortly after the estimated end of the hang; that timing does not
+  prove the scan caused the hang.
+- There were no D-state tasks when inspected after the event. Without a stack
+  captured during the freeze, it cannot be determined whether this was the
+  earlier Btrfs transaction-stall failure mode. Since this occurred with the
+  stock module, our modified module is not necessary for every system hang.
+  Record a live blocked-task stack, Btrfs transaction progress, device latency,
+  and rescan status during the next occurrence before assigning cause.
+- Separately, the 12:00 Snapper timeline service ran from 12:00:00.606 to
+  12:03:42.201, consuming 5.211 seconds of CPU. The installed
+  `/usr/local/sbin/snapper-timeline-all-roots` did snapshot creation and
+  subvolume-root-ID checks; its explicit Kingston rescan section is commented
+  out. It differs from `/home/rebroad/bin/snapper-timeline-all-roots`, so the
+  installed file is the relevant runtime source. At 12:03:42 it logged only
+  duplicate timeline targets before exiting successfully.
+- Psensor's rolling `history.ini` contains a matching 141-second gap in all
+  six local sensor streams, from 12:00:00 to 12:02:21. This confirms a
+  common sampling/event-loop pause, rather than a single sensor failing. The
+  kernel logged `qgroup scan paused` at 12:00:00.648 and 12:03:33.620, then
+  marked Kingston qgroups inconsistent at 12:03:41.920. The pause and slow
+  timeline run overlap, but there is still no stack identifying the blocked
+  operation; the history gap may be a second/continuing pause beyond the
+  user's approximate 11:56 end time. Treat this as strong correlation with
+  snapshot-time filesystem activity, not proof that a qgroup rescan caused it.

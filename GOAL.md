@@ -64,9 +64,12 @@ pause at 12:00:00, another at 12:03:33, and an inconsistency warning at
 12:03:41. This is strong temporal evidence of another filesystem stall during
 the snapshot cycle on the stock module, but no blocked-task stack was captured
 and the exact user-reported interval may differ. It shows our modified module
-is not necessary for every stall; capture SysRq `w`, relevant `/proc/*/stack`
-data, and transaction and rescan state during the next occurrence. Full event
-details are in `GOAL-done.md`.
+is not necessary for every stall. The user also observed Psensor itself become
+unresponsive during the event. SysRq `w` was disabled by the host's prior mask;
+it is now enabled at runtime while preserving the other mask bits. After any
+reboot, re-enable it before diagnosis. During the next occurrence, capture the
+SysRq `w` dump, relevant `/proc/*/stack` data, and transaction and rescan state.
+Full event details are in `GOAL-done.md`.
 
 The source branch is now based on upstream `v7.2.9`. The external build tree
 has been reconfigured from `/boot/config-7.2.9+deb13-amd64`, and Kbuild reports

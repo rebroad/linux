@@ -5183,3 +5183,20 @@ specified in `GOAL.md`.
   operation; the history gap may be a second/continuing pause beyond the
   user's approximate 11:56 end time. Treat this as strong correlation with
   snapshot-time filesystem activity, not proof that a qgroup rescan caused it.
+- The user also observed the Psensor application become unresponsive during
+  the recent event. This is consistent with the shared sensor-sampling gap,
+  but does not identify whether Psensor was blocked on Btrfs or its event loop
+  stopped running for another reason.
+- A follow-up capture-readiness check found no D-state tasks after the event,
+  no Btrfs tracepoint directory under the running kernel's tracefs, and no
+  active qgroup rescan. `kernel.sysrq` was `438`, which did not permit SysRq-W
+  (`w`, dump blocked tasks). It is now `446`, adding only that bit while
+  preserving the previous mask. This is a runtime setting and must be checked
+  again after reboot. The two filesystems expose `commit_stats`; at this check
+  their latest commits were 24 ms and 276 ms, while one lifetime maximum was
+  140.825 seconds. That maximum has no timestamp and cannot be attributed to
+  the reported hang. After enabling the bit, a SysRq-W request was accepted
+  and the kernel logged `sysrq: Show Blocked State`; no blocked tasks were
+  present to print during this check. On the next event, capture SysRq-W
+  output, blocked task stacks, repeated commit stats, device latency, and
+  qgroup rescan status while the stall is active.

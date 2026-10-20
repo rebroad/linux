@@ -5625,6 +5625,21 @@ correctly. This isolates the first failing transition to snapshot qgroup
 inheritance when the source already has a parent and the new snapshot initially
 has none.
 
+## Exact inherited-snapshot path still falls back on stock (2026-10-20)
+
+The same disposable test was repeated through `libbtrfsutil`, passing qgroup
+`1/100` directly as the snapshot's qgroup-inheritance target, matching the
+Snapper `create_snapshot()` implementation. Stock 7.2.9 still marked qgroups
+inconsistent immediately after the inherited snapshot. The resulting layout
+was source `0/256` under tracker `2/0`, snapshot `0/257` under `1/100`, and
+`1/100` itself under `2/0`; the qgroup totals were repaired only by a full
+rescan. This rules out a missing Snapper inheritance argument as the cause.
+The stock kernel's eligibility test rejects this source/snapshot-parent
+topology and takes its conservative rescan fallback. Making the live and
+snapshot groups share one parent would avoid this particular fallback but would
+also mix live usage into the snapshot-only collective, which does not satisfy
+our accounting requirement.
+
 ## Stock-kernel diagnostic baseline (2026-10-20)
 
 The new `tools/btrfs-stall-capture.sh` was run against the healthy stock

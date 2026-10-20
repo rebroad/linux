@@ -5075,3 +5075,47 @@ specified in `GOAL.md`.
   output or timings are used. The failed trace logs and probe are also retained
   in the same build directory as `32k-custom-trace-disabled-*.serial.log.gz`
   and `tracefs-probe.serial.log.gz`.
+
+## Matched qgroup function trace during snapshot deletion (2026-10-20)
+
+- Re-ran the exact 32,768-file four-group workload with the same Debian
+  `7.2.6+deb13-amd64` image and Snapper userspace, once with the stock module
+  and once with the custom module. The function-graph filter targeted
+  `btrfs_qgroup_trace_subtree`, used a 10 ms threshold, and explicitly enabled
+  tracefs recording; the guest printed `recording=1` before root deletion.
+  Both completed trace buffers were captured in the external build directory
+  as `32k-stock-qgroup-trace.serial.log.gz` and
+  `32k-custom-qgroup-trace.serial.log.gz`.
+- The custom trace contained 4,100 output lines. At the 10 ms threshold it
+  recorded 134 `btrfs_qgroup_trace_subtree()` calls, 910
+  `btrfs_qgroup_trace_extent()` calls, 882
+  `btrfs_qgroup_trace_extent_post()` calls, 878
+  `btrfs_find_all_roots()` calls, and 59 `find_parent_nodes()` calls. Several
+  `btrfs_qgroup_trace_subtree()` calls exceeded one second under tracing.
+  These are traced durations, not uninstrumented performance measurements;
+  nested durations are inclusive and should not be summed.
+- The stock trace contained one `btrfs_qgroup_trace_subtree()` return over the
+  same threshold (192.8 ms) and no `btrfs_find_all_roots()` or
+  `find_parent_nodes()` return over 10 ms. During that run the guest reported
+  126 completed qgroup scans and 128 inconsistency warnings by cleanup. The
+  custom guest reported no inconsistency warning or rescan before or during
+  deletion.
+- This difference matches the source control flow. `qgroup_mark_inconsistent()`
+  sets `BTRFS_QGROUP_RUNTIME_FLAG_NO_ACCOUNTING`; while set,
+  `btrfs_qgroup_trace_extent_post()` returns before calling
+  `btrfs_find_all_roots()`, and commit-time qgroup extent accounting skips its
+  backref walk too. The custom shared-parent fast path prevents that fallback,
+  so full qgroup accounting and `find_parent_nodes()` backref work remain
+  active. The trace reproduces the same backref function observed in the
+  30.986-second host transaction profile. This strongly implicates our fast
+  path as a contributor to host qgroup accounting cost and possibly the stalls;
+  it does not prove that it is the sole cause or explain the initial
+  external-writer wait.
+- The traced root deletion took 526 seconds custom and 2 seconds stock, but
+  function-graph overhead materially distorts elapsed and per-call timings.
+  Use the untraced 80-second versus 6-second comparison above for the workload
+  result, while treating this run as call-path evidence only. The host commit
+  remains unreproduced at representative tree size and storage latency. A live
+  read-only check confirmed the host is on `7.2.6+deb13-amd64` with the loaded
+  Btrfs build ID beginning `258e41d2`; neither filesystem had a rescan in
+  progress.

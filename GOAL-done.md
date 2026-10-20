@@ -5449,6 +5449,11 @@ specified in `GOAL.md`.
   host NVMe/USB latency or make threshold 1 a production recommendation. The
   log and images are in `host-counts-131k-threshold-1/` under the same external
   build directory.
+- `drop_subtree_threshold` is already an upstream Btrfs sysfs control in the
+  7.2.9 baseline (default 3); changing it in these guests did not require a
+  new kernel patch. The custom change under test is the shared-parent snapshot
+  fast-inherit path. This separates the optional deletion stale-policy choice
+  from the kernel change needed by the tested four-qgroup snapshot hierarchy.
   Across all 217 snapshot cycles, the modified run measured 240 ms minimum,
   1.34 s median, 3.01 s p95, and 3.32 s maximum. Per-config medians were
   1.66 s (p8 root), 975 ms (p8 home), 1.845 s (Kingston root), and 865 ms

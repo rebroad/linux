@@ -5692,3 +5692,17 @@ contexts were not resolved by this short sample, and it did not overlap a
 long-commit event, so it does not identify the writer behind the historical
 140.825-second maximum. The probes were disabled and removed afterward;
 `tracing_on` is zero and no diagnostic kprobe events remain.
+
+## Transient stock metadata-read wait capture (2026-10-20)
+
+At 23:51 BST, while the host was still on stock `7.2.9+deb13-amd64`, a live
+check briefly showed a `find` task in D-state at
+`read_extent_buffer_pages`. The stall collector was started immediately, but
+the task had completed its wait before the collector's task and stack snapshot,
+so no kernel stack was preserved for that event. The capture showed no active
+qgroup rescan, no Btrfs device errors, and no D-state tasks by the end of the
+capture. At that point the most recent transaction commits were 73 ms on p8
+and 6 ms on Kingston; the historical maxima remained 140.825 s and 32.042 s.
+This is evidence of a transient metadata-read wait in the stock runtime, not a
+demonstration that qgroup accounting caused the event. A future occurrence
+needs a stack capture while the task is still blocked.

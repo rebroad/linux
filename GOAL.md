@@ -102,10 +102,16 @@ commits with live kernel stacks and commit-progress evidence. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and
-backref walk. The exact 7.2.6 stock/custom QEMU deletion comparison did not
-reproduce the long host commit; its custom run had longer final qgroup cleanup.
-These results still do not identify which external writer held the live
-transaction open or prove that our changes caused or did not cause the stalls.
+backref walk. A matched 7.2.6 QEMU workload with 32,768 metadata files per
+source reproduced stock inconsistency warnings and rescans, while the custom
+module produced none. Its custom final root-snapshot deletion took 80 seconds
+versus 6 seconds with stock accounting, but the maximum recorded commit was
+1.221 seconds and the host's 30.986-second commit was not reproduced. The stock
+run also exposed a separate `qgroup info item update error -2` during final
+rescans; source control flow matches the branch's qgroup-teardown fix. These
+results narrow the likely causes but do not identify which external writer
+held the host transaction open or prove that our changes caused or did not
+cause the system stalls.
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
 for snapshot accounting during balance relocation. A 30.986-second host
@@ -113,10 +119,13 @@ commit was profiled in `btrfs_qgroup_account_extents()` and its expensive
 backref walk. Our fast path keeps qgroups consistent, while the fallback's
 `NO_ACCOUNTING` flag skips those walks, so our change is a likely indirect
 contributor to the longer full-accounting commits. The walker itself is
-unchanged. Confirm the performance tradeoff with a host-scale matched workload
-and find a way to preserve accurate qgroups without blocking transaction
-progress. The initial external-writer wait remains to be explained too. Full
-profile, A/B measurements, and later-version review are in `GOAL-done.md`.
+unchanged. Confirm the performance tradeoff with a low-overhead, correctly
+enabled function profile and a representative large-tree workload, then find a
+way to preserve accurate qgroups without blocking transaction progress. The
+first function-graph attempts recorded no events because tracefs recording was
+left disabled; their deletion timings are not performance evidence. The initial
+external-writer wait remains to be explained too. Full profile, A/B
+measurements, and later-version review are in `GOAL-done.md`.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.

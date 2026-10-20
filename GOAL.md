@@ -108,13 +108,15 @@ These results still do not identify which external writer held the live
 transaction open or prove that our changes caused or did not cause the stalls.
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
-for snapshot accounting during balance relocation. Capture the writer and
-compare the same deletion path under a workload and storage latency
-representative of the host. Then decide whether this is the known cost of full
-qgroup accounting or an additional kernel defect, and fix the identified
-cause. Do not assume either our changes or upstream code is responsible before
-the evidence supports it. Full profile, A/B measurements, and later-version
-review are in `GOAL-done.md`.
+for snapshot accounting during balance relocation. A 30.986-second host
+commit was profiled in `btrfs_qgroup_account_extents()` and its expensive
+backref walk. Our fast path keeps qgroups consistent, while the fallback's
+`NO_ACCOUNTING` flag skips those walks, so our change is a likely indirect
+contributor to the longer full-accounting commits. The walker itself is
+unchanged. Confirm the performance tradeoff with a host-scale matched workload
+and find a way to preserve accurate qgroups without blocking transaction
+progress. The initial external-writer wait remains to be explained too. Full
+profile, A/B measurements, and later-version review are in `GOAL-done.md`.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.

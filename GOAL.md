@@ -1,4 +1,4 @@
-# Goal: determine whether accurate qgroup stats and low-latency snapshots can coexist
+# Goal: establish whether accurate qgroup stats and low-latency snapshots can coexist
 
 This is the active **to-do** document. It lists remaining work, with rough
 completion percentages for partially completed items. Move verified completed
@@ -112,9 +112,16 @@ with the alternate root. The current source/config match is recorded in
 
 ## Next steps
 
-**First priority: establish clearly whether our required qgroup accuracy and
-low-latency snapshot workload can coexist on the supported Btrfs stack and our
-four-group layout.** Do not assume the inconsistency state is a bug or that
+**First priority: reach a clear, evidence-backed verdict on whether our
+required qgroup accuracy and low-latency snapshot workload can coexist on the
+supported Btrfs stack and our four-group layout.** The goal is not merely to
+explore possible designs: it is to either demonstrate a design that satisfies
+both requirements in representative testing, or establish that they cannot
+both be satisfied within the defined kernel, layout, workload, and latency
+limits and document the unavoidable trade-off. Do not claim universal
+impossibility for all Btrfs configurations; scope the verdict to those tested
+conditions and state any remaining uncertainty. Do not assume the inconsistency
+state is a bug or that
 removing it is inherently better. Determine whether our Btrfs changes caused
 or contributed to each observed stall; if not, identify the responsible kernel
 path or dependency. For qgroup inconsistency, establish whether the conservative
@@ -381,18 +388,23 @@ p8-root, p8-home, Kingston-root, and Kingston-home; root and home never share
 one snapshot QGROUP. After accounting becomes consistent, totals match a full
 rescan. Quota limits retain their existing snapshot-only scope.
 
-The primary outcome is a clear, evidence-backed answer for the supported
-kernel, four-group layout, and representative host workload: can the required
-stats remain accurate for routine snapshots without unacceptable filesystem
-latency, while infrequent deletion is allowed to make them explicitly stale
-until recovery? Define accuracy by matching all four exclusive-space totals
+The primary outcome is a decisive, reviewable verdict for the supported
+kernel, four-group layout, representative host workload, and explicit latency
+acceptance limits: **either** demonstrate that the required stats remain
+accurate for routine snapshots without unacceptable filesystem latency while
+infrequent deletion may make them explicitly stale until recovery, **or**
+show which constraints cannot be met together and quantify the least-cost
+trade-off. “Impossible” must mean impossible under this defined scope and
+constraints, supported by source-level reasoning and repeatable tests; lack of
+a working implementation or an incomplete test is not proof of impossibility.
+Define accuracy by matching all four exclusive-space totals
 against a completed full rescan whenever the status says consistent. Define
 latency with measured snapshot and transaction-commit timings against the stock
 baseline. Treat low latency as no user-visible filesystem stalls and no
 material regression in repeated snapshot/commit timing distributions versus
 stock; report sample counts, distributions, and worst observed stalls rather
 than treating a single fast run as proof. If both requirements coexist in the
-measured workload, demonstrate the optional policy end to end. If not, document
+measured workload, demonstrate the selected policy end to end. If not, document
 which requirement cannot be met together and the measured trade-off instead of
 treating inconsistency elimination as mandatory. Fix and regression-test any
 confirmed defect. Automatic scans must stay inside the configured

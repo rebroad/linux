@@ -5769,3 +5769,14 @@ high load and transient Btrfs metadata waits under a concurrent build/cache and
 swap workload, independently of qgroup rescans. It does not establish that
 the underlying storage path is healthy under all workloads; the stall watcher
 captures are retained under `/var/tmp/btrfs-stall-watch-hourly-20261021`.
+
+A second 30-second capture during the continuing load (01:05-01:06 BST) caught
+the wait path directly. The stock `btrfs-transaction` thread was in
+`btrfs_write_and_wait_transaction()` submitting metadata pages and blocked in
+`wbt_wait()`/`rq_qos_wait`; a `flush-btrfs-1` worker was blocked in the same
+block-layer writeback throttle. A `rustc` thread was blocked in a file-backed
+page fault (`folio_wait_bit_common()` -> `filemap_fault()`). No captured task
+was in qgroup accounting, qgroup-rescan, or `wait_current_trans()`. This
+strengthens the diagnosis of a storage/writeback and page-cache pressure burst
+from the concurrent build, while leaving the separate snapshot-cycle stall
+cause open.

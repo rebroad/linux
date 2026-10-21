@@ -5780,3 +5780,16 @@ was in qgroup accounting, qgroup-rescan, or `wait_current_trans()`. This
 strengthens the diagnosis of a storage/writeback and page-cache pressure burst
 from the concurrent build, while leaving the separate snapshot-cycle stall
 cause open.
+
+## Qgroup backref-walk optimization boundary (2026-10-21)
+
+Source review of stock 7.2.9 confirms that the expensive path is not introduced
+by the shared-parent fast path. `btrfs_qgroup_trace_extent_post()` performs a
+backref walk for newly traced extents, and `btrfs_qgroup_account_extents()`
+performs the current-root walk while the transaction is committing. The
+upstream comments explicitly identify moving this work out of the commit path
+as desirable, but also explain that doing so without proving the current-root
+walk is safe can make qgroup accounting incorrect. This is the principal
+optimization boundary for the remaining investigation: any reduction of
+commit-path latency must preserve the old/new-root accounting proof, rather
+than simply skipping the walk or reusing stale roots.

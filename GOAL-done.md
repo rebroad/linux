@@ -5793,3 +5793,17 @@ walk is safe can make qgroup accounting incorrect. This is the principal
 optimization boundary for the remaining investigation: any reduction of
 commit-path latency must preserve the old/new-root accounting proof, rather
 than simply skipping the walk or reusing stale roots.
+
+## Stock-host subtree tracing limitation (2026-10-21)
+
+A disposable loopback Btrfs test on the stock 7.2.9 host verified that quota
+enable and a completed rescan create a level-0 qgroup for the source
+subvolume. Snapshot creation and asynchronous deletion were then exercised
+with a tracefs kprobe configured for `btrfs_qgroup_trace_subtree()`, including
+an explicit `btrfs subvolume sync` before reading the trace. The trace stayed
+empty because the stock Debian module exposes no matching function through
+`available_filter_functions` or resolvable kprobe symbols on this host. The
+loopback filesystem and trace configuration were cleaned up. This leaves the
+existing QEMU trace as the authoritative subtree-level measurement; an actual
+host deletion trace requires a kernel/module build with the relevant symbol
+traceable or a dedicated tracepoint.

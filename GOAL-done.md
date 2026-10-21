@@ -5851,3 +5851,16 @@ filesystem, probe, and image were removed by the test cleanup. This confirms
 the host custom runtime can capture the deletion path and provides a real
 block-layer control result, but it is not a measurement of the production
 p8/Kingston trees or their larger shared-subtree levels.
+
+## Production rescan blocked by read-only mounts (2026-10-21)
+
+While the custom module was running, both production Btrfs filesystems were
+mounted read-only: `/`, `/mnt/p8`, and `/mnt/kingston` showed `ro` in
+`findmnt`; only separate working subvolume mounts under Kingston were `rw`.
+The fstab entries still specify the normal `defaults` mounts. A direct p8
+`btrfs quota rescan -w /` started and returned after about 31 seconds, but the
+kernel logged `qgroup scan paused` and the p8 inconsistency flag remained set.
+No rescan worker remained active and no transaction or device error was logged.
+The read-only mount state prevents this from being a valid consistency or
+latency test; remounting production filesystems must be a separate, explicitly
+controlled recovery step.

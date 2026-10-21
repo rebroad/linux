@@ -5752,3 +5752,20 @@ disabling `snapper-boot.timer`. The timer's `OnBootSec=1` trigger is no longer
 enabled or active; `snapper-boot.service` is inactive. The hourly
 `snapper-timeline.timer` remains enabled and active. This removes the known
 boot-time trigger while retaining the requested hourly snapshot schedule.
+
+## Stock-kernel load burst during hourly snapshot (2026-10-21)
+
+At approximately 01:01 BST on stock Debian `7.2.9+deb13-amd64`, load rose to
+about 17 while a Rust/Codex build was active in the external build tree through
+`/usr/bin/sccache`. The captured tasks included `rustc`, `cargo`, and `ld.mold`
+waiting in Btrfs metadata reads, `sccache`/other writers in
+`btrfs_sync_file()`/`fdatasync()`, and `kswapd0` in swap writeback throttling.
+Swap-in/out and block I/O were active. No `btrfs-qgroup-rescan` worker,
+qgroup-rescan operation, transaction error, or device error was observed.
+
+The hourly `snapper-timeline.service` ran at 01:00:00 and finished at 01:00:01
+with no rescan. This event therefore demonstrates that stock 7.2.9 can show
+high load and transient Btrfs metadata waits under a concurrent build/cache and
+swap workload, independently of qgroup rescans. It does not establish that
+the underlying storage path is healthy under all workloads; the stall watcher
+captures are retained under `/var/tmp/btrfs-stall-watch-hourly-20261021`.

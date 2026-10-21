@@ -5812,3 +5812,10 @@ The already-built custom 7.2.9 `btrfs.ko.xz` artifact contains a global
 `btrfs_qgroup_trace_subtree` symbol, so a controlled boot using that module
 could provide the missing host deletion trace. The module was inspected only;
 it was not loaded into the running stock kernel.
+
+A separate host-trace artifact was then signed from that exact module with the
+configured Secure Boot key. `modinfo` reports vermagic
+`7.2.9+deb13-amd64 SMP preempt mod_unload`, PKCS#7 format, and signer
+`Rebroad's module signing key`; `mokutil --test-key` confirms the certificate
+is enrolled. The artifact is retained only in the external build area and was
+not installed into `/lib/modules` or loaded on the host.

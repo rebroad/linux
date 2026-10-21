@@ -5839,3 +5839,15 @@ removed immediately and tracing was left disabled. The preceding failed
 registration used an invalid argument form and created no event. The current
 custom runtime is therefore ready for a controlled deletion capture, subject
 to the remaining safety and rollback gates.
+
+## Host-backed custom-module subtree trace (2026-10-21)
+
+With the signed custom module running, an isolated 1 GiB loopback Btrfs
+filesystem backed by `/var/tmp` was created, quota-enabled, rescanned, and
+given one read-only snapshot. Deleting that snapshot with `--commit-each`
+reached the host `btrfs-cleaner` and produced three
+`btrfs_qgroup_trace_subtree()` calls, all with `root_level=0`. The loopback
+filesystem, probe, and image were removed by the test cleanup. This confirms
+the host custom runtime can capture the deletion path and provides a real
+block-layer control result, but it is not a measurement of the production
+p8/Kingston trees or their larger shared-subtree levels.

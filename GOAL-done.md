@@ -5807,3 +5807,8 @@ loopback filesystem and trace configuration were cleaned up. This leaves the
 existing QEMU trace as the authoritative subtree-level measurement; an actual
 host deletion trace requires a kernel/module build with the relevant symbol
 traceable or a dedicated tracepoint.
+
+The already-built custom 7.2.9 `btrfs.ko.xz` artifact contains a global
+`btrfs_qgroup_trace_subtree` symbol, so a controlled boot using that module
+could provide the missing host deletion trace. The module was inspected only;
+it was not loaded into the running stock kernel.

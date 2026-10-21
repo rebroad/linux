@@ -294,8 +294,11 @@ threshold is checked against a shared child subtree's level during the drop
 walk, not the whole source tree's root level. A separate privileged read-only
 inspection found the live host's p8 root/home tree levels are 2/3 and
 Kingston root/home are 2/3, so those root levels alone do not prove that the
-default threshold will trigger. Next, record the actual shared-subtree levels
-passed into `btrfs_qgroup_trace_subtree()` for host-shaped deletes, identify
+default threshold will trigger. The host-shaped QEMU trace recorded 2,403
+subtree calls at levels 0/1/2 and none at level 3; this explains the threshold
+behavior in that workload but is not an actual host deletion capture. The
+remaining host-side measurement requires a safe test of the modified module.
+Next, identify
 which extent/backref work dominates the timeout, and implement an optimization
 that preserves exact counters or makes the fallback happen before the long
 walk. Then compare threshold 1, threshold 2, threshold 3, and fast-path-off

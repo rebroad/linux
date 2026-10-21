@@ -5832,3 +5832,10 @@ explicit `initrd.img-7.2.9+deb13-amd64-stock` remains the available control
 entry. Earlier notes describing the running host as stock are historical and
 must not be used to classify new observations. No host deletion or trace test
 was started during this verification.
+
+A corrected tracefs probe registration against the running custom module then
+created the `qgroupprobe` event for `btrfs_qgroup_trace_subtree`; the probe was
+removed immediately and tracing was left disabled. The preceding failed
+registration used an invalid argument form and created no event. The current
+custom runtime is therefore ready for a controlled deletion capture, subject
+to the remaining safety and rollback gates.

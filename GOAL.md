@@ -57,15 +57,15 @@ kernel change remains provisional until its host-scale latency and stall
 behavior are validated.
 QEMU workload, source, and scan-attribution evidence is in `GOAL-done.md`.
 
-The host now boots `7.2.9+deb13-amd64` through the explicit stock-Btrfs GRUB
-entry. The loaded Btrfs build ID matches the Debian stock module embedded in
-that entry's initramfs; the installed DKMS module is present on disk but is not
-loaded. The host became responsive after rebooting into this stock setup. This
-supports investigating our modified Btrfs runtime as a likely contributor, but
-does not isolate the cause because both the kernel release and module changed
-and the reboot cleared prior runtime state. The earlier 7.2.6 runtime and
-snapshot-cycle observations are historical, not the current host state. Exact
-module and boot evidence is in `GOAL-done.md`.
+The host is currently booted with `7.2.9+deb13-amd64` through the normal
+non-`-stock` initramfs. The initramfs Btrfs module hash matches the installed
+DKMS module, and both report vermagic `7.2.9+deb13-amd64 SMP preempt
+mod_unload` and the enrolled `Rebroad's module signing key`; Secure Boot is
+enforcing signatures. The explicit `-stock` initramfs remains available as the
+rollback/control entry. This is the current custom-module runtime, so new
+host-stall evidence must be labelled accordingly and must not be conflated
+with the earlier stock-runtime observations. Exact module and boot evidence is
+in `GOAL-done.md`.
 The redundant `snapper-boot.timer` has since been disabled and is inactive;
 the hourly `snapper-timeline.timer` remains enabled and active. The next clean
 host observation must therefore begin after a completed rescan and use the

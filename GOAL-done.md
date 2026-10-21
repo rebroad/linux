@@ -5819,3 +5819,16 @@ configured Secure Boot key. `modinfo` reports vermagic
 `Rebroad's module signing key`; `mokutil --test-key` confirms the certificate
 is enrolled. The artifact is retained only in the external build area and was
 not installed into `/lib/modules` or loaded on the host.
+
+## Current module provenance correction (2026-10-21)
+
+The current boot command line selects the normal, non-`-stock` 7.2.9 initramfs.
+Its extracted `updates/dkms/btrfs.ko.xz` hash is
+`2b94d9a03652ad61fdf8c019fa15b85581121680304ada9dc594be7ff8837e4a`, exactly
+matching the installed DKMS module. Both report vermagic
+`7.2.9+deb13-amd64 SMP preempt mod_unload` and the enrolled
+`Rebroad's module signing key`; Secure Boot is enforcing signatures. The
+explicit `initrd.img-7.2.9+deb13-amd64-stock` remains the available control
+entry. Earlier notes describing the running host as stock are historical and
+must not be used to classify new observations. No host deletion or trace test
+was started during this verification.

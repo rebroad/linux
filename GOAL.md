@@ -89,9 +89,12 @@ and the exact user-reported interval may differ. It shows our modified module
 is not necessary for every stall. The user also observed Psensor itself become
 unresponsive during the event. SysRq `w` was disabled by the host's prior mask;
 it is now enabled at runtime while preserving the other mask bits. After any
-reboot, re-enable it before diagnosis. During the next occurrence, capture the
-SysRq `w` dump, relevant `/proc/*/stack` data, and transaction and rescan state.
-Full event details are in `GOAL-done.md`.
+reboot, re-enable it before diagnosis. A short D-state episode at 19:12 cleared
+before SysRq `w` emitted any task stacks. During the next occurrence, read each
+D-state thread's `/proc/<pid>/task/<tid>/stack` immediately, then capture
+SysRq `w` and transaction/rescan state. Btrfs transaction and qgroup tracepoints
+are available, but tracefs is currently mounted read-only; enable them only in
+a controlled diagnostic session. Full event details are in `GOAL-done.md`.
 
 A further stock-kernel event on 2026-10-26 overlapped the 19:00 Snapper timeline
 run. The p8 qgroup rescan paused twice and was no longer running by 19:06;

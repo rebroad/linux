@@ -5967,3 +5967,23 @@ snapshot work. Since it started after the separate 18:38 stock qgroup-cleanup
 stall, it cannot explain that earlier stall's onset. It may have increased
 pressure during the 19:00 event, but no controlled comparison establishes how
 much. No trim scheduling or priority setting was changed.
+
+## Brief Btrfs I/O wait sample after trim (2026-10-26)
+
+At 19:12:33, a live process sample briefly caught Psensor in D state at
+`write_all_supers`, a `flush-btrfs` worker in D state, and a Codex Tokio worker
+in D state at `folio_wait_bit_common`. No qgroup rescan or `fstrim` was active;
+both production qgroup inconsistency flags remained set. SysRq-w was triggered
+at 19:12:42 but emitted only its header, with no task stacks. By 19:12:44, the
+sampled Psensor thread was in `poll_schedule_timeout`, the Btrfs worker was in
+its normal worker loop, and the Tokio thread was waiting on a futex; at
+19:12:55 there were no D-state tasks. I/O PSI `full` 10-second average had
+fallen to 1.47%. This was a short Btrfs writeback/metadata wait episode, not a
+captured multi-minute stall, and the missing stacks prevent a causal
+conclusion. The next capture should read per-thread `/proc/<pid>/task/<tid>/stack`
+immediately before triggering SysRq-w.
+
+The stock kernel exposes Btrfs transaction start/commit and qgroup accounting
+tracepoints, but `/sys/kernel/tracing` is mounted read-only in the current host
+session. They were inspected but not enabled. Enabling trace events therefore
+remains a controlled diagnostic step rather than a current host change.

@@ -96,11 +96,14 @@ accounting remained inconsistent. A live SysRq-w capture then found the stock
 `btrfs-cleaner` blocked by block-layer writeback throttling while writing
 transaction metadata, and `fstrim` blocked waiting for a synchronous discard on
 the same p8 NVMe filesystem. I/O PSI `full` was about 19% over 10 seconds and
-`fstrim` had been active for 18 minutes. This identifies the immediate wait
-sites, not why p8 writeback/discard took so long or whether either operation
-caused the earlier part of the event. The rescan is not the active blocker in
-this capture. Investigate discard/device latency and writeback progress before
-running another production rescan or testing the modified module. Also
+`fstrim` had been active for 19 minutes. It completed at 19:08, reporting
+214.6 GiB trimmed on p8 and 508 GiB on Kingston. A later cleaner stack was in
+`btrfs_qgroup_trace_subtree()` waiting for an extent-buffer read; by 19:09 it
+was no longer blocked and I/O PSI `full` had fallen to 6.35%. These changing
+wait sites and the pressure drop coincided with trim completion, but do not
+prove trim caused the full stall. The rescan is not the active blocker in this
+capture. Investigate discard/device latency and qgroup subtree read progress
+before running another production rescan or testing the modified module. Also
 determine which stock-kernel stop condition paused the rescan; the log message
 does not identify it. Details are in `GOAL-done.md`.
 

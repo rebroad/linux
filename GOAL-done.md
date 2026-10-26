@@ -5944,3 +5944,15 @@ run overlapped the event, and snapshot-drop cleanup was in the cleaner, but
 this evidence does not establish that the rescan, trim, or snapshot caused the
 device delay. The cause of the long discard and writeback waits remains open.
 No trim, scan, or snapshot operation was cancelled during capture.
+
+The trim finished successfully at 19:08:05, reporting 214.6 GiB discarded on
+p8 and 508 GiB on Kingston. At 19:08:45, after the trim had completed, the
+cleaner was still blocked in `read_extent_buffer_pages()` under
+`btrfs_qgroup_trace_subtree()` -> `do_walk_down()` -> `btrfs_drop_snapshot()`.
+By 19:09:04 it was no longer listed as blocked; load average was
+`6.94, 9.10, 11.56` and I/O PSI `full` 10-second average had fallen to 6.35%.
+This records the cleaner progressing from a writeback-throttle wait to a
+qgroup subtree metadata-read wait, then clearing shortly after trim completed.
+The timing is consistent with discard pressure contributing to the incident,
+but does not prove it caused the whole delay. Both production qgroup
+inconsistency flags remained set and neither filesystem had an active rescan.

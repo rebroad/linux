@@ -207,6 +207,14 @@ change removing this fallback was found. This confirms the behavior is still
 present upstream, but does not by itself decide whether the restriction is the
 right trade-off or an overly narrow limitation.
 
+A separate 22:20-22:21 stock-kernel capture during elevated load found DRM
+commit and TTM buffer-delete workers blocked on DMA fences; neither filesystem
+had a qgroup rescan in progress, and the sampled blocked stacks were not in
+Btrfs. This may explain that sampled load/UI delay but does not explain the
+earlier Btrfs wait stacks or identify why the GPU fences were delayed. Keep
+this event distinct in the stall diagnosis. The blocked-task bit was restored
+in the runtime SysRq mask for future captures; details are in `GOAL-done.md`.
+
 ## Next steps
 
 **First priority: reach a clear, evidence-backed verdict on whether our

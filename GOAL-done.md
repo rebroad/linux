@@ -6196,3 +6196,18 @@ establishes that the behavior remains present upstream, not whether its narrow
 eligibility is the correct accuracy/performance trade-off or should be
 expanded. The local fast-inherit change remains provisional pending its full
 correctness review and host-scale latency/stall validation.
+
+## Stock DRM/TTM blocked-task burst (2026-10-26 22:20)
+
+During elevated load on the stock 7.2.9 kernel, SysRq-W captures at 22:20:27,
+22:20:40, and 22:21:08 found blocked DRM/TTM work. The last dump showed seven
+D-state workers: one `drm_kms_helper` display commit waiting for a flip fence,
+and six TTM buffer-delete workers blocked in `dma_fence_default_wait()` via
+`dma_resv_wait_timeout()`. The earlier dumps showed the same DRM fence wait
+and the first TTM wait. Both `btrfs quota rescan --status` checks reported no
+rescan in progress, and the captured stacks were not in Btrfs. This is a
+separate wait path that may account for this sampled load/UI delay; it does
+not identify why the GPU fences were delayed or explain the separate Btrfs
+stalls. The runtime SysRq mask was `438` before enabling the blocked-task
+diagnostic bit and `446` afterward, preserving its other bits. The filtered
+capture is `/var/tmp/sysrq-blocked-20261026-2220.log`.

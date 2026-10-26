@@ -98,8 +98,12 @@ reboot, re-enable it before diagnosis. A short D-state episode at 19:12 cleared
 before SysRq `w` emitted any task stacks. During the next occurrence, read each
 D-state thread's `/proc/<pid>/task/<tid>/stack` immediately, then capture
 SysRq `w` and transaction/rescan state. Btrfs transaction and qgroup tracepoints
-are available, but tracefs is currently mounted read-only; enable them only in
-a controlled diagnostic session. Full event details are in `GOAL-done.md`.
+are available. On 2026-10-26 at 21:20, tracefs was mounted read-write and
+`bpftrace` was available. A short filtered scheduler trace captured one stack
+per D-state task; it found Psensor waiting on both an NVMe hwmon request and
+Btrfs `fsync`, plus unrelated Btrfs metadata-read and tree-lock waits. Use a
+scoped, low-output trace for the next scheduled snapshot cycle. Full stacks and
+limitations are in `GOAL-done.md`.
 
 A further stock-kernel event on 2026-10-26 overlapped the 19:00 Snapper timeline
 run. The p8 qgroup rescan paused twice and was no longer running by 19:06;
@@ -224,12 +228,22 @@ in a 10-second sample. I/O PSI remained elevated, but qgroup rescans were
 inactive and both filesystems' transaction commit counters advanced. A
 Chromium task briefly appeared blocked in a Btrfs extent-buffer read, then
 cleared before its stack could be captured. The bulk read is a plausible
-contributor to contemporaneous device pressure, not proof that it caused the
-reported freeze or that the qgroup patch was involved. At 21:13 it remained in
-D state at the same page wait with about 394 GB of physical reads; both rescan
-checks still found no scan, and it was the only D-state task. Correlate such
-same-device workloads with future stalls before assigning causality. The
-2026-10-20
+contributor to evening device pressure, but it began hours after the noon
+Psensor gap and cannot explain that earlier reported freeze. At 21:13 it
+remained in D state at the same page wait with about 394 GB of physical reads;
+both rescan checks still found no scan, and it was the only D-state task. At
+21:15 it was active but waiting in `poll_schedule_timeout()` with about 400 GB
+read and I/O PSI `some`/`full` at 10.90%/8.84% over 10 seconds. Correlate such
+same-device workloads with future stalls before assigning causality. A
+21:18 trace on stock Btrfs also found Psensor blocked in a synchronous NVMe
+hwmon log request and, in another thread, in `fsync()` waiting on a Btrfs
+ordered range for its `/home` log file. A SQLite worker and a `cp` task were
+blocked in Btrfs metadata reads, while a Btrfs delayed-inode worker waited on a
+tree read lock. No qgroup rescan was active. By 21:20, all D-state waits had
+cleared, device queues were empty, and both transaction commit counters had
+advanced. This gives a concrete mechanism for transient app stalls on stock
+Btrfs, but it does not establish the cause of the noon freeze or implicate
+qgroup accounting. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and

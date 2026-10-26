@@ -5995,9 +5995,11 @@ conclusion. The next capture should read per-thread `/proc/<pid>/task/<tid>/stac
 immediately before triggering SysRq-w.
 
 The stock kernel exposes Btrfs transaction start/commit and qgroup accounting
-tracepoints, but `/sys/kernel/tracing` is mounted read-only in the current host
-session. They were inspected but not enabled. Enabling trace events therefore
-remains a controlled diagnostic step rather than a current host change.
+tracepoints. During the 2026-10-20 check, `/sys/kernel/tracing` was mounted
+read-only, so those events were not enabled. By 2026-10-26 at 21:20, tracefs
+was mounted read-write and `bpftrace` was installed. A short filtered
+`sched_switch` trace was validated and captured one stack per D-state task; no
+trace configuration was left enabled after the command exited.
 
 ## Qgroup scan pause from internal inconsistency cancellation (2026-10-26)
 
@@ -6086,10 +6088,46 @@ two Btrfs commit counters advanced from 305/296 to 322/311, and device error
 counters remained zero. The cpto process was the only D-state task in the
 immediate 21:07 stack sample. These observations make the large same-device
 read a plausible contributor to contemporaneous I/O pressure, but do not prove
-that it caused the reported freeze or explain the separate Btrfs cleaner
-stalls. At 21:13 the same process remained active in D state at
+that it explains the separate Btrfs cleaner stalls. Since the sync began
+around 20:25, it started hours after the noon Psensor gap and cannot explain
+the earlier reported freeze; it may contribute to evening pressure only. At
+21:13 the same process remained active in D state at
 `folio_wait_bit_common()` with about 394 GB of physical reads. I/O PSI was
 `some` 8.33% and `full` 7.01% over 10 seconds; the two rescan checks still found
-no active scan, and this was the only D-state task in that sample. Keep the
-operation and storage progress in view during future captures; do not interrupt
-an in-progress cpto operation as part of diagnosis.
+no active scan, and this was the only D-state task in that sample. At 21:15 it
+remained active but was in `poll_schedule_timeout()` with about 400 GB read;
+I/O PSI `some`/`full` 10-second averages were 10.90%/8.84%. Keep the operation
+and storage progress in view during future captures; do not interrupt an
+in-progress cpto operation as part of diagnosis.
+
+## Event-driven D-state stacks on stock Btrfs (2026-10-26 21:18)
+
+A 12-second `bpftrace` scheduler trace captured one stack for each task's first
+transition to uninterruptible sleep. The capture is retained in
+`/var/tmp/btrfs-dstate-targeted-20261026-2115.log`. It ran on the stock
+7.2.9 module with no qgroup rescan active.
+
+Two Psensor threads blocked in different paths. One waited for a synchronous
+NVMe hwmon log request through `nvme_hwmon_read()` -> `nvme_get_log()` ->
+`blk_execute_rq()`. Another called `fsync()` on Psensor's `/home` log and waited
+in `btrfs_sync_file()` -> `btrfs_wait_ordered_range()` -> writeback completion.
+`/home` is the p8 NVMe Btrfs subvolume. The trace therefore captured both a
+device-command wait and a filesystem sync wait in the application userspace
+reported as unresponsive; it does not show how long either individual wait
+lasted.
+
+The active bulk cpto reader was blocked while Btrfs looked up checksums for a
+compressed read: `btrfs_lookup_csum()` -> `btrfs_lookup_bio_sums()` ->
+`btrfs_submit_compressed_read()` beneath an extent-buffer read. A `cp` task and
+a SQLite worker also waited on Btrfs directory/extent-tree reads. A Btrfs
+delayed-inode worker waited for a tree read lock in
+`btrfs_async_run_delayed_root()`. These are distinct read, ordered-writeback,
+NVMe-command, and tree-lock waits; none was in qgroup rescan code.
+
+By 21:20, there were no D-state tasks, both device inflight counts were zero,
+and the p8/Kingston transaction commit counters had advanced to 347/334. I/O
+PSI's 10-second `some`/`full` averages had fallen to 1.46%/1.23%. This confirms
+the sampled waits cleared while transactions continued to commit. The trace
+was captured hours after the noon Psensor-history gap, so it cannot explain
+that earlier hang. It provides concrete paths to capture during the next
+timeline cycle, not proof of the noon event's cause.

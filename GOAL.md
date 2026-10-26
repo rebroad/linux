@@ -186,6 +186,22 @@ window may issue and wait for a rescan when qgroups are inconsistent; a
 snapshot at or after 21:00 defers it. Preserve this distinction in further
 latency diagnosis.
 
+The 2026-10-26 stock-kernel capture adds direct evidence: during the 21:41
+Snapper cleanup, cleaner threads waited on metadata reads in snapshot-drop
+qgroup subtree accounting; around 21:49-21:51, transaction threads waited on
+metadata reads in delayed-reference backref lookup, while Psensor separately
+waited on an NVMe health-log request and a Btrfs `fsync()`. These waits cleared
+with no qgroup rescan active. At 22:00, Snapper created the four root/home
+snapshots; a kernel probe captured four `qgroup inherit needs a rescan` calls
+from `btrfs_qgroup_inherit()`. Because the run was outside the configured
+window, it completed without starting rescans and left both filesystems
+inconsistent. A block trace saw successful NVMe requests lasting 131-372 ms
+after the cycle, but did not tie them to the earlier waits. This confirms the
+stock snapshot fallback and separate stock stall paths; it does not establish
+that snapshot inheritance caused the stalls. Full stacks and limits are in
+`GOAL-done.md`. Continue correlating delayed-ref and snapshot-drop waits with
+per-device I/O and transaction progress before a modified-module host trial.
+
 ## Next steps
 
 **First priority: reach a clear, evidence-backed verdict on whether our

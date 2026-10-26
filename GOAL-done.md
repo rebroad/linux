@@ -6131,3 +6131,50 @@ the sampled waits cleared while transactions continued to commit. The trace
 was captured hours after the noon Psensor-history gap, so it cannot explain
 that earlier hang. It provides concrete paths to capture during the next
 timeline cycle, not proof of the noon event's cause.
+
+## Stock qgroup waits and 22:00 timeline capture (2026-10-26)
+
+The running Btrfs module was verified against the dedicated stock initramfs by
+matching build ID `c2d998d4752632e0f5cf36eaab134a3e73b18940`; it did not match
+the installed DKMS image. The live trace therefore captures stock 7.2.9.
+
+Snapper cleanup ran from 21:41:06 to 21:41:45. At 21:42:38, two Btrfs cleaner
+threads were in `read_extent_buffer_pages()` while `btrfs_drop_snapshot()`
+walked qgroup subtree/backref accounting:
+`btrfs_qgroup_trace_subtree()` -> `do_walk_down()` / `walk_down_proc()` ->
+`walk_down_tree()` -> `btrfs_drop_snapshot()` ->
+`btrfs_clean_one_deleted_snapshot()`. Around 21:49-21:51, two transaction
+threads separately waited in extent-buffer reads under delayed-reference
+backref lookup (`lookup_inline_extent_backref()` /
+`__btrfs_run_delayed_refs()`) during commit. Two Psensor threads also entered
+D state: one blocked on a synchronous NVMe hwmon log request, and one in
+`btrfs_sync_file()` waiting for ordered-range writeback. These waits had
+cleared by 21:53. Neither filesystem had a qgroup rescan active during these
+captures. I/O PSI fell below 1% for its 10-second averages by 21:53. This
+confirms multiple stock Btrfs/device wait paths, not a single qgroup-rescan
+wait; it does not identify the underlying cause of the metadata-read delay.
+
+The 22:00 timeline service completed successfully at 22:00:00. It created
+Snapper snapshots p8-root 3930, p8-home 2860, Kingston-root 2777, and
+Kingston-home 2570. A live kprobe recorded four Snapper snapshot-creation
+ioctls reaching `btrfs_qgroup_inherit()` and then
+`qgroup_mark_inconsistent()` with reason `qgroup inherit needs a rescan`.
+Thus each of the four snapshot calls hit the stock inheritance fallback in
+this configured hierarchy. Because 22:00 is outside the configured
+05:00-21:00 local-time rescan window, no scan started; both filesystems
+remained explicitly inconsistent and `btrfs qgroup show` warned that a
+rescan was recommended. No D-state tasks remained at 22:04 and I/O PSI was
+below 1%. This is direct evidence that snapshot creation itself can mark the
+four qgroup collectives stale on stock Btrfs, while the configured gate keeps
+that run short by deferring the scans. It does not show that the 22:00 cycle
+caused a system stall.
+
+A block request trace captured successful NVMe requests lasting 131-372 ms
+after the timeline run, with no block errors. It did not associate those
+requests with the earlier D-state waits or the four qgroup-inherit calls.
+At 22:04 the sampled `commit_stats` showed no commit currently in progress,
+last-commit times of 182 ms (p8) and 7 ms (Kingston), and maximum commit times
+since boot of 66.053 s and 22.547 s. The maximum values have no per-event
+timestamps, so they cannot be attributed to the captured waits. The focused
+trace is `/var/tmp/btrfs-next-event-20261026-2200.log`; the scheduler trace is
+`/var/tmp/btrfs-dstate-next-timeline-v2.log`.

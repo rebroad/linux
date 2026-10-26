@@ -6028,3 +6028,36 @@ by Debian `run-parts`; neither explains a concurrent cleanup invocation.
 Production's pause source remains undetermined. A host-default-threshold QEMU
 deletion trace or a live capture of the exact qgroup-mark caller is still
 needed before changing cancellation behavior.
+
+## Skip redundant subtree tracing after qgroup accounting becomes stale (2026-10-26)
+
+The local source trial adds a `NO_ACCOUNTING` check at entry to
+`btrfs_qgroup_trace_subtree()`. Once qgroup accounting is disabled, trace
+records created by walking a dropped subtree are discarded instead of
+updating counters; returning early avoids reading and parsing that subtree.
+This leaves the inconsistent flag and rescan behavior unchanged.
+
+For a matched comparison, the baseline and candidate modules were built from
+the same source revision and exact Debian 7.2.9 headers using the same external
+module build configuration, including BTF. Their build IDs were
+`017d3164b6db23928a16455ab915592b467b6810` and
+`add22f55cf98b9e719321b251409a8770514e904`. In TCG QEMU, each ran the same
+four-config hierarchy with 32,768 metadata files per source and 20 snapshots
+per config. Both kept qgroup tables equal to a full-rescan result before
+deletion, remained consistent through snapshot creation and timeline cleanup,
+and became explicitly inconsistent on final deletion. The later rescan
+operations completed and no scan remained active.
+
+Function-graph tracing during the p8-root delete recorded ten baseline
+`btrfs_qgroup_trace_subtree()` calls longer than 10 ms, totaling 149 ms; the
+candidate recorded none over that threshold. This verifies that the guard
+avoids those long redundant walks after accounting is stale. Whole-delete
+times varied substantially (12.53 s baseline and 5.99 s candidate in the
+traced pair; another matched run showed different per-filesystem ordering), so
+they do not establish a general latency improvement. The traced qgroup subtree
+work accounts for only a small part of the multi-second deletion in this
+workload. This change does not explain the host stalls and is not grounds to
+install the wider accounting fast path. Keep the modified module off the
+host; continue tracing the remaining drop, transaction, and I/O paths. The
+source diff, matched build outputs, initrds, and serial logs are under
+`/var/tmp/builds/rebroad/src/linux.build/qgroup-early-exit-{pair,trace}-20261026/`.

@@ -377,6 +377,16 @@ Kingston Btrfs filesystem, so they include that device's backing-file I/O path;
 TCG still prevents treating the results as direct host workload timings, and
 the p8 NVMe path remains untested.
 
+An exact-7.2.9 QEMU A/B trace tested an early return from
+`btrfs_qgroup_trace_subtree()` once `NO_ACCOUNTING` is set. Snapshot counters
+matched a full rescan before deletion, deletion marked both filesystems stale,
+and subsequent full rescans completed in both module runs. During the traced
+p8-root delete, the baseline recorded ten subtree calls over 10 ms (149 ms
+combined); the candidate recorded none over 10 ms. Whole-delete wall times
+varied substantially between runs, and the traced subtree work was only a
+small part of the multi-second delete. This is a narrow optimization after
+accounting is already stale, not a fix for the long stalls. See `GOAL-done.md`.
+
 The later-kernel review found no change to the captured backref walk or
 external-writer wait through upstream v7.3; v7.2.11 has a separate qgroup fix
 for snapshot accounting during balance relocation. A 30.986-second host
@@ -398,7 +408,9 @@ Do not install the modified module on the host until the fast-path deletion
 cost has been reduced or justified and its system-stall behavior is understood.
 The reported stock-kernel hang makes live capture of blocked task stacks and
 transaction progress the next diagnostic priority; do not attribute all
-freezes to our patch.
+freezes to our patch. Keep the stale-state early return only as a reviewed
+optimization; it does not explain the remaining deletion latency or establish
+that the wider accounting fast path is safe to deploy.
 Complete this investigation before resuming lower-priority deployment
 validation. Detailed captures, source comparisons, and remaining diagnostic
 gaps are in `GOAL-done.md`.

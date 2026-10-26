@@ -2643,7 +2643,9 @@ int btrfs_qgroup_trace_subtree(struct btrfs_trans_handle *trans,
 	ASSERT(0 <= root_level && root_level < BTRFS_MAX_LEVEL);
 	ASSERT(root_eb != NULL);
 
-	if (!btrfs_qgroup_full_accounting(fs_info))
+	/* Qgroup records from this walk are discarded while accounting is off. */
+	if (!btrfs_qgroup_full_accounting(fs_info) ||
+	    (fs_info->qgroup_flags & BTRFS_QGROUP_RUNTIME_FLAG_NO_ACCOUNTING))
 		return 0;
 
 	spin_lock(&fs_info->qgroup_lock);

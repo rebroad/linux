@@ -57,15 +57,18 @@ kernel change remains provisional until its host-scale latency and stall
 behavior are validated.
 QEMU workload, source, and scan-attribution evidence is in `GOAL-done.md`.
 
-The host is currently booted with `7.2.9+deb13-amd64` through the normal
-non-`-stock` initramfs. The initramfs Btrfs module hash matches the installed
-DKMS module, and both report vermagic `7.2.9+deb13-amd64 SMP preempt
-mod_unload` and the enrolled `Rebroad's module signing key`; Secure Boot is
-enforcing signatures. The explicit `-stock` initramfs remains available as the
-rollback/control entry. This is the current custom-module runtime, so new
-host-stall evidence must be labelled accordingly and must not be conflated
-with the earlier stock-runtime observations. Exact module and boot evidence is
-in `GOAL-done.md`.
+The host is currently booted with Debian `7.2.9+deb13-amd64` and the stock
+Btrfs module, using the explicit stock initramfs entry. This was verified on
+2026-10-26 by matching the live module build ID to the Btrfs module in both the
+stock initramfs and the exact installed Debian `linux-modules` package; the
+DKMS module has a different build ID. The stock GRUB entry worked, so no GRUB
+change is needed. Some Btrfs qgroup symbols initially mistaken for custom are
+present in upstream `v7.2.9`. A high-load event during this stock boot captured
+the cleaner in qgroup subtree/backref reads and the transaction thread in
+delayed-reference backref reads; no qgroup rescan was active. This proves our
+custom module is not required to reproduce that particular stall pattern, but
+does not determine whether earlier stalls were worsened by it. The exact
+module and stack evidence is in `GOAL-done.md`.
 The redundant `snapper-boot.timer` has since been disabled and is inactive;
 the hourly `snapper-timeline.timer` remains enabled and active. The next clean
 host observation must therefore begin after a completed rescan and use the

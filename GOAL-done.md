@@ -5864,3 +5864,44 @@ No rescan worker remained active and no transaction or device error was logged.
 The read-only mount state prevents this from being a valid consistency or
 latency test; remounting production filesystems must be a separate, explicitly
 controlled recovery step.
+
+## Stock-module boot and live qgroup stall capture (2026-10-26)
+
+The user selected the explicit GRUB entry `Debian GNU/Linux (p8, stock Btrfs
+module, 7.2.9)`. The entry correctly loads
+`/boot/initrd.img-7.2.9+deb13-amd64-stock`; no GRUB change was needed. The
+embedded module is the genuine Debian in-tree module: its build ID
+`c2d998d4752632e0f5cf36eaab134a3e73b18940` matches the live
+`/sys/module/btrfs` build ID and the exact installed-version Debian
+`linux-modules` package. Its compressed SHA-256 is
+`aa8a263c9c7cdc73f1119724f1d0ee4f2fe5098550d009c91d41ee66dec32e17`. The
+installed DKMS module instead has build ID
+`29eef0f63dbf1853b12c4714903b7f53be56015f` and the local signing key. The
+stock module exposes `drop_subtree_threshold` and
+`btrfs_qgroup_trace_subtree_after_cow`; both are present in upstream `v7.2.9`,
+so they are not evidence of the custom module. The earlier conclusion that the
+stock selection had loaded the custom module was incorrect.
+
+During elevated load around 18:38-18:40 local time, load average reached
+`18.79, 16.52, 12.06` and I/O PSI `some`/`full` 10-second averages reached
+`12.68`/`8.95`. A direct stack capture found the stock `btrfs-cleaner` waiting
+in `read_extent_buffer_pages()` through
+`btrfs_search_slot()` -> `find_parent_nodes()` ->
+`btrfs_find_all_roots_safe()` -> `btrfs_qgroup_trace_extent_post()` ->
+`btrfs_qgroup_trace_subtree()` -> `btrfs_drop_snapshot()`. The stock
+`btrfs-transaction` thread was also waiting in `read_extent_buffer_pages()`
+while `lookup_inline_extent_backref()` and `__btrfs_free_extent()` ran from
+`btrfs_run_delayed_refs()` during transaction commit. At that time both
+production filesystems had their qgroup inconsistency flag set, but neither
+had a rescan in progress. The p8 latest/max commit times were 27.036/66.053
+seconds; Kingston's were 0.316/16.961 seconds.
+
+The hourly Snapper timeline service had no journal entry since 17:00 and was
+next due at 19:00, so this event cannot be attributed to that invocation. The
+stacks show snapshot-drop qgroup subtree/backref work overlapping delayed
+reference backref reads on the unmodified stock module, but do not identify
+which earlier operation queued the deleted subvolume or whether the underlying
+delay was storage latency, metadata-cache wait, or another dependency. This is
+strong evidence that the modified module is not necessary for this specific
+stall pattern; it does not settle whether it worsened earlier events. Keep the
+source of the queued deletion and the precise I/O wait cause open for diagnosis.

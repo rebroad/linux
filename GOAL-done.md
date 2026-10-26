@@ -5867,20 +5867,28 @@ controlled recovery step.
 
 ## Stock-module boot and live qgroup stall capture (2026-10-26)
 
-The user selected the explicit GRUB entry `Debian GNU/Linux (p8, stock Btrfs
-module, 7.2.9)`. The entry correctly loads
-`/boot/initrd.img-7.2.9+deb13-amd64-stock`; no GRUB change was needed. The
-embedded module is the genuine Debian in-tree module: its build ID
+The user reported selecting the explicit GRUB entry `Debian GNU/Linux (p8,
+stock Btrfs module, 7.2.9)` but not seeing the expected stock modules. The
+live Btrfs module at 18:11 on this boot is nevertheless the genuine Debian
+in-tree module: its build ID
 `c2d998d4752632e0f5cf36eaab134a3e73b18940` matches the live
 `/sys/module/btrfs` build ID and the exact installed-version Debian
 `linux-modules` package. Its compressed SHA-256 is
 `aa8a263c9c7cdc73f1119724f1d0ee4f2fe5098550d009c91d41ee66dec32e17`. The
 installed DKMS module instead has build ID
 `29eef0f63dbf1853b12c4714903b7f53be56015f` and the local signing key. The
-stock module exposes `drop_subtree_threshold` and
+stock initramfs contains the Debian Btrfs module and not the DKMS copy; the
+normal initramfs contains the DKMS copy and not the Debian Btrfs module.
+`/proc/cmdline` records the kernel path but not the selected initramfs, so the
+live build ID proves which Btrfs module is running but cannot independently
+prove which GRUB menu item was selected. The live evidence confirms that the
+current Btrfs implementation is stock, consistent with the user's reported
+selection; it does not establish the exact menu path from the boot command
+line.
+The stock module exposes `drop_subtree_threshold` and
 `btrfs_qgroup_trace_subtree_after_cow`; both are present in upstream `v7.2.9`,
 so they are not evidence of the custom module. The earlier conclusion that the
-stock selection had loaded the custom module was incorrect.
+current live module was custom was incorrect.
 
 During elevated load around 18:38-18:40 local time, load average reached
 `18.79, 16.52, 12.06` and I/O PSI `some`/`full` 10-second averages reached
@@ -5987,3 +5995,36 @@ The stock kernel exposes Btrfs transaction start/commit and qgroup accounting
 tracepoints, but `/sys/kernel/tracing` is mounted read-only in the current host
 session. They were inspected but not enabled. Enabling trace events therefore
 remains a controlled diagnostic step rather than a current host change.
+
+## Qgroup scan pause from internal inconsistency cancellation (2026-10-26)
+
+Review of the exact stock `v7.2.9` source found that
+`qgroup_mark_inconsistent()` sets `BTRFS_QGROUP_RUNTIME_FLAG_CANCEL_RESCAN`.
+The rescan worker checks this flag and logs `qgroup scan paused`; the runtime
+flag can be set again while the persistent inconsistent bit was already set,
+without another first-transition warning. Thus a pause message does not by
+itself imply an external cancel, remount, or unmount.
+
+A controlled QEMU run used the exact Debian stock 7.2.9 Btrfs module and the
+four-config Snapper layout. It set the upstream
+`drop_subtree_threshold` to zero for this test only, started a p8 rescan, then
+deleted a snapshot while the scan was running. Snapshot deletion emitted
+`qgroup marked inconsistent, subtree level reached threshold`; 14 ms later
+the worker emitted `qgroup scan paused`. No explicit cancel or remount was
+issued, the scan counter did not advance, and p8 finished explicitly marked
+inconsistent. This proves the internal inconsistency path can pause a scan on
+stock Btrfs. It does not prove that the host's default threshold of 3 was
+reached during the 19:01 or 19:02 pauses. The serial log and isolated initrd
+are retained in
+`/var/tmp/linux.build/qgroup-rescan-cancel-probe/`.
+
+Snapper source review found that `Btrfs::createSnapshot()` invokes
+`prepareQGroupTracking()` before the Btrfs snapshot-create ioctl. That helper
+starts or waits for a needed rescan, so the same call's post-wait inheritance
+fallback cannot itself precede and cancel that rescan. The timeline wrapper
+processes configs serially. On this boot, the scheduled cleanup timer had not
+run, and the legacy `/etc/cron.hourly/snapper.upstream` filename is excluded
+by Debian `run-parts`; neither explains a concurrent cleanup invocation.
+Production's pause source remains undetermined. A host-default-threshold QEMU
+deletion trace or a live capture of the exact qgroup-mark caller is still
+needed before changing cancellation behavior.

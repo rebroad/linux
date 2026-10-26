@@ -57,12 +57,17 @@ kernel change remains provisional until its host-scale latency and stall
 behavior are validated.
 QEMU workload, source, and scan-attribution evidence is in `GOAL-done.md`.
 
-The host is currently booted with Debian `7.2.9+deb13-amd64` and the stock
-Btrfs module, using the explicit stock initramfs entry. This was verified on
-2026-10-26 by matching the live module build ID to the Btrfs module in both the
-stock initramfs and the exact installed Debian `linux-modules` package; the
-DKMS module has a different build ID. The stock GRUB entry worked, so no GRUB
-change is needed. Some Btrfs qgroup symbols initially mistaken for custom are
+The host is currently booted with Debian `7.2.9+deb13-amd64`, and the live
+Btrfs module is the stock module. This was verified on 2026-10-26 by matching
+the live module build ID to the Btrfs module in the stock initramfs and the
+exact installed Debian `linux-modules` package; the DKMS module has a different
+build ID. The stock and normal initramfs contain different Btrfs modules, but
+the kernel command line does not record which initramfs GRUB selected. The
+user reports selecting the stock entry; this boot's live Btrfs module is
+indeed stock. The current build ID confirms the loaded Btrfs implementation,
+though not the precise GRUB item from the command line alone. Do not infer the
+loaded module from the DKMS file merely being present on disk. Some Btrfs qgroup
+symbols initially mistaken for custom are
 present in upstream `v7.2.9`. A high-load event during this stock boot captured
 the cleaner in qgroup subtree/backref reads and the transaction thread in
 delayed-reference backref reads; no qgroup rescan was active. This proves our
@@ -117,6 +122,23 @@ the service ran at best-effort I/O priority. This may have added pressure to
 that event, but it began after the separate 18:38 stall and cannot explain its
 onset. Assess the two episodes separately before changing trim scheduling or
 priority. Details are in `GOAL-done.md`.
+
+Source review and a controlled exact-stock 7.2.9 QEMU run have now proved one
+internal pause path: `qgroup_mark_inconsistent()` sets the cancel-rescan bit,
+and the worker reports `qgroup scan paused` when it sees that bit. With the
+test-only upstream threshold set to zero, snapshot deletion during a running
+rescan produced `subtree level reached threshold` followed 14 ms later by
+`qgroup scan paused`; no explicit cancel or remount was used. This proves the
+message can result from normal qgroup accounting, but not that the host's
+19:01/19:02 pauses reached its default threshold of 3. Snapper waits for a
+rescan before issuing that same snapshot's Btrfs create ioctl, and processes
+timeline configs serially; its snapshot inherit fallback alone therefore does
+not explain cancellation of that call's scan. The scheduled cleanup timer had
+not run this boot, and the legacy dotted cron script is excluded by `run-parts`.
+The 19:06 cleaner stack in the subtree path is suggestive of concurrent drop
+work, but the production cancel source is still unproven. Reproduce the host's
+default-threshold condition or capture the exact qgroup-mark caller before
+changing the kernel behavior. QEMU details are in `GOAL-done.md`.
 
 The source branch is now based on upstream `v7.2.9`. The external build tree
 has been reconfigured from `/boot/config-7.2.9+deb13-amd64`, and Kbuild reports
@@ -184,11 +206,12 @@ transaction waits, blocked writeback workers, discard latency, and long commits
 with live kernel stacks and commit-progress evidence. The 2026-10-26 SysRq-w
 capture on stock 7.2.9 found the cleaner in `wbt_wait()` while writing
 transaction metadata, with `fstrim` waiting for NVMe discard; no rescan was
-running. The stock worker reports “paused” for filesystem closing, remounting,
-quota disable, or its cancel flag; current logs do not identify which condition
-occurred. Establish the stop condition, whether storage requests make progress,
-and whether weekly trim or queued snapshot cleanup contributes before another
-production rescan or modified-module host trial. The 2026-10-20
+running. The worker also pauses when an in-kernel qgroup inconsistency sets its
+cancel flag; a stock QEMU reproducer confirmed the subtree-threshold path. The
+host logs do not show whether that path or filesystem lifecycle caused its
+pauses. Establish the production stop condition, whether storage requests make
+progress, and whether weekly trim or pre-existing snapshot drops contribute
+before another production rescan or modified-module host trial. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and

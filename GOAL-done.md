@@ -6211,3 +6211,32 @@ not identify why the GPU fences were delayed or explain the separate Btrfs
 stalls. The runtime SysRq mask was `438` before enabling the blocked-task
 diagnostic bit and `446` afterward, preserving its other bits. The filtered
 capture is `/var/tmp/sysrq-blocked-20261026-2220.log`.
+
+## Stock Btrfs writeback-throttle wait under NVMe load (2026-10-26 22:22)
+
+The focused trace captured `btrfs-transacti` in
+`rq_qos_wait()` -> `wbt_wait()` -> `__rq_qos_throttle()` while submitting
+transaction metadata from `btrfs_write_and_wait_transaction()`. That D-state
+wait lasted 262 ms and resumed around 22:22:40. A p8 transaction commit in the
+same interval completed in 714 ms. The trace reported successful 16 KiB
+metadata-write completions on the p8 NVMe at up to 446 ms, with no block
+errors. The wait stack is direct evidence of the block layer throttling Btrfs
+metadata writeback on stock 7.2.9; it does not identify the underlying source
+of device latency or prove that qgroup activity caused it. The 22:19 and 22:25
+`btrfs quota rescan --status` checks both reported no rescan in progress on
+either filesystem.
+
+The block trace matched issue/completion events by device and starting sector,
+not by request pointer; its latency count and issuer attribution can therefore
+collide when sectors are reused. Treat those request durations as supporting,
+not definitive, until repeated with a request-identity key. At 22:25 the p8
+NVMe queue's `wbt_lat_usec` was 2000. The checked 7.2.9 source sets a 2 ms
+default for non-rotational storage, and the searched local udev/systemd rules
+contained no override. A separate five-second block sample at 22:25 attributed
+about 267 MB of NVMe reads to the running game; `/proc/<pid>/io` showed about
+159 MB of physical reads for that process over another five-second sample.
+These reads may contribute to NVMe queue pressure but happened after the
+22:22 transaction wait. The kernel log contained no NVMe timeout or I/O-error
+message in the sampled period. Commit counters continued advancing from 478 at
+22:19 to 489 at 22:25; the last p8 commit at 22:25 was 529 ms. This confirms
+progress, not the source of the high latency.

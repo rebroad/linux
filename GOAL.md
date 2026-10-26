@@ -215,6 +215,17 @@ earlier Btrfs wait stacks or identify why the GPU fences were delayed. Keep
 this event distinct in the stall diagnosis. The blocked-task bit was restored
 in the runtime SysRq mask for future captures; details are in `GOAL-done.md`.
 
+The ongoing stock trace then captured a separate Btrfs transaction wait around
+22:22:40: `btrfs-transacti` slept in the block layer's `wbt_wait()` while
+submitting transaction metadata, for about 262 ms. The same interval included
+successful NVMe metadata-write completions reported at up to 446 ms and a
+714-ms p8 transaction commit. The 22:19 and 22:25 rescan-status checks both
+reported no scan in progress on either filesystem.
+The trace also sampled about 267 MB of game reads from the p8 NVMe in five
+seconds at 22:25, after the transaction wait; this could add device load but
+does not establish the cause of that earlier wait. See `GOAL-done.md` for the
+request-key limitation and kernel WBT default.
+
 ## Next steps
 
 **First priority: reach a clear, evidence-backed verdict on whether our

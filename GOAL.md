@@ -90,6 +90,20 @@ reboot, re-enable it before diagnosis. During the next occurrence, capture the
 SysRq `w` dump, relevant `/proc/*/stack` data, and transaction and rescan state.
 Full event details are in `GOAL-done.md`.
 
+A further stock-kernel event on 2026-10-26 overlapped the 19:00 Snapper timeline
+run. The p8 qgroup rescan paused twice and was no longer running by 19:06;
+accounting remained inconsistent. A live SysRq-w capture then found the stock
+`btrfs-cleaner` blocked by block-layer writeback throttling while writing
+transaction metadata, and `fstrim` blocked waiting for a synchronous discard on
+the same p8 NVMe filesystem. I/O PSI `full` was about 19% over 10 seconds and
+`fstrim` had been active for 18 minutes. This identifies the immediate wait
+sites, not why p8 writeback/discard took so long or whether either operation
+caused the earlier part of the event. The rescan is not the active blocker in
+this capture. Investigate discard/device latency and writeback progress before
+running another production rescan or testing the modified module. Also
+determine which stock-kernel stop condition paused the rescan; the log message
+does not identify it. Details are in `GOAL-done.md`.
+
 The source branch is now based on upstream `v7.2.9`. The external build tree
 has been reconfigured from `/boot/config-7.2.9+deb13-amd64`, and Kbuild reports
 the exact running release `7.2.9+deb13-amd64`. Any kernel or module comparison
@@ -152,8 +166,15 @@ values stale and recover later. If this works, make that policy optional and
 document the stale interval and recovery behavior. If it does not, state which
 requirements cannot be met together and quantify the least-cost trade-off; only
 then decide whether a confirmed defect warrants a fix. For stalls, investigate
-transaction waits, blocked writeback workers, and long commits with live kernel
-stacks and commit-progress evidence. The 2026-10-20
+transaction waits, blocked writeback workers, discard latency, and long commits
+with live kernel stacks and commit-progress evidence. The 2026-10-26 SysRq-w
+capture on stock 7.2.9 found the cleaner in `wbt_wait()` while writing
+transaction metadata, with `fstrim` waiting for NVMe discard; no rescan was
+running. The stock worker reports “paused” for filesystem closing, remounting,
+quota disable, or its cancel flag; current logs do not identify which condition
+occurred. Establish the stop condition, whether storage requests make progress,
+and whether weekly trim or queued snapshot cleanup contributes before another
+production rescan or modified-module host trial. The 2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and

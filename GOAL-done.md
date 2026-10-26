@@ -5905,3 +5905,42 @@ delay was storage latency, metadata-cache wait, or another dependency. This is
 strong evidence that the modified module is not necessary for this specific
 stall pattern; it does not settle whether it worsened earlier events. Keep the
 source of the queued deletion and the precise I/O wait cause open for diagnosis.
+
+## Stock p8 timeline, rescan pause, and writeback/discard stall (2026-10-26)
+
+At 19:00 local time, `snapper-timeline.service` ran until 19:03:10 and returned
+success. Its log records duplicate timeline targets for the p8 home and root
+configs. During this interval a p8 qgroup rescan was reported running; the
+kernel logged `qgroup scan paused` at 19:01:13 and 19:02:54. At 19:03:40 no
+rescan remained, while both production filesystems' qgroup inconsistency flags
+were still set. By 19:06, `btrfs quota rescan -s` reported no active scan on
+either filesystem.
+
+The weekly `fstrim.service` had started at 18:49:02 and was still activating at
+19:07, with its `fstrim` process blocked in `bio_await()` beneath
+`blkdev_issue_discard()` -> `btrfs_issue_discard()` -> `btrfs_trim_fs()` on
+`/dev/nvme0n1p5` (p8). At 19:06:44, SysRq-w captured the stock
+`btrfs-cleaner` in `rq_qos_wait()`/`wbt_wait()` while submitting metadata pages
+from `btrfs_write_and_wait_transaction()` during snapshot-drop cleanup. Its
+earlier sampled stack was waiting for an extent-buffer read in the delayed
+reference/backref path; stack variation shows it reached a different blocked
+stage, but does not prove the whole cleaner operation was making steady
+progress. The dump also showed a task waiting in USB runtime resume; its
+relationship to the filesystem stall is unknown.
+
+In stock `v7.2.9`, the worker emits `qgroup scan paused` when
+`rescan_should_stop()` sees filesystem closing, remounting, quotas disabled, or
+the rescan cancel flag. The journal around both pause timestamps records no
+explicit remount, quota-disable, or cancel action, and does not expose which
+condition became true. The stop condition therefore remains undetermined; the
+message alone is not evidence that a user or Snapper cancelled the scan.
+
+At 19:06 the I/O PSI `full` 10-second average was 20.45%; at 19:07 it was
+19.35%. The p8 `last_commit_ms` was 3.022 seconds and its historical maximum
+66.053 seconds; Kingston's was 76 ms and its maximum 16.961 seconds. These
+observations establish that the live waits were in block-layer writeback and
+synchronous discard, with no qgroup rescan worker active. The hourly snapshot
+run overlapped the event, and snapshot-drop cleanup was in the cleaner, but
+this evidence does not establish that the rescan, trim, or snapshot caused the
+device delay. The cause of the long discard and writeback waits remains open.
+No trim, scan, or snapshot operation was cancelled during capture.

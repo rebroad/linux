@@ -5927,14 +5927,15 @@ either filesystem.
 The weekly `fstrim.service` had started at 18:49:02 and was still activating at
 19:07, with its `fstrim` process blocked in `bio_await()` beneath
 `blkdev_issue_discard()` -> `btrfs_issue_discard()` -> `btrfs_trim_fs()` on
-`/dev/nvme0n1p5` (p8). At 19:06:44, SysRq-w captured the stock
-`btrfs-cleaner` in `rq_qos_wait()`/`wbt_wait()` while submitting metadata pages
-from `btrfs_write_and_wait_transaction()` during snapshot-drop cleanup. Its
-earlier sampled stack was waiting for an extent-buffer read in the delayed
-reference/backref path; stack variation shows it reached a different blocked
-stage, but does not prove the whole cleaner operation was making steady
-progress. The dump also showed a task waiting in USB runtime resume; its
-relationship to the filesystem stall is unknown.
+`/dev/nvme0n1p5` (p8). The retained 19:06:44 SysRq-w kernel dump shows the
+stock `btrfs-cleaner` blocked in `read_extent_buffer_pages()` under
+`btrfs_search_slot()` while snapshot-drop cleanup processed delayed references
+and backrefs. It also shows `fstrim` waiting for synchronous discard and a task
+waiting in USB runtime resume; the USB task's relationship to the filesystem
+stall is unknown. The kernel dump contains no `rq_qos_wait()`/`wbt_wait()`
+frames. An earlier note attributed a separate writeback-throttling stack to
+this time, but its raw stack output is not retained, so that phase remains
+unverified.
 
 In stock `v7.2.9`, the worker emits `qgroup scan paused` when
 `rescan_should_stop()` sees filesystem closing, remounting, quotas disabled, or
@@ -5946,11 +5947,12 @@ message alone is not evidence that a user or Snapper cancelled the scan.
 At 19:06 the I/O PSI `full` 10-second average was 20.45%; at 19:07 it was
 19.35%. The p8 `last_commit_ms` was 3.022 seconds and its historical maximum
 66.053 seconds; Kingston's was 76 ms and its maximum 16.961 seconds. These
-observations establish that the live waits were in block-layer writeback and
-synchronous discard, with no qgroup rescan worker active. The hourly snapshot
-run overlapped the event, and snapshot-drop cleanup was in the cleaner, but
-this evidence does not establish that the rescan, trim, or snapshot caused the
-device delay. The cause of the long discard and writeback waits remains open.
+observations establish that the retained live waits were in Btrfs metadata
+page reads and synchronous discard, with no qgroup rescan worker active. The
+hourly snapshot run overlapped the event, and snapshot-drop cleanup was in the
+cleaner, but this evidence does not establish that the rescan, trim, or snapshot
+caused the device delay. The cause of the long discard and metadata-read waits
+remains open.
 No trim, scan, or snapshot operation was cancelled during capture.
 
 The trim finished successfully at 19:08:05, reporting 214.6 GiB discarded on
@@ -5959,8 +5961,9 @@ cleaner was still blocked in `read_extent_buffer_pages()` under
 `btrfs_qgroup_trace_subtree()` -> `do_walk_down()` -> `btrfs_drop_snapshot()`.
 By 19:09:04 it was no longer listed as blocked; load average was
 `6.94, 9.10, 11.56` and I/O PSI `full` 10-second average had fallen to 6.35%.
-This records the cleaner progressing from a writeback-throttle wait to a
-qgroup subtree metadata-read wait, then clearing shortly after trim completed.
+This records the cleaner still waiting on qgroup subtree metadata reads after
+trim completed, then clearing shortly afterward. The retained kernel dump does
+not establish a preceding writeback-throttle phase.
 The timing is consistent with discard pressure contributing to the incident,
 but does not prove it caused the whole delay. Both production qgroup
 inconsistency flags remained set and neither filesystem had an active rescan.
@@ -6061,3 +6064,32 @@ install the wider accounting fast path. Keep the modified module off the
 host; continue tracing the remaining drop, transaction, and I/O paths. The
 source diff, matched build outputs, initrds, and serial logs are under
 `/var/tmp/builds/rebroad/src/linux.build/qgroup-early-exit-{pair,trace}-20261026/`.
+
+## Bulk cpto reads during host I/O pressure (2026-10-26)
+
+A read-only host capture at 20:59:50 found no active qgroup rescan, but I/O PSI
+`some`/`full` 10-second averages were 9.08%/8.12%. An existing `cpto -m` tree
+sync that had been running since around 20:25 repeatedly entered D state at
+`folio_wait_bit_common()` while reading Git pack files. At 20:59 it had
+accumulated about 218 GB of physical reads. At 21:07, the process was again in
+D state and had accumulated about 280 GB; a 10-second sample increased its
+physical reads by about 3.9 GB, with matching growth in the device's read-sector
+counter. By 21:08 its total reached about 298 GB. The source and destination
+were on the same Btrfs device, so this operation generated substantial
+same-device read/write activity.
+
+At 21:06 a Chromium task briefly appeared in D state at
+`read_extent_buffer_pages()`, but it had returned to `poll_schedule_timeout`
+before its stack could be read. The 21:07 SysRq-w dump contained only its
+header. During the capture both rescan commands reported no active scan; the
+two Btrfs commit counters advanced from 305/296 to 322/311, and device error
+counters remained zero. The cpto process was the only D-state task in the
+immediate 21:07 stack sample. These observations make the large same-device
+read a plausible contributor to contemporaneous I/O pressure, but do not prove
+that it caused the reported freeze or explain the separate Btrfs cleaner
+stalls. At 21:13 the same process remained active in D state at
+`folio_wait_bit_common()` with about 394 GB of physical reads. I/O PSI was
+`some` 8.33% and `full` 7.01% over 10 seconds; the two rescan checks still found
+no active scan, and this was the only D-state task in that sample. Keep the
+operation and storage progress in view during future captures; do not interrupt
+an in-progress cpto operation as part of diagnosis.

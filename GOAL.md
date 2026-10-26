@@ -103,10 +103,12 @@ a controlled diagnostic session. Full event details are in `GOAL-done.md`.
 
 A further stock-kernel event on 2026-10-26 overlapped the 19:00 Snapper timeline
 run. The p8 qgroup rescan paused twice and was no longer running by 19:06;
-accounting remained inconsistent. A live SysRq-w capture then found the stock
-`btrfs-cleaner` blocked by block-layer writeback throttling while writing
-transaction metadata, and `fstrim` blocked waiting for a synchronous discard on
-the same p8 NVMe filesystem. I/O PSI `full` was about 19% over 10 seconds and
+accounting remained inconsistent. The retained 19:06:44 SysRq-w kernel dump
+shows the stock `btrfs-cleaner` blocked in `read_extent_buffer_pages()` during
+snapshot-drop qgroup/backref work, while `fstrim` was blocked in `bio_await()`
+waiting for synchronous discard. The kernel dump does not show `wbt_wait()`;
+the earlier writeback-throttling attribution for this exact capture is
+unverified. I/O PSI `full` was about 20% over 10 seconds and
 `fstrim` had been active for 19 minutes. It completed at 19:08, reporting
 214.6 GiB trimmed on p8 and 508 GiB on Kingston. A later cleaner stack was in
 `btrfs_qgroup_trace_subtree()` waiting for an extent-buffer read; by 19:09 it
@@ -203,15 +205,31 @@ document the stale interval and recovery behavior. If it does not, state which
 requirements cannot be met together and quantify the least-cost trade-off; only
 then decide whether a confirmed defect warrants a fix. For stalls, investigate
 transaction waits, blocked writeback workers, discard latency, and long commits
-with live kernel stacks and commit-progress evidence. The 2026-10-26 SysRq-w
-capture on stock 7.2.9 found the cleaner in `wbt_wait()` while writing
-transaction metadata, with `fstrim` waiting for NVMe discard; no rescan was
-running. The worker also pauses when an in-kernel qgroup inconsistency sets its
-cancel flag; a stock QEMU reproducer confirmed the subtree-threshold path. The
-host logs do not show whether that path or filesystem lifecycle caused its
-pauses. Establish the production stop condition, whether storage requests make
-progress, and whether weekly trim or pre-existing snapshot drops contribute
-before another production rescan or modified-module host trial. The 2026-10-20
+with live kernel stacks and commit-progress evidence. The 19:06:44 stock 7.2.9
+SysRq-w dump shows the cleaner waiting on Btrfs metadata reads during snapshot-
+drop accounting while `fstrim` waited for synchronous discard; no rescan was
+running. A separate writeback-throttling attribution lacks a retained raw stack
+and remains unverified. The worker also pauses when an in-kernel qgroup
+inconsistency sets its cancel flag; a stock QEMU reproducer confirmed the
+subtree-threshold path. The host logs do not show whether that path or
+filesystem lifecycle caused its pauses. Establish the production stop
+condition, whether storage requests make progress, and whether weekly trim or
+pre-existing snapshot drops contribute before another production rescan or
+modified-module host trial. A read-only
+capture from 20:59-21:13 also found an active bulk `cpto` tree sync on the same
+Btrfs device as its temporary destination. The process repeatedly
+entered D state in `folio_wait_bit_common()` while reading Git pack files; its
+physical read count rose from about 218 GB to 298 GB, including about 3.9 GB
+in a 10-second sample. I/O PSI remained elevated, but qgroup rescans were
+inactive and both filesystems' transaction commit counters advanced. A
+Chromium task briefly appeared blocked in a Btrfs extent-buffer read, then
+cleared before its stack could be captured. The bulk read is a plausible
+contributor to contemporaneous device pressure, not proof that it caused the
+reported freeze or that the qgroup patch was involved. At 21:13 it remained in
+D state at the same page wait with about 394 GB of physical reads; both rescan
+checks still found no scan, and it was the only D-state task. Correlate such
+same-device workloads with future stalls before assigning causality. The
+2026-10-20
 captures found qgroup backref metadata reads during snapshot deletion and
 unrelated tasks waiting at transaction start. A host CPU profile now confirms
 the cleaner is spending substantial time in the unchanged qgroup subtree and

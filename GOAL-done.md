@@ -6178,3 +6178,21 @@ since boot of 66.053 s and 22.547 s. The maximum values have no per-event
 timestamps, so they cannot be attributed to the captured waits. The focused
 trace is `/var/tmp/btrfs-next-event-20261026-2200.log`; the scheduler trace is
 `/var/tmp/btrfs-dstate-next-timeline-v2.log`.
+
+## Check against current upstream qgroup inheritance (2026-10-26)
+
+Checked the current `torvalds/linux` master implementation after the 22:00
+host capture. Its `qgroup_snapshot_quick_inherit()` still requires the source
+to have exactly one parent, that parent to equal the new snapshot's requested
+parent, and the parent to own all its referenced bytes exclusively
+(`excl == rfer`). A different parent topology returns the conservative
+rescan-needed result. This is the same eligibility rule in the running stock
+7.2.9 source, so no later upstream change removing this fallback was found.
+The source is linked at
+[the upstream quick-inherit implementation](https://github.com/torvalds/linux/blob/master/fs/btrfs/qgroup.c#L3101-L3167).
+
+The 22:00 probe confirms our four snapshot calls reach that fallback. This
+establishes that the behavior remains present upstream, not whether its narrow
+eligibility is the correct accuracy/performance trade-off or should be
+expanded. The local fast-inherit change remains provisional pending its full
+correctness review and host-scale latency/stall validation.

@@ -201,6 +201,11 @@ stock snapshot fallback and separate stock stall paths; it does not establish
 that snapshot inheritance caused the stalls. Full stacks and limits are in
 `GOAL-done.md`. Continue correlating delayed-ref and snapshot-drop waits with
 per-device I/O and transaction progress before a modified-module host trial.
+The current upstream `torvalds/linux` qgroup implementation still has the
+same conservative source-parent eligibility rule as 7.2.9; no later upstream
+change removing this fallback was found. This confirms the behavior is still
+present upstream, but does not by itself decide whether the restriction is the
+right trade-off or an overly narrow limitation.
 
 ## Next steps
 

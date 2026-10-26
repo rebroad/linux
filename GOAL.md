@@ -70,9 +70,12 @@ custom module is not required to reproduce that particular stall pattern, but
 does not determine whether earlier stalls were worsened by it. The exact
 module and stack evidence is in `GOAL-done.md`.
 The redundant `snapper-boot.timer` has since been disabled and is inactive;
-the hourly `snapper-timeline.timer` remains enabled and active. The next clean
-host observation must therefore begin after a completed rescan and use the
-hourly path only.
+the hourly `snapper-timeline.timer` remains enabled and active. The 19:00
+rescan paused instead of completing, and both filesystems remained marked
+inconsistent. No completed-rescan baseline is available; absence of an active
+worker must not be treated as recovery. Avoid starting another production scan
+while I/O pressure is elevated. Use read-only captures until the host is quiet,
+then decide whether a controlled rescan is needed and record its stop reason.
 
 The user subsequently reported another roughly eight-minute system hang while
 this stock 7.2.9 setup was running. Psensor's saved sensor history has a
@@ -105,7 +108,12 @@ prove trim caused the full stall. The rescan is not the active blocker in this
 capture. Investigate discard/device latency and qgroup subtree read progress
 before running another production rescan or testing the modified module. Also
 determine which stock-kernel stop condition paused the rescan; the log message
-does not identify it. Details are in `GOAL-done.md`.
+does not identify it. Debian's weekly `fstrim.timer` has a randomized delay up
+to 100 minutes and one-hour accuracy, so it overlapped the 19:00 Snapper run;
+the service ran at best-effort I/O priority. This may have added pressure to
+that event, but it began after the separate 18:38 stall and cannot explain its
+onset. Assess the two episodes separately before changing trim scheduling or
+priority. Details are in `GOAL-done.md`.
 
 The source branch is now based on upstream `v7.2.9`. The external build tree
 has been reconfigured from `/boot/config-7.2.9+deb13-amd64`, and Kbuild reports

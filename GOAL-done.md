@@ -5956,3 +5956,14 @@ qgroup subtree metadata-read wait, then clearing shortly after trim completed.
 The timing is consistent with discard pressure contributing to the incident,
 but does not prove it caused the whole delay. Both production qgroup
 inconsistency flags remained set and neither filesystem had an active rescan.
+
+The effective `fstrim.timer` configuration is `OnCalendar=weekly`,
+`RandomizedDelaySec=100min`, `AccuracySec=1h`, and `Persistent=yes`. It triggered
+at 18:48:40, and the one-shot service began at 18:49:02, eleven minutes before
+the hourly Snapper timeline. `fstrim.service` used best-effort I/O scheduling
+class 2, priority 4, with no configured `IOWeight`; it trimmed all listed
+filesystems in one run. This timer policy permits trim to overlap hourly
+snapshot work. Since it started after the separate 18:38 stock qgroup-cleanup
+stall, it cannot explain that earlier stall's onset. It may have increased
+pressure during the 19:00 event, but no controlled comparison establishes how
+much. No trim scheduling or priority setting was changed.

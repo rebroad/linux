@@ -6353,3 +6353,51 @@ checkout.
 - QEMU exited normally (status 0). Artifacts are under
   `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-stock-20261027/`;
   serial-log SHA-256: `f3bdd7e70ee486bac40ef5100b6d4f0972bff9b4093e541b800cf0ce4b2ba0ac`.
+
+## Current-source quick-inherit comparison in QEMU (2026-10-27)
+
+- Rebuilt the current checkout's Btrfs module against the installed Debian
+  `7.2.9+deb13-amd64` headers. The module Build ID is
+  `3469c7f84bd613e66a464afc0f771c627a2b00e3`; its Btrfs source tree is
+  `703750fb7ffdfafc4e5f270f3cfd178269b33ec2`. No module was installed on the
+  host. The QEMU guest used the Debian 7.2.9 image, Snapper 0.13.2,
+  libsnapper 8.2.0, and the same four-config workload.
+- With `shared_parent_quick_inherit=0` on both test filesystems, the current
+  module reproduced the fallback behavior: four inheritance warnings, two
+  automatic scans on later root snapshot calls, and qgroup tables that differed
+  from the completed full-rescan tables. This confirms the toggle-off path
+  remains a useful within-build baseline.
+- With the feature enabled, a root-then-home run and a home-then-root run each
+  made two snapshots in every required config. Neither run logged an
+  inconsistency warning or an automatic scan during snapshot creation. The
+  four qgroup counters matched completed full-rescan output on both filesystems
+  before deletion. Timeline cleanup and manual deletion at the default
+  `drop_subtree_threshold` kept both filesystems consistent; the final
+  counter-verification pass matched the full-rescan results. This is direct
+  evidence for accurate counters on this four-group topology and workload,
+  including both config orders.
+- The feature-on snapshot calls took 260-560 ms in the root-then-home run and
+  260-560 ms in the home-then-root run. These are single QEMU-TCG observations,
+  not a distribution or host-scale latency comparison. The two explicit
+  full-rescan verification rounds are separate from the snapshot path.
+- A separate test-only build enabled Btrfs sanity tests. Its serial output
+  shows the qgroup add/remove, removal-fallback, shared-parent quick-inherit,
+  fallback-topology, and counter-overflow test groups ran; the guest then
+  completed the four-config workload and powered
+  down normally. That workload deliberately set the deletion threshold to 1,
+  so its resulting deletion inconsistency is not evidence about the default
+  threshold behavior.
+- Artifacts are under
+  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/`.
+  Serial-log SHA-256 values: feature off
+  `5426340a1df8c912bceb51387475a72109bb09d323de038e4201c0a082674e28`,
+  feature on/root-home
+  `46b2b90728a072b87acb2f78e573ac172ff8b0ced2d076007c0b723cd61f78e1`,
+  feature on/home-root
+  `a179d1e23ca03a13ae065c77d73643cf39636173034dc48cc01cc8552efdff8d`, and
+  sanity-test build
+  `5a9523a351086297c9d39f4cb8820ed8d5e12aee1a23c5c349b100895b0d04f3`.
+- This evidence supports the quick-inherit approach for the tested topology;
+  it does not establish that the modification is safe on host-scale workloads,
+  explain the previously observed multi-minute stalls, or justify installing
+  the custom module on the host.

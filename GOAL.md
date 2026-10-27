@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 82%
+## First priority: diagnose the stalls and establish the accounting trade-off — 84%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -23,20 +23,27 @@ path or dependency.
    writers and distinguish snapshot/drop work, discard, metadata I/O, and
    unrelated device or GPU waits. Correlate only evidence from the same event;
    do not infer that a rescan caused a stall merely because they overlap.
-   The capped 2026-10-27 stock-host capture observed two p8 scan workers
-   during the 17:00 Snapper timeline run. One started within a second of the
-   service, but its initiating caller was not captured. While it ran,
-   `btrfs_run_qgroups()` repeatedly failed qgroup info/limit item updates and
-   the worker stopped. A second scan began immediately after Snapper passed
-   source `0/262` and requested parent `1/100`; this strongly matches stock's
-   conservative parent-mismatch full-rescan fallback. No Kingston worker was
-   observed. The host trace did not capture the first failures' errno or
-   affected qgroup IDs, so it does not yet prove the known qgroup-teardown
-   defect caused them. Review [`GOAL-done.md`](GOAL-done.md) for the event
-   record. Next capture the first scan's caller and error arguments, then
-   reproduce the ordinary cleanup/deletion sequence in QEMU with stock and
-   the teardown fix. Keep latency/stall attribution open: this run showed
-   brief rescan/discard waits, not a prolonged host stall.
+   The 17:00 host capture first observed two p8 workers but missed the first
+   caller. A follow-up at 20:00 captured Snapper explicitly entering the
+   rescan ioctl. During that first worker, `btrfs_run_qgroups()` saw eight
+   qgroup info/limit update failures with `-ENOENT`; source confirms those
+   functions return that error when the corresponding on-disk qgroup key is
+   absent. The trace did not identify the qgroup IDs or the operation that
+   removed/omitted those keys. A second Snapper rescan followed inheritance
+   from source `0/262` to requested parent `1/100`; no Kingston worker was
+   seen. Snapper source calls the rescan policy from
+   `Btrfs::prepareQGroupTracking()` before snapshot creation, but this capture
+   did not record the user-space call site. Review [`GOAL-done.md`](GOAL-done.md).
+   A targeted 21:00 trace is armed to record failing qgroup IDs and qgroup
+   removals. Keep the ordinary-deletion cause and stall attribution open;
+   these host captures show transient waits, not a prolonged stall.
+   A stock 7.2.9 QEMU run with 32,768 metadata files per source, 28 snapshots
+   per config, and the default deletion threshold 3 reproduced stale counters
+   after snapshot inheritance but no qgroup info/limit update errors during
+   cleanup or deletion. Root snapshot drops took 161 s on p8 and 122 s on
+   Kingston under TCG. The corresponding 131,072-file default-threshold run
+   exceeded its one-hour bound during queued drops; it also logged no such
+   update errors before stopping. These are not host-latency measurements.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

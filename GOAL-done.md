@@ -6861,3 +6861,77 @@ flags supplied the inconsistency state.
   bases, the qgroup-mark errno argument, and group-readable output. The full
   event review is in the external build-tree note
   `qgroup-snapper-current-20261027/diagnostics/2026-10-27-1700/preliminary-review.md`.
+
+## Stock deletion at the normal qgroup threshold in QEMU (2026-10-27)
+
+- A fresh Debian 7.2.9 stock-module guest used the four-group layout, 32,768
+  metadata files in each of four live sources, 28 snapshots per config, and
+  the module's default `drop_subtree_threshold=3`. The guest completed with
+  status 0. Its qgroup counters differed from the completed full-rescan
+  tables after snapshot inheritance, as expected for the stock fallback.
+- Timeline cleanup plus synchronous deletion took 161.3 s for p8 root,
+  122.0 s for Kingston root, and about 1.4–2.0 s for each home config. The
+  cleanup commands themselves returned in 0.4–0.8 s; deletion had to drain
+  queued snapshot drops. During this work, SysRq samples caught
+  `btrfs-transacti` in `wait_current_trans()` from `transaction_kthread()`,
+  while commit counters continued advancing and their maximum commit was
+  5.2 s. This is a QEMU/TCG workload result, not a host latency measurement.
+- With threshold 3, neither cleanup nor deletion emitted a qgroup info-item
+  or limit-item update error, and both inconsistency flags remained clear
+  through deletion and the explicit recovery scans. Thus the earlier
+  threshold-1 `-ENOENT` QEMU reproduction does not establish that ordinary
+  deletion on the host caused the 17:00 errors.
+- A separate stock 7.2.9 run cloned from the 131,072-file-per-source fixture
+  created another 217 snapshots at threshold 3. Its full-rescan checks took
+  about 184 s on p8 and 180 s on Kingston. The one-hour harness bound expired
+  while snapshot drops were still queued; no qgroup info/limit update error
+  had appeared before timeout, and the test did not reach its final recovery
+  phase. SysRq samples showed `btrfs-cleaner` waiting in
+  `btrfs_drop_snapshot()` / `btrfs_qgroup_cleanup_dropped_subvolume()` and
+  `btrfs-transacti` in commit waits; sampled maximum commit time reached
+  134.5 s on p8 and 111.8 s on Kingston. Treat this as an incomplete
+  high-load TCG reproduction, not proof of host stall causality.
+- The completed 32K fixture is in
+  `qgroup-snapper-current-20261027/runs/stock-32k-28snap-threshold3-20261027/`.
+  The incomplete 131K fixture is in
+  `qgroup-snapper-current-20261027/runs/stock-131k-default-threshold-20261027/`.
+
+## Stock-host capture of the 20:00 timeline run (2026-10-27)
+
+- The three-minute capture ran immediately before and through the hourly
+  Snapper timeline service on stock Debian Btrfs `7.2.9+deb13-amd64`. The
+  service began at 20:00:01. Both filesystems were already inconsistent at
+  capture start.
+- At 20:00:02, a `snapper` process entered `btrfs_qgroup_rescan()` through the
+  Btrfs ioctl path. A p8 worker began about 0.2 seconds later and ran for
+  30.9 seconds. This proves Snapper explicitly requested the scan; it does
+  not identify the user-space Snapper call site. The local Snapper source
+  invokes its rescan policy from `Btrfs::prepareQGroupTracking()` before
+  creating a snapshot, which is a plausible caller for this timeline event.
+- Near the worker's end, `btrfs-transacti` emitted eight alternating qgroup
+  info-item and limit-item update errors, all `-ENOENT`, from
+  `btrfs_run_qgroups()` during transaction commit. The source update routines
+  translate a positive `btrfs_search_slot()` result into `-ENOENT`, meaning
+  the in-memory qgroup being persisted had no matching on-disk info or limit
+  key. The trace did not capture that qgroup ID or when/how its key became
+  absent. This is consistent with the known stale in-memory qgroup teardown
+  failure, but does not prove it caused this host event.
+- Immediately after the first worker ended, Snapper inherited source `0/262`
+  into destination `7106` with requested parent `1/100`; another Snapper
+  process entered the rescan ioctl about 0.05 seconds later. Its p8 worker
+  ran 31.1 seconds. After it ended, Snapper inherited source `0/263` into
+  destination `7107` with parent `1/101`, then made the Kingston inheritance
+  calls. No Kingston rescan worker appeared. The sequence fits a second
+  Snapper attempt to recover accounting after snapshot inheritance, but the
+  first capture did not include the user stack needed to establish the exact
+  call site.
+- At capture end both filesystems remained inconsistent and no scan was
+  active. Samples caught a transient `psensor` wait in `wait_current_trans`,
+  plus discard and rescan waits, but no prolonged system-wide stall. Do not
+  attribute the reported multi-minute hangs to these scans from this event.
+- A targeted trace is armed for 20:59:45 before the next timeline run. It
+  adds the qgroup ID and result for each `update_qgroup_limit_item()` call
+  (the info and limit updates operate on the same dirty qgroup), and captures
+  `btrfs_remove_qgroup()` IDs/stacks plus dropped-subvolume cleanup events.
+  Its purpose is to determine whether the missing qgroup keys correspond to
+  recently removed qgroups.

@@ -21,7 +21,10 @@ path or dependency.
    events. Identify transaction writers and distinguish snapshot/drop work,
    discard, metadata I/O, and unrelated device or GPU waits. Correlate only
    evidence from the same event; do not infer that a rescan caused a stall
-   merely because they overlap.
+   merely because they overlap. Reproduce Snapper-triggered scans on demand in
+   QEMU; do not wait for the host's hourly timer to make controlled-test
+   progress. Host captures remain necessary for host-specific stalls and scan
+   stop causes.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs, including distributions and worst

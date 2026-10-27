@@ -6289,3 +6289,33 @@ four inheritance marks prove snapshots made accounting stale, not that a full
 scan started. Raw trace data remains at
 `/var/tmp/btrfs-stall-followup-20261026-2300.log`; it is not part of the source
 checkout.
+
+## On-demand Snapper rescan trigger in QEMU (2026-10-27)
+
+- Used the exact Debian 7.2.9 kernel image and the four-config QEMU fixture
+  with Snapper 0.13.2/libsnapper 8.2.0. The guest ran the shared-parent quick
+  inherit feature disabled (`shared_parent_quick_inherit=0`) and had no active
+  hold marker; its configured rescan window was open and its daily limit was
+  disabled. The loaded module was the test baseline build
+  `017d3164b6db23928a16455ab915592b467b6810`, not the Debian stock module.
+- Created two snapshots in each of p8-root, p8-home, Kingston-root, and
+  Kingston-home on demand, without waiting for a timer. After the first p8 and
+  Kingston root snapshots, the guest had recorded two inconsistency warnings
+  and zero completed scans. During the next root snapshot calls, the completed
+  scan count advanced to one on p8 and two on Kingston; the end-to-end calls
+  took 750 ms and 760 ms respectively. This reproduces Snapper's internal
+  rescan-before-a-later-snapshot path in the stock-like fallback mode.
+- The subsequent full-rescan checks changed qgroup tables from their stale
+  pre-scan values, as expected for the fallback path, and cleared the
+  inconsistent status before deletion. The fixture's fast-path
+  pre/post-table-equality check therefore reported a mismatch; this run was
+  not a counter-preservation pass. It completed cleanup, deletion, and final
+  rescans, and QEMU exited with status 0. No host-stall or systemd-timer
+  behavior was measured.
+- This controlled run shows that we can trigger and inspect Snapper's scan
+  path in QEMU on demand. It removes the host's hourly timer as a prerequisite
+  for this investigation; live host tracing remains necessary only for
+  host-specific scan stop causes and stalls. Artifacts are under
+  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-trigger-20261027/`;
+  the serial log SHA-256 is
+  `b5b67ad984597dc45a7996f99d467985d145b35acb6c6cc7064c306d7b323b8e`.

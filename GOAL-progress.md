@@ -7,7 +7,7 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
 
 | Item in `GOAL.md` | Progress | Evidence completed | Main open gates |
 | --- | ---: | --- | --- |
-| First priority: diagnose stalls and establish the accounting trade-off | **50%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. A read-only live trace is now capturing qgroup inconsistency reasons/stacks, rescan ioctl callers, inheritance calls, and worker entry/return through the next hourly run. | Attribute the 10:00 scan pause and capture the next scan start/stop with stacks and triggering actor; determine whether pausing comes from Snapper, quota state, or another caller. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. |
+| First priority: diagnose stalls and establish the accounting trade-off | **55%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. An on-demand QEMU run with Snapper 0.13.2 and the 7.2.9 fallback accounting path reproduced automatic scans during later snapshot calls with the hold absent; it recorded two completed scans across the p8/Kingston root configs without waiting for the host timer. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. The 10:11 live probe produced no events and is no longer running. | Reproduce and explain the host's 10:00 scan pause condition; capture callers/stacks during a naturally occurring host event. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. Controlled QEMU testing does not depend on a host timer. |
 | Four-collective accounting and recovery | **70%** | QEMU workloads compare the four exclusive-space collectives to full-rescan tables and cover snapshots, deletion, cleanup, stale values, and recovery. | Complete independent p8 accounting, safe host cleanup/rollback checks, and repeated live snapshot/deletion validation before restoring quota-based cleanup. |
 | Locally built Snapper | **85%** | Latest-upstream local build is installed; package pinning, retained configs, timeline wiring, and read-only operation have been checked. | Complete stale-quota and cleanup behavior, rollback/runtime checks, and an upgrade to a subsequent local build. |
 | Conditional kernel-change durability | **65%** | Signed DKMS/preflight sources cover installed 7.2.6 and 7.2.9 releases; exact-release module/Secure Boot QEMU paths and much of the APT preflight behavior have been exercised. | Decide whether a kernel change is needed. If selected, finish exact 7.2.9 comparison, real disposable APT kernel-transaction and failure/rollback coverage, and support for every installed and next kernel. |
@@ -60,9 +60,11 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
   Btrfs/Snapper tasks. The host remains on the stock 7.2.9 module. The 10:00
   timeline service ran from 10:00:03 to 10:01:06; its journal contains only
   duplicate-target notices plus two p8 `qgroup scan paused` messages. The
-  exact rescan caller and stop reason were not logged. A short-lived
-  system-wide probe trace is running from `/var/tmp` to catch the next event;
-  it records `qgroup_mark_inconsistent()` reasons/stacks, rescan ioctl callers,
-  qgroup inheritance, and rescan worker entry/return.
+  exact rescan caller and stop reason were not logged. The short-lived
+  system-wide probe trace started at 10:11 but produced only its attachment
+  line and is no longer running. An on-demand QEMU run has since exercised the
+  same Snapper snapshot path without the hold file; see `GOAL-done.md`. Keep a
+  host trace as supplemental evidence for host-specific pause/stall causes,
+  not as a prerequisite for controlled QEMU work.
 
 Detailed captures, test limits, and completed work belong in `GOAL-done.md`.

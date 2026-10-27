@@ -107,10 +107,13 @@ Current runtime and diagnostic facts that affect these open gates:
   yet explains the reported multi-minute stalls.
 - Exact-release QEMU tests show stock and custom feature-off reproduce
   inconsistency/rescans; quick-inherit feature-on kept counters accurate in
-  both tested snapshot orders. A retained custom feature-on run also kept all
-  four counters accurate through 217 snapshots, with no scan during snapshot
-  creation; threshold-1 deletion then made both filesystems stale. A matched
-  stock high-count comparison and host-scale latency evidence remain open.
+  both tested snapshot orders. A matched 217-snapshot QEMU pair at 32,768
+  metadata files per source shows custom quick-inherit kept counters accurate
+  through snapshot creation while stock counters changed after full rescans;
+  threshold-1 deletion made both filesystems stale. The custom snapshot-cycle
+  median was 1,310 ms versus 340 ms for stock. A corrected comparison using
+  131,072 metadata files per source is underway; host-scale latency evidence
+  remains open.
 - Snapper's local-time hold/window behavior is installed and simulated. The
   remaining controlled test must show stale values before suspend and explicit
   hold deferral through resume catch-up.

@@ -5435,18 +5435,20 @@ specified in `GOAL.md`.
   smaller tree, TCG execution, and cleanup-time stale transition leave
   production suitability unproven. Its artifacts are in
   `host-counts-threshold-1/` under the same external build directory.
-- The decisive threshold-1 run combined the same 217 snapshot counts with
-  131,072 metadata files per source and 4 KiB nodes (all four roots level 3).
-  All 217 snapshot cycles remained consistent and both complete qgroup tables
-  matched their full-rescan results; the scans took 75.73 s and 81.65 s.
+- The decisive threshold-1 run combined the same 217 snapshot counts with a
+  workload recorded as 131,072 metadata files per source and 4 KiB nodes (all
+  four roots level 3). All 217 snapshot cycles remained consistent and both
+  complete qgroup tables matched their full-rescan results; the scans took
+  75.73 s and 81.65 s.
   Timeline cleanup finished with both filesystems still consistent. The four
   final synchronous deletes then marked both filesystems inconsistent and
   completed in 15.46 s, 1.46 s, 6.45 s, and 1.31 s. No automatic scan ran
   during cleanup or deletion; the later explicit rescans restored the status.
-  This is the strongest controlled evidence that accurate stats for routine
-  snapshots and a deletion-triggered stale state can coexist at the current
-  snapshot population. It remains a TCG guest result and does not establish
-  host NVMe latency or make threshold 1 a production recommendation. The
+  The source-file count cannot be verified because the raw image, init script,
+  and log are missing; see the metadata-count verification caveat below. This
+  is a TCG guest observation, not verified evidence at 131,072 files per
+  source, and does not establish host NVMe latency or make threshold 1 a
+  production recommendation. The
   log and images are in `host-counts-131k-threshold-1/` under the same external
   build directory.
 - `drop_subtree_threshold` is already an upstream Btrfs sysfs control in the
@@ -5471,6 +5473,16 @@ specified in `GOAL.md`.
   of median end-to-end cycle time in this harness, while satisfying the
   independent counter check that stock fails. The stock log and images are in
   `host-counts-stock-32k/` under the same external build directory.
+
+**Metadata-count verification caveat (2026-10-27):** the raw artifacts for the
+older 2026-10-20 131,072-files-per-source run are no longer available. A later
+2026-10-27 run that printed `metadata_files_per_source=131072` was inspected
+against its init script and actually created 32,768 files per source (512
+directories x 64 files). Its serial log and run directory have been relabeled
+accordingly. Because the older generator and logs are missing, its claimed
+131,072 count is unverified; do not use that historical count or its timings
+as verified 131,072-file evidence. The corrected 131,072-file run is being
+repeated with the generated count explicitly printed and checked.
 
 ## Stock-host blocked-task evidence (2026-10-20)
 
@@ -6478,30 +6490,48 @@ checkout.
   those behaviors; whether it worsened a particular earlier stall remains
   unproven.
 
-## High-count custom quick-inherit QEMU run (2026-10-27)
+## Metadata-count verification caveat (2026-10-27)
 
-- Ran current custom Btrfs on the exact Debian 7.2.9 image with the four-config
-  workload, 217 snapshots (p8-root 79, p8-home 28, Kingston-root 82,
-  Kingston-home 28), 131,072 metadata files per source, home-first ordering,
-  quick-inherit enabled, and the test-only deletion threshold set to 1. The
-  guest used 4 GiB RAM and two TCG vCPUs; this is a controlled comparison, not
-  host-scale hardware evidence.
-- All 217 snapshot cycles completed without a rescan: 240-4,250 ms, median
-  1,310 ms. Both filesystems' counters matched a completed full rescan after
-  the snapshot phase; scan durations were 107.03 s for p8 and 85.86 s for
-  Kingston. The check passed.
-- Four-config timeline cleanup completed in 1.92 s, 0.60 s, 1.50 s, and
-  0.62 s. Subsequent threshold-1 deletion made both filesystems inconsistent;
-  the p8 root deletion took 18.41 s, and the other three deletions took
-  1.39 s, 2.37 s, and 1.38 s. Explicit recovery rescans then completed. This
-  supports accurate accounting during snapshot growth in this QEMU workload
-  but shows the expected stale-accounting and long-rescan cost after deletion.
-- Result status was 0 and the guest reached `HOST-TOPOLOGY: COMPLETE`. The
-  serial-log SHA-256 is
+- The older 2026-10-20 QEMU artifacts are no longer present at their recorded
+  build path. A 2026-10-27 run printed
+  `metadata_files_per_source=131072`, but its init script created 512
+  directories with 64 files each: 32,768 files per source. The run directories
+  have been renamed to say `32k`.
+- The older generator and logs are missing, so its 131,072-file count cannot
+  be independently verified. Do not treat that recorded count as confirmed.
+  A corrected run must retain the generator and raw serial log, and confirm
+  the count emitted by the file-creation loop.
+
+## Matched 217-snapshot QEMU comparison at 32,768 files per source (2026-10-27)
+
+- Both runs used the exact Debian 7.2.9 kernel image, 4 GiB RAM, two TCG vCPUs,
+  Snapper 0.13.2/libsnapper 8.2.0, 217 snapshots (p8-root 79, p8-home 28,
+  Kingston-root 82, Kingston-home 28), home-first order, and a test-only
+  `drop_subtree_threshold=1`. The guest init script created 32,768 metadata
+  files in each source subvolume. This matches snapshot counts but is not
+  host-scale storage evidence.
+- Custom quick-inherit run: loaded build ID
+  `3469c7f84bd613e66a464afc0f771c627a2b00e3`; all 217 snapshot cycles finished
+  without scans or warnings, and both qgroup tables matched completed full
+  rescans. Cycle times were 240-4,250 ms (median 1,310 ms, p95 3,390 ms).
+  The scans took 107.03 s for p8 and 85.86 s for Kingston. Cleanup took 1.92,
+  0.60, 1.50, and 0.62 s. Threshold-1 deletion made both filesystems
+  inconsistent; deletes took 18.41, 1.39, 2.37, and 1.38 s. Explicit recovery
+  scans then completed. Result status was 0; log SHA-256:
   `43839065cc17d94cd84e53980b88ada1f2c6ce58a41ed60a68617802ec73ef1b`.
-  Artifacts are under
-  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-home-first-131k-threshold1/`.
-- This custom-only high-count run is not a matched stock comparison and its
-  TCG timings are not a host-latency verdict. Compare the same workload against
-  stock Btrfs and retain both logs before drawing a relative-performance
-  conclusion.
+- Matched stock run: loaded stock build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`; snapshot cycles were 210-3,490
+  ms (median 340 ms, p95 420 ms). Both filesystems were inconsistent after the
+  snapshot phase, and their qgroup tables changed after full rescans. Four
+  inconsistency warnings were logged by the snapshot phase. Cleanup took
+  1.38, 0.65, 1.44, and 0.58 s. Deletion again made both filesystems
+  inconsistent; deletes took 13.36, 1.35, 10.40, and 1.29 s. Explicit scans
+  completed afterward. Result status was 0 and the guest reached
+  `HOST-TOPOLOGY: COMPLETE`; log SHA-256:
+  `fe80156f86269cc1494aba68e3cef53285e0ad4b6e0b8dd9fa53f93f6ade6ddb`.
+- In this TCG sample, quick-inherit preserved counters through snapshot
+  creation at a median cycle cost 970 ms higher than stock. The counters and
+  timing trade-off were observed in QEMU only; this does not explain the host
+  stalls or establish latency on host storage. Raw logs and guest images are
+  under `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-home-first-32k-threshold1/`
+  and `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-stock-home-first-32k-threshold1/`.

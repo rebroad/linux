@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 80%
+## First priority: diagnose the stalls and establish the accounting trade-off — 82%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -23,17 +23,20 @@ path or dependency.
    writers and distinguish snapshot/drop work, discard, metadata I/O, and
    unrelated device or GPU waits. Correlate only evidence from the same event;
    do not infer that a rescan caused a stall merely because they overlap.
-   A 2026-10-27 stock-host capture identified the Snapper snapshot-creation
-   path that marked qgroups inconsistent in the same trace window as a scan
-   pause, but could not prove their exact ordering. The run also flooded
-   journald and overflowed BPF maps. Its latency samples are unusable; use a
-   strictly capped, low-volume capture. One is armed for 16:59:45 CET, ahead
-   of the 17:00 timeline run; it records qgroup-inherit counts and parent IDs
-   as well as scan and host-state samples. Review its output before drawing
-   conclusions.
-   Current qgroup trees show each live subvolume and snapshot collective as
-   separate siblings under a tracker; the capture must confirm which parent
-   IDs Snapper actually passes.
+   The capped 2026-10-27 stock-host capture observed two p8 scan workers
+   during the 17:00 Snapper timeline run. One started within a second of the
+   service, but its initiating caller was not captured. While it ran,
+   `btrfs_run_qgroups()` repeatedly failed qgroup info/limit item updates and
+   the worker stopped. A second scan began immediately after Snapper passed
+   source `0/262` and requested parent `1/100`; this strongly matches stock's
+   conservative parent-mismatch full-rescan fallback. No Kingston worker was
+   observed. The host trace did not capture the first failures' errno or
+   affected qgroup IDs, so it does not yet prove the known qgroup-teardown
+   defect caused them. Review [`GOAL-done.md`](GOAL-done.md) for the event
+   record. Next capture the first scan's caller and error arguments, then
+   reproduce the ordinary cleanup/deletion sequence in QEMU with stock and
+   the teardown fix. Keep latency/stall attribution open: this run showed
+   brief rescan/discard waits, not a prolonged host stall.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

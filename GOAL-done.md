@@ -6814,3 +6814,50 @@ flags supplied the inconsistency state.
   will verify the actual inherit IDs passed by Snapper.
 - Both filesystems still reported no active rescan at 16:32:51, after the
   hierarchy queries.
+
+## Capped stock-host capture of the 17:00 timeline run (2026-10-27 CET)
+
+- The capture ran 16:59:45–17:02:51 with the stock Debian Btrfs module for
+  `7.2.9+deb13-amd64`. Both p8 and Kingston were already inconsistent at
+  capture start.
+- `snapper-timeline.service` started at 17:00:00. A p8 rescan worker appeared
+  about one second later; its initiating caller was not captured. It ran
+  32.4 seconds. During that pass, `btrfs-transacti` entered
+  `qgroup_mark_inconsistent()` eight times for alternating qgroup info-item
+  and limit-item update errors. Stacks point to `btrfs_run_qgroups()` during
+  `commit_cowonly_roots()` in `transaction_kthread()`. The captured trace did
+  not include the errno argument or qgroup IDs. The worker ended and the
+  kernel logged `qgroup scan paused` at 17:00:33.
+- Immediately after that worker ended, Snapper called
+  `btrfs_qgroup_inherit()` for p8 source `0/262`, destination root `7100`,
+  requesting parent `1/100`. A second p8 worker began about 1.2 seconds later,
+  ran 29.8 seconds, then ended with another `qgroup scan paused` at 17:01:04.
+  The source/requested-parent mismatch strongly matches stock's conservative
+  inheritance fallback and is the likely trigger for this second scan. Three
+  more Snapper inherit calls followed (`0/263` -> `1/101`, Kingston `0/257` ->
+  `1/101`, and Kingston `0/256` -> `1/100`); no further scan worker appeared.
+- No Kingston rescan worker was observed. Both filesystems remained marked
+  inconsistent at capture end. Later read-only status checks found no scan
+  active on either filesystem.
+- Exact-source QEMU work has reproduced a qgroup teardown defect that can
+  leave an in-memory qgroup after its disk item was removed, later causing a
+  missing-item error. A separate stock QEMU fixture with test-only deletion
+  threshold 1 logged `qgroup info item update error -2` during a recovery scan
+  after deletion. Those results are consistent with the host error formats,
+  but do not prove that host deletion caused them: the host capture lacked the
+  errno and IDs, and daily cleanup does not run until 21:41. Snapper's parent
+  mismatch explains the second scan, not the first scan's update failures.
+- One sample caught the p8 rescan worker in D state at
+  `read_extent_buffer_pages`; its `/proc` stack was empty. Separate samples
+  caught a swap-folio wait in `steamwebhelper` and Btrfs discard workers in
+  `bio_await`. I/O PSI rose briefly near the later discard waits. The capture
+  does not link those waits to the rescan or establish a prolonged filesystem
+  stall. Transaction commit counters continued advancing; their recorded
+  lifetime maxima (66 seconds on p8 and 25 seconds on Kingston) predate this
+  event and must not be attributed to it.
+- bpftrace's `nsecs` values were initially mislabeled `mono_ns`; the clock
+  used includes suspend time. Wall-time alignment was corrected from captured
+  anchors, and the future script now records `boot_ns`, both Python clock
+  bases, the qgroup-mark errno argument, and group-readable output. The full
+  event review is in the external build-tree note
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-27-1700/preliminary-review.md`.

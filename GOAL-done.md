@@ -7096,22 +7096,23 @@ flags supplied the inconsistency state.
   updates returned 0. No rescan request or worker appeared. Thus this timeline
   run again reasserted inconsistency without starting a scan. The full trace is in
   `qgroup-snapper-current-20261027/diagnostics/2026-10-27-2200/capture.log`.
-- Corrected the custom-module A/B controls after finding that the earlier
-  all-zero run disabled a behavior stock keeps enabled. The stock-equivalent
-  vector is shared-parent quick inherit `0`, overflow fallback `0`, removal
-  fallback `0`, missing-item success `0`, and
-  `skip_subtree_walk_when_no_accounting=1`. The two-vCPU 32K run verified all
-  ten values and reproduced the stock module's snapshot pattern: four
-  inconsistency marks, two snapshot-time scans, and counters differing from
-  full-rescan values. Its comparable stock run uses the same Debian 7.2.9
-  image, two-vCPU TCG setup, four-group layout, and 32K metadata workload.
-- A focused stock-equivalent run deferred the verification rescan until after
-  cleanup and deletion. Both filesystems were confirmed inconsistent before
-  deletion; cleanup and deletes ran without a scan. During recovery, the
-  custom all-off module logged repeated `-ENOENT` info-item updates for qgroup
-  `0/260` on both filesystems. In this test setup, `0/260` is the first root
-  snapshot qgroup on each freshly formatted filesystem; the run deleted root
-  snapshot 1 on both. The diagnostic message now includes the qgroup ID.
+- The earlier controls-off result was misclassified. In the current branch,
+  `skip_subtree_walk_when_no_accounting` is a new behavior, not an upstream
+  setting. Upstream 7.2.9's `btrfs_qgroup_trace_subtree()` checks whether quota
+  mode is full but does not return early for `NO_ACCOUNTING`; it can walk
+  metadata and call extent tracing even though later accounting discards the
+  records. The 4-vCPU all-zero A/B log sets all five added switches to `0` and
+  reproduces the snapshot inconsistency/scan pattern. The later two-vCPU
+  controls-off log instead left the new subtree-skip switch at `1`; it was a
+  useful optimized custom control, but not exact upstream behavior.
+- A focused custom all-off-plus-subtree-skip run deferred the verification
+  rescan until after cleanup and deletion. Both filesystems were confirmed
+  inconsistent before deletion; cleanup and deletes ran without a scan.
+  During recovery, the custom module logged repeated `-ENOENT` info-item
+  updates for qgroup `0/260` on both filesystems. In this test setup, `0/260`
+  is the first root snapshot qgroup on each freshly formatted filesystem; the
+  run deleted root snapshot 1 on both. The diagnostic message now includes
+  the qgroup ID.
 - Exact upstream `v7.2.9` source deletes qgroup info/limit items before trying
   to remove parent relations. When relation removal returns positive because
   quick accounting requires a rescan, upstream treats that as failure and
@@ -7134,23 +7135,61 @@ flags supplied the inconsistency state.
   in info/limit update error messages is diagnostic-only. These modules were
   tested in QEMU only and were not installed on the host.
 
-## Accurate-accounting deletion comparison (2026-10-27)
+## Cleanup queue drain and isolated deletes (2026-10-27)
 
-- A two-vCPU TCG run with all ten qgroup behavior switches enabled kept both
-  filesystems consistent through snapshots, cleanup, and deletion. It recorded
-  no scans during those operations. After deletion, full rescans completed in
-  about 0.5 seconds per filesystem, and the pre-delete qgroup tables matched
-  the post-rescan tables. The run therefore verified the tested qgroup totals
-  while the status remained consistent.
-- In that run, deleting the root snapshot collective took 106.69 seconds on
-  p8 and 108.22 seconds on Kingston; home deletion took 1.34 and 1.26 seconds.
-  A stock-equivalent run with accounting already inconsistent took 2.25 and
-  3.29 seconds for the root deletes, and 1.30 and 1.27 seconds for home.
-  These are single-run TCG measurements, not a controlled latency distribution
-  or host-storage comparison. The difference is substantial but its precise
-  cause has not been isolated; repeat measurements and profile the deletion
-  path before concluding that consistent accounting itself causes the delay.
-- Run logs are under
-  `qgroup-snapper-current-20261027/runs/custom-consistent-delete-20261027/all-on/`
-  and
-  `qgroup-snapper-current-20261027/runs/custom-noaccounting-drop-qids-20261027/all-off/`.
+- A corrected two-vCPU TCG run used the four-config 32K-metadata workload,
+  enabled all ten qgroup switches, and kept both filesystems consistent
+  through snapshots and cleanup. Snapper cleanup queued 82 snapshot drops
+  across the four configs. `btrfs subvolume sync` took 239.64 seconds to drain
+  that queue. With the queue empty, each explicit `snapper delete --sync`
+  returned in 1.26-1.32 seconds. No scans ran during snapshots, cleanup, or
+  deletes. A later full rescan took about 0.5 seconds per filesystem and the
+  qgroup tables matched, so the consistent counters were verified for this run.
+- With all new qgroup behavior switches off except the subtree-skip switch,
+  both filesystems were inconsistent before and after cleanup queue drain.
+  The same 82-drop workload drained in 25.24 seconds; explicit deletes took
+  1.60-1.82 seconds. With all five switches off, including the subtree-skip
+  switch, queue drain took 17.12 seconds and deletes took 1.25-1.34 seconds.
+  These are single-run TCG measurements. Their direction does not demonstrate
+  a speedup from the subtree-skip switch; repeat before judging its effect.
+  Both inconsistent runs left totals different from full-rescan values and
+  reproduced `-ENOENT` info-item updates for qgroup `0/260` during recovery.
+- The earlier 106.69/108.22-second delete-command figures came from a harness
+  that did not drain the cleaner queue after Snapper cleanup. They therefore
+  measured queued cleanup work as well as the explicit delete and cannot be
+  attributed to a single deletion. The all-on versus all-off queue-drain gap
+  is substantial in this one workload, but the configurations differ in
+  accounting state and several switches; repeat and profile before assigning
+  causation to consistency alone.
+- Logs: `qgroup-snapper-current-20261027/runs/custom-consistent-delete-isolated-20261027/all-on/`,
+  `qgroup-snapper-current-20261027/runs/custom-delete-isolated-20261027/all-off/`,
+  and `qgroup-snapper-current-20261027/runs/custom-delete-isolated-20261027/all-off-noskip/`.
+
+## Stock-module provenance and 23:00 host capture (2026-10-27)
+
+- The host is running kernel `7.2.9+deb13-amd64`. The loaded Btrfs module's
+  build ID is `c2d998d4752632e0f5cf36eaab134a3e73b18940`, matching the Btrfs
+  module in `/boot/initrd.img-7.2.9+deb13-amd64-stock`, confirming that the
+  live module is the stock build. The regular initramfs and on-disk module
+  instead contain build ID
+  `29eef0f63dbf1853b12c4714903b7f53be56015f`; DKMS still has the older
+  `btrfs-qgroup/7.2.6+rebroad1...` module installed for both 7.2.6 and 7.2.9.
+  Thus the normal initramfs remains custom even though the current loaded
+  module is stock.
+- During the 21:41 cleanup capture, both filesystems reported qgroups
+  inconsistent. Two `btrfs-cleaner` tasks were sampled blocked in
+  `read_extent_buffer_pages()` under
+  `btrfs_qgroup_trace_subtree()` while `btrfs_drop_snapshot()` cleaned deleted
+  snapshots. This was on the stock module, so the same subtree-read wait path
+  exists independently of the current custom module. The capture does not
+  establish whether storage latency or qgroup traversal dominated the wait.
+- The 23:00 hourly `snapper-timeline.service` completed at 23:00:03. BPF traced
+  four qgroup-inheritance calls and four `qgroup_mark_inconsistent()` calls
+  (`qgroup inherit needs a rescan`), with parent qgroups `1/100` and `1/101`.
+  It observed no rescan request or worker start; both filesystems remained
+  inconsistent. Across the 22:59:52–23:03:02 capture, no Btrfs cleaner or
+  transaction task was sampled blocked. Brief waits appeared in discard I/O;
+  sampled I/O pressure and load were low. Therefore this hourly run marked
+  qgroups inconsistent but did not start a rescan or reproduce a Btrfs
+  transaction stall. Log:
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-27-2300/capture.log`.

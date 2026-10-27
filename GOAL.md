@@ -42,19 +42,18 @@ path or dependency.
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs, including distributions and worst
    observed stalls. Expose every added kernel behavior independently and
-   verify an all-nonstock-features-off custom-module run against stock, as well
-   as the default feature-on run. The corrected 32K two-vCPU run uses the
-   upstream value `skip_subtree_walk_when_no_accounting=1` and matches stock's
-   snapshot inconsistency/scan pattern. A focused run exercises deletion while
-   inconsistent and confirms that enabling only the removal fallback prevents
-   the reproduced missing-item errors. The 32K TCG all-on run shows accurate
-   snapshot accounting without snapshot-time rescans. A separate single-run
-   consistent-accounting deletion test matched counters against full rescans,
-   but root-snapshot deletion took about 107-108 s versus 2-3 s when accounting
-   was already inconsistent. These TCG runs do not establish host-scale
-   latency or repeatable distributions. Measure the same trade-off on
-   representative storage before deciding the modified module is acceptable
-   for host use.
+   compare a true upstream-behavior control (all five added switches off) with
+   the feature-on module and stock. An earlier controls-off run left the new
+   `skip_subtree_walk_when_no_accounting` switch enabled, so it was not an exact
+   stock-behavior control: upstream 7.2.9 still walks the subtree when qgroup
+   accounting is disabled. The corrected 32K two-vCPU TCG runs drained queued
+   snapshot drops before timing individual deletes. One all-on run took 239.64 s
+   to drain 82 cleanup drops, then 1.26-1.32 s per explicit delete. Inconsistent
+   all-off runs drained in 17.12-25.24 s and took 1.25-1.82 s per delete, but
+   had stale counters and reproduced `-ENOENT` updates. These single runs
+   suggest a substantial cleanup-time difference, but do not isolate its cause;
+   the subtree-skip A/B also showed no clear benefit. Repeat the comparisons,
+   profile the cleaner/transaction path, and measure on host storage.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    do not treat the deletion threshold as the only possible trigger. Identify

@@ -6477,3 +6477,31 @@ checkout.
   reads during snapshot deletion. Therefore custom code is not required for
   those behaviors; whether it worsened a particular earlier stall remains
   unproven.
+
+## High-count custom quick-inherit QEMU run (2026-10-27)
+
+- Ran current custom Btrfs on the exact Debian 7.2.9 image with the four-config
+  workload, 217 snapshots (p8-root 79, p8-home 28, Kingston-root 82,
+  Kingston-home 28), 131,072 metadata files per source, home-first ordering,
+  quick-inherit enabled, and the test-only deletion threshold set to 1. The
+  guest used 4 GiB RAM and two TCG vCPUs; this is a controlled comparison, not
+  host-scale hardware evidence.
+- All 217 snapshot cycles completed without a rescan: 240-4,250 ms, median
+  1,310 ms. Both filesystems' counters matched a completed full rescan after
+  the snapshot phase; scan durations were 107.03 s for p8 and 85.86 s for
+  Kingston. The check passed.
+- Four-config timeline cleanup completed in 1.92 s, 0.60 s, 1.50 s, and
+  0.62 s. Subsequent threshold-1 deletion made both filesystems inconsistent;
+  the p8 root deletion took 18.41 s, and the other three deletions took
+  1.39 s, 2.37 s, and 1.38 s. Explicit recovery rescans then completed. This
+  supports accurate accounting during snapshot growth in this QEMU workload
+  but shows the expected stale-accounting and long-rescan cost after deletion.
+- Result status was 0 and the guest reached `HOST-TOPOLOGY: COMPLETE`. The
+  serial-log SHA-256 is
+  `43839065cc17d94cd84e53980b88ada1f2c6ce58a41ed60a68617802ec73ef1b`.
+  Artifacts are under
+  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-home-first-131k-threshold1/`.
+- This custom-only high-count run is not a matched stock comparison and its
+  TCG timings are not a host-latency verdict. Compare the same workload against
+  stock Btrfs and retain both logs before drawing a relative-performance
+  conclusion.

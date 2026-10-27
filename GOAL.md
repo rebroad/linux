@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 65%
+## First priority: diagnose the stalls and establish the accounting trade-off — 68%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -107,8 +107,10 @@ Current runtime and diagnostic facts that affect these open gates:
   yet explains the reported multi-minute stalls.
 - Exact-release QEMU tests show stock and custom feature-off reproduce
   inconsistency/rescans; quick-inherit feature-on kept counters accurate in
-  both tested snapshot orders. The small tests do not establish host-scale
-  latency. A high-count comparison is being recreated with retained logs.
+  both tested snapshot orders. A retained custom feature-on run also kept all
+  four counters accurate through 217 snapshots, with no scan during snapshot
+  creation; threshold-1 deletion then made both filesystems stale. A matched
+  stock high-count comparison and host-scale latency evidence remain open.
 - Snapper's local-time hold/window behavior is installed and simulated. The
   remaining controlled test must show stale values before suspend and explicit
   hold deferral through resume catch-up.

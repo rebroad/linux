@@ -817,7 +817,10 @@ struct btrfs_fs_info {
 	spinlock_t qgroup_lock;
 	/* Qgroup behavior switches. Protected by qgroup_lock. */
 	bool qgroup_shared_parent_quick_inherit;
+	bool qgroup_fast_inherit_overflow_check;
 	bool qgroup_remove_after_rescan_fallback;
+	bool qgroup_remove_missing_item_success;
+	bool qgroup_skip_subtree_walk_when_no_accounting;
 
 	/*
 	 * Protect user change for quota operations. If a transaction is needed,

@@ -2485,6 +2485,43 @@ BTRFS_ATTR_RW(qgroups, shared_parent_quick_inherit,
 	      qgroup_shared_parent_quick_inherit_store);
 
 static ssize_t
+qgroup_fast_inherit_overflow_check_show(struct kobject *qgroups_kobj,
+					struct kobj_attribute *a, char *buf)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+
+	spin_lock(&fs_info->qgroup_lock);
+	enabled = fs_info->qgroup_fast_inherit_overflow_check;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t
+qgroup_fast_inherit_overflow_check_store(struct kobject *qgroups_kobj,
+					 struct kobj_attribute *a,
+					 const char *buf, size_t len)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(buf, &enabled);
+	if (ret)
+		return ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_fast_inherit_overflow_check = enabled;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return len;
+}
+BTRFS_ATTR_RW(qgroups, fast_inherit_overflow_check,
+	      qgroup_fast_inherit_overflow_check_show,
+	      qgroup_fast_inherit_overflow_check_store);
+
+static ssize_t
 qgroup_remove_after_rescan_fallback_show(struct kobject *qgroups_kobj,
 					 struct kobj_attribute *a, char *buf)
 {
@@ -2521,6 +2558,81 @@ BTRFS_ATTR_RW(qgroups, remove_after_rescan_fallback,
 	      qgroup_remove_after_rescan_fallback_show,
 	      qgroup_remove_after_rescan_fallback_store);
 
+static ssize_t
+qgroup_remove_missing_item_success_show(struct kobject *qgroups_kobj,
+					struct kobj_attribute *a, char *buf)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+
+	spin_lock(&fs_info->qgroup_lock);
+	enabled = fs_info->qgroup_remove_missing_item_success;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t
+qgroup_remove_missing_item_success_store(struct kobject *qgroups_kobj,
+					 struct kobj_attribute *a,
+					 const char *buf, size_t len)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(buf, &enabled);
+	if (ret)
+		return ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_remove_missing_item_success = enabled;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return len;
+}
+BTRFS_ATTR_RW(qgroups, remove_missing_item_success,
+	      qgroup_remove_missing_item_success_show,
+	      qgroup_remove_missing_item_success_store);
+
+static ssize_t
+qgroup_skip_subtree_walk_when_no_accounting_show(struct kobject *qgroups_kobj,
+						 struct kobj_attribute *a,
+						 char *buf)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+
+	spin_lock(&fs_info->qgroup_lock);
+	enabled = fs_info->qgroup_skip_subtree_walk_when_no_accounting;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t
+qgroup_skip_subtree_walk_when_no_accounting_store(struct kobject *qgroups_kobj,
+						  struct kobj_attribute *a,
+						  const char *buf, size_t len)
+{
+	struct btrfs_fs_info *fs_info = to_fs_info(qgroups_kobj->parent);
+	bool enabled;
+	int ret;
+
+	ret = kstrtobool(buf, &enabled);
+	if (ret)
+		return ret;
+
+	spin_lock(&fs_info->qgroup_lock);
+	fs_info->qgroup_skip_subtree_walk_when_no_accounting = enabled;
+	spin_unlock(&fs_info->qgroup_lock);
+
+	return len;
+}
+BTRFS_ATTR_RW(qgroups, skip_subtree_walk_when_no_accounting,
+	      qgroup_skip_subtree_walk_when_no_accounting_show,
+	      qgroup_skip_subtree_walk_when_no_accounting_store);
+
 /*
  * Qgroups global info
  *
@@ -2531,7 +2643,10 @@ static struct attribute *qgroups_attrs[] = {
 	BTRFS_ATTR_PTR(qgroups, inconsistent),
 	BTRFS_ATTR_PTR(qgroups, drop_subtree_threshold),
 	BTRFS_ATTR_PTR(qgroups, shared_parent_quick_inherit),
+	BTRFS_ATTR_PTR(qgroups, fast_inherit_overflow_check),
 	BTRFS_ATTR_PTR(qgroups, remove_after_rescan_fallback),
+	BTRFS_ATTR_PTR(qgroups, remove_missing_item_success),
+	BTRFS_ATTR_PTR(qgroups, skip_subtree_walk_when_no_accounting),
 	BTRFS_ATTR_PTR(qgroups, mode),
 	NULL
 };

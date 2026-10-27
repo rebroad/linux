@@ -6885,18 +6885,22 @@ flags supplied the inconsistency state.
   event and must not be attributed to it.
 - bpftrace's `nsecs` values were initially mislabeled `mono_ns`; the clock
   used includes suspend time. Wall-time alignment was corrected from captured
-  anchors, and the future script now records `boot_ns`, both Python clock
-  bases, the qgroup-mark errno argument, and group-readable output. The full
+  anchors, and the capture script records `boot_ns`, both Python clock bases,
+  and group-readable output. A later audit found that its `qgroup_mark_inconsistent`
+  probe mislabeled the first variadic argument (`arg2`) as an errno; that value
+  is invalid when the call supplies no varargs. Do not use the `error=` values
+  in the 21:00 capture. The 21:41 and 22:00 scripts omit that field. The full
   event review is in the external build-tree note
   `qgroup-snapper-current-20261027/diagnostics/2026-10-27-1700/preliminary-review.md`.
 
 ## Stock deletion at the normal qgroup threshold in QEMU (2026-10-27)
 
 - A fresh Debian 7.2.9 stock-module guest used the four-group layout, 32,768
-  metadata files in each of four live sources, 28 snapshots per config, and
-  the module's default `drop_subtree_threshold=3`. The guest completed with
-  status 0. Its qgroup counters differed from the completed full-rescan
-  tables after snapshot inheritance, as expected for the stock fallback.
+  metadata files in each of four live sources, two p8-root snapshots and 28
+  snapshots in each other config, and the module's default
+  `drop_subtree_threshold=3`. The guest completed with status 0. Its qgroup
+  counters differed from the completed full-rescan tables after snapshot
+  inheritance, as expected for the stock fallback.
 - Timeline cleanup plus synchronous deletion took 161.3 s for p8 root,
   122.0 s for Kingston root, and about 1.4–2.0 s for each home config. The
   cleanup commands themselves returned in 0.4–0.8 s; deletion had to drain
@@ -6984,4 +6988,148 @@ flags supplied the inconsistency state.
   daily cleanup. A third is armed for 21:59:45 to see whether the cleanup's
   relation-deletion return IDs match the following scan's missing-key IDs.
   These traces can link a deletion to the update errors only if the IDs and
-  return paths match.
+  return paths match. The 21:00 trace ran; see the next dated section.
+
+## 21:00 timeline capture and toggle A/B tests (2026-10-27)
+
+- The stock-module host capture began at 20:59:45 CET. The hourly
+  `snapper-timeline.service` started at 21:00:03. Both filesystems were already
+  inconsistent at capture start and remained so at the end. During the three
+  minute trace, four `snapper` processes inherited qgroups and each reached
+  `qgroup_mark_inconsistent()` with reason `qgroup inherit needs a rescan`:
+  p8 root `0/262 -> 1/100`, p8 home `0/263 -> 1/101`, Kingston home
+  `0/257 -> 1/101`, and Kingston root `0/256 -> 1/100`. This ties the hourly
+  snapshot window to the stock shared-parent fallback, but does not prove
+  parent PIDs for those commands.
+- No `btrfs_qgroup_rescan()` request or rescan worker appeared in this capture.
+  Thus the hourly snapshots reasserted the inconsistent state; this event
+  does not show that they started a scan. Each recorded qgroup limit update
+  returned 0, and no qgroup info/limit update errors were seen. A single
+  `btrfs-discard` worker was sampled waiting in `bio_await()` for a discard
+  request; the later samples had no D-state tasks. The capture does not tie
+  that wait to qgroup accounting or show a prolonged stall. Lifetime maximum
+  commit times were 66.1 s on p8 and 30.3 s on Kingston and did not increase
+  during the capture.
+- The modified module built against the installed Debian 7.2.9 headers with
+  build ID `a3ed379fb474e11ad3e470aacf5112417107feb9`. Its five runtime
+  controls were verified in QEMU as all `0` and all `1` on both filesystems.
+  The all-zero control run reproduced the observed stock snapshot pattern in
+  this workload: four inconsistency marks, two scans during snapshots, and
+  both qgroup tables differing from the full-rescan results. It was not a
+  complete stock-equivalent run: it set
+  `skip_subtree_walk_when_no_accounting=0`, while upstream keeps that behavior
+  enabled. Repeat the comparison with shared-parent inheritance, overflow
+  fallback, removal fallback, and missing-item success disabled, while keeping
+  the stock subtree skip enabled; exercise snapshot deletion after accounting
+  becomes disabled. The earlier snapshot timings and deletion durations remain
+  measurements of that all-zero configuration, not proof of full stock parity.
+  Its root deletion took 101.3 s on p8 and 86.6 s on Kingston, versus 161.3 s
+  and 122.0 s in the separate stock guest. These separately formatted TCG
+  guests do not support a precise deletion-latency comparison.
+- With all five controls on, the same workload recorded zero inconsistency
+  marks and zero rescans during snapshot creation. Its ten scan completions
+  were four during qgroup setup/baseline, two for counter verification, and
+  four explicit recovery scans after deletion. Both complete qgroup tables
+  matched a full rescan afterward;
+  the verification scans took 3.27 s on p8 and 5.41 s on Kingston. Accounting
+  remained consistent after cleanup and deletion. Median snapshot times were
+  0.49–0.60 s across the four configs, compared with 0.27–0.30 s for three
+  stock configs; only two p8-root snapshots were made. Root deletion still
+  took 96.4 s on p8 and 109.0 s on Kingston under TCG. One SysRq sample caught
+  `btrfs-transacti` in `wait_current_trans()`; commits continued, with a maximum
+  measured commit of 3.42 s. This suggests accurate counters can coexist with
+  snapshot creation without per-snapshot rescans in this QEMU layout, but it
+  is not host-scale latency evidence.
+- All-off and all-on logs, the XZ-CRC32 module overlay, and the preserved
+  module-load-format failure are under
+  `qgroup-snapper-current-20261027/runs/custom-toggle-ab-20261027/`. The
+  21:41 cleanup capture ran; see the following section. The 22:00 follow-up
+  remains necessary to check for qgroup updates after those removals.
+
+## 21:41 cleanup trace (2026-10-27)
+
+- The stock-module host capture ran from 21:40:45 to 21:43:51 CET. The daily
+  `snapper-cleanup.service` ran at 21:41:00–21:41:02. Its wrapper reported
+  duplicate p8 root/home targets; Btrfs cleaner activity continued afterward.
+  Both filesystems were already inconsistent and stayed inconsistent. The
+  full log is in
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-27-2141/capture.log`.
+- The trace recorded 18 qgroup removals by `btrfs-cleaner`. For every recorded
+  removal, `__del_qgroup_relation()` returned `1` for a relation to `1/100` or
+  `1/101`, and `btrfs_remove_qgroup()` also returned `1`. The trace recorded no
+  rescan request/worker, qgroup persistence error, or qgroup update probe hit.
+  Therefore these positive returns occurred during real cleanup, but this
+  capture does not link them to the eight `-ENOENT` updates from 20:00.
+- Exact upstream `v7.2.9` source removes the qgroup info/limit items before
+  deleting parent relations, then exits early from `btrfs_remove_qgroup()` on
+  any nonzero relation-deletion result. A positive relation result can thus
+  leave an in-memory qgroup after its items were removed. The 22:00 QEMU
+  reproduction later confirmed that this control flow can produce missing-key
+  updates. The 21:41 host trace establishes that the positive-return path is
+  exercised during cleanup, but did not show that the same host qgroup IDs
+  later produce missing-item updates. The current working branch already
+  contains a custom removal fallback, so it must not be mistaken for the
+  upstream baseline.
+- During this capture, `btrfs-cleaner` was sampled waiting in
+  `read_extent_buffer_pages()` under `btrfs_qgroup_trace_subtree()` during
+  snapshot drop. Other samples caught tasks in `wait_current_trans()`, the
+  transaction thread in `btrfs_commit_transaction()`, `psensor` in
+  `btrfs_sync_log()`, and a discard worker in `bio_await()`. The 1-minute load
+  peaked at 6.58; sampled I/O PSI peaked at 24.4% `some` and 21.41% `full` over
+  10 seconds. Commit counters advanced. The longest in-progress commit sample
+  was 34.3 s on Kingston; these samples show material I/O/transaction pressure
+  during cleanup, not a proven multi-minute system-wide stall or a qgroup-only
+  cause.
+- After adding independent runtime toggles for the additional qgroup behavior,
+  the external-module build succeeded again against Debian 7.2.9 headers.
+  `git diff --check` and strict `checkpatch.pl` both pass with no warnings.
+  No module was installed on the host. The 22:00 timeline capture ran; see the
+  following section.
+
+## 22:00 capture and inconsistent-deletion QEMU reproduction (2026-10-27)
+
+- The stock-module host capture ran from 21:59:45 to 22:02:57 CET. The hourly
+  `snapper-timeline.service` started at 22:00:05. Four Snapper inheritance
+  calls marked qgroups inconsistent (`0/262 -> 0/7110` with parent `1/100`,
+  `0/263 -> 0/7111` with parent `1/101`, `0/257 -> 0/5651` with parent
+  `1/101`, and `0/256 -> 0/5652` with parent `1/100`). Their qgroup limit-item
+  updates returned 0. No rescan request or worker appeared. Thus this timeline
+  run again reasserted inconsistency without starting a scan. The full trace is in
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-27-2200/capture.log`.
+- Corrected the custom-module A/B controls after finding that the earlier
+  all-zero run disabled a behavior stock keeps enabled. The stock-equivalent
+  vector is shared-parent quick inherit `0`, overflow fallback `0`, removal
+  fallback `0`, missing-item success `0`, and
+  `skip_subtree_walk_when_no_accounting=1`. The two-vCPU 32K run verified all
+  ten values and reproduced the stock module's snapshot pattern: four
+  inconsistency marks, two snapshot-time scans, and counters differing from
+  full-rescan values. Its comparable stock run uses the same Debian 7.2.9
+  image, two-vCPU TCG setup, four-group layout, and 32K metadata workload.
+- A focused stock-equivalent run deferred the verification rescan until after
+  cleanup and deletion. Both filesystems were confirmed inconsistent before
+  deletion; cleanup and deletes ran without a scan. During recovery, the
+  custom all-off module logged repeated `-ENOENT` info-item updates for qgroup
+  `0/260` on both filesystems. In this test setup, `0/260` is the first root
+  snapshot qgroup on each freshly formatted filesystem; the run deleted root
+  snapshot 1 on both. The diagnostic message now includes the qgroup ID.
+- Exact upstream `v7.2.9` source deletes qgroup info/limit items before trying
+  to remove parent relations. When relation removal returns positive because
+  quick accounting requires a rescan, upstream treats that as failure and
+  returns before removing the qgroup from its in-memory tree. A later dirty
+  qgroup update then searches for an already-removed info key and gets
+  `-ENOENT`. This matches the controlled failure. In a second run, only
+  `remove_after_rescan_fallback` was enabled; snapshot creation still marked
+  both filesystems inconsistent, but no info-item or limit-item update errors
+  appeared during deletion/recovery. The run completed and full rescans
+  cleared the inconsistent flags. This confirms the fallback fixes this
+  qgroup teardown failure mode in the tested 7.2.9 workload.
+- This reproduces the type of error seen in the host's 20:00 trace and explains
+  why the 21:41 stock cleanup trace recorded positive relation returns. The
+  host's 20:00 errors still lack qgroup IDs, so an exact same-ID link is not
+  established. The QEMU result does not explain or prove the cause of the
+  reported multi-minute host stalls. The 21:41 capture's elevated I/O pressure
+  and transaction/subtree waits remain a separate host-scale latency finding.
+- The module rebuilt against Debian 7.2.9 headers with build ID
+  `54ebc1be8599c5d2c57027419cc8469733392c3f`. The change to include qgroup IDs
+  in info/limit update error messages is diagnostic-only. These modules were
+  tested in QEMU only and were not installed on the host.

@@ -1809,11 +1809,14 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 	struct btrfs_qgroup *qgroup;
 	struct btrfs_qgroup_list *list;
 	bool remove_after_rescan_fallback;
+	bool remove_missing_item_success;
+
 	int ret = 0;
 
 	mutex_lock(&fs_info->qgroup_ioctl_lock);
 	spin_lock(&fs_info->qgroup_lock);
 	remove_after_rescan_fallback = fs_info->qgroup_remove_after_rescan_fallback;
+	remove_missing_item_success = fs_info->qgroup_remove_missing_item_success;
 	spin_unlock(&fs_info->qgroup_lock);
 
 	if (!fs_info->quota_root) {
@@ -1844,7 +1847,8 @@ int btrfs_remove_qgroup(struct btrfs_trans_handle *trans, u64 qgroupid)
 	ret = del_qgroup_item(trans, qgroupid);
 	if (ret && ret != -ENOENT)
 		goto out;
-	ret = 0;
+	if (ret == -ENOENT && remove_missing_item_success)
+		ret = 0;
 
 	while (!list_empty(&qgroup->groups)) {
 		list = list_first_entry(&qgroup->groups,
@@ -2637,20 +2641,26 @@ int btrfs_qgroup_trace_subtree(struct btrfs_trans_handle *trans,
 	int ret = 0;
 	int level;
 	u8 drop_subptree_thres;
+	bool skip_subtree_walk;
+
 	struct extent_buffer *eb = root_eb;
 	BTRFS_PATH_AUTO_FREE(path);
 
 	ASSERT(0 <= root_level && root_level < BTRFS_MAX_LEVEL);
 	ASSERT(root_eb != NULL);
 
-	/* Qgroup records from this walk are discarded while accounting is off. */
-	if (!btrfs_qgroup_full_accounting(fs_info) ||
-	    (fs_info->qgroup_flags & BTRFS_QGROUP_RUNTIME_FLAG_NO_ACCOUNTING))
+	if (!btrfs_qgroup_full_accounting(fs_info))
 		return 0;
 
 	spin_lock(&fs_info->qgroup_lock);
 	drop_subptree_thres = fs_info->qgroup_drop_subtree_thres;
+	skip_subtree_walk = fs_info->qgroup_skip_subtree_walk_when_no_accounting;
 	spin_unlock(&fs_info->qgroup_lock);
+
+	/* Qgroup records from this walk are discarded while accounting is off. */
+	if (skip_subtree_walk &&
+	    (fs_info->qgroup_flags & BTRFS_QGROUP_RUNTIME_FLAG_NO_ACCOUNTING))
+		return 0;
 
 	/*
 	 * This function only gets called for snapshot drop, if we hit a high
@@ -3152,11 +3162,15 @@ int btrfs_run_qgroups(struct btrfs_trans_handle *trans)
 		ret = update_qgroup_info_item(trans, qgroup);
 		if (ret)
 			qgroup_mark_inconsistent(fs_info,
-						 "qgroup info item update error %d", ret);
+						 "qgroup info item update error for qgroup "
+						 BTRFS_QGROUP_FMT ": %d",
+						 BTRFS_QGROUP_FMT_VALUE(qgroup), ret);
 		ret = update_qgroup_limit_item(trans, qgroup);
 		if (ret)
 			qgroup_mark_inconsistent(fs_info,
-						 "qgroup limit item update error %d", ret);
+						 "qgroup limit item update error for qgroup "
+						 BTRFS_QGROUP_FMT ": %d",
+						 BTRFS_QGROUP_FMT_VALUE(qgroup), ret);
 		spin_lock(&fs_info->qgroup_lock);
 	}
 	if (btrfs_qgroup_enabled(fs_info))
@@ -3297,6 +3311,7 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	int nr_members = 0;
 	bool shared_parent_has_src = false;
 	bool shared_parent_has_parent = false;
+	bool check_overflow = fs_info->qgroup_fast_inherit_overflow_check;
 
 	if (btrfs_qgroup_mode(fs_info) != BTRFS_QGROUP_MODE_FULL)
 		return 0;
@@ -3360,8 +3375,9 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 		}
 		if (nr_members != 2 || !shared_parent_has_src ||
 		    !shared_parent_has_parent ||
-		    parent->excl > U64_MAX - nodesize ||
-		    parent->excl_cmpr > U64_MAX - nodesize)
+		    (check_overflow &&
+		     (parent->excl > U64_MAX - nodesize ||
+		      parent->excl_cmpr > U64_MAX - nodesize)))
 			return 1;
 		qgroup_to_update = shared_parent;
 	}
@@ -3373,10 +3389,11 @@ static int qgroup_snapshot_quick_inherit(struct btrfs_fs_info *fs_info,
 	 */
 	qgroup_iterator_add(&qgroup_list, qgroup_to_update);
 	list_for_each_entry(qgroup, &qgroup_list, iterator) {
-		if (qgroup->rfer > U64_MAX - nodesize ||
-		    qgroup->rfer_cmpr > U64_MAX - nodesize ||
-		    qgroup->excl > U64_MAX - nodesize ||
-		    qgroup->excl_cmpr > U64_MAX - nodesize) {
+		if (check_overflow &&
+		    (qgroup->rfer > U64_MAX - nodesize ||
+		     qgroup->rfer_cmpr > U64_MAX - nodesize ||
+		     qgroup->excl > U64_MAX - nodesize ||
+		     qgroup->excl_cmpr > U64_MAX - nodesize)) {
 			qgroup_iterator_clean(&qgroup_list);
 			return 1;
 		}

@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 85%
+## First priority: diagnose the stalls and establish the accounting trade-off — 90%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -23,45 +23,34 @@ path or dependency.
    writers and distinguish snapshot/drop work, discard, metadata I/O, and
    unrelated device or GPU waits. Correlate only evidence from the same event;
    do not infer that a rescan caused a stall merely because they overlap.
-   The 17:00 host capture first observed two p8 workers but missed the first
-   caller. A follow-up at 20:00 captured Snapper explicitly entering the
-   rescan ioctl. During that first worker, `btrfs_run_qgroups()` saw eight
-   qgroup info/limit update failures with `-ENOENT`; source confirms those
-   functions return that error when the corresponding on-disk qgroup key is
-   absent. The trace did not identify the qgroup IDs or the operation that
-   removed/omitted those keys, and the qgroup state predates this capture.
-   Snapper cleanup ran earlier in the same boot, so the loaded stock module
-   is not proof that stock introduced the missing-key state. A second Snapper
-   rescan followed inheritance from source `0/262` to requested parent
-   `1/100`; no Kingston worker was seen. The Snapper source calls its rescan
-   policy from `Btrfs::prepareQGroupTracking()` before snapshot creation; the
-   capture did not record the user-space call site. Review
-   [`GOAL-done.md`](GOAL-done.md).
-   Targeted traces are armed around the 21:00 timeline, 21:41 cleanup, and
-   22:00 follow-up scan to record failing qgroup IDs and qgroup removals.
-   Stock v7.2.9 source exposes a candidate: relation removal can request a
-   rescan after deleting the in-memory relation, and qgroup teardown may
-   then return before deleting the qgroup object. Match the IDs and return
-   values before treating this as the cause. Keep the ordinary-deletion cause
-   and stall attribution open; these host captures show transient waits, not
-   a prolonged stall. The modified kernel's qgroup sanity test now passes in
-   QEMU across five node sizes, including its stock-behavior toggle; it uses
-   dummy qgroups and does not reproduce the persistent on-disk cleanup path.
-   A stock 7.2.9 QEMU run with 32,768 metadata files per source, 28 snapshots
-   per config, and the default deletion threshold 3 reproduced stale counters
-   after snapshot inheritance but no qgroup info/limit update errors during
-   cleanup or deletion. Root snapshot drops took 161 s on p8 and 122 s on
-   Kingston under TCG. The corresponding 131,072-file default-threshold run
-   exceeded its one-hour bound during queued drops; it also logged no such
-   update errors before stopping. These are not host-latency measurements.
-   Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
-   host's hourly timer to make controlled-test progress. Host captures remain
-   necessary for host-specific stalls and scan stop causes.
+   Host captures show hourly Snapper inheritance marking qgroups inconsistent
+   on stock Btrfs without starting rescans. The 20:00 run separately requested
+   a rescan and logged eight `-ENOENT` qgroup updates, but did not capture their
+   IDs. A 21:41 stock cleanup trace recorded 18 positive relation-deletion
+   returns during snapshot drops, plus metadata-read waits and elevated I/O
+   pressure; it saw no qgroup update errors in that interval. In a controlled
+   7.2.9 QEMU run, deleting snapshots while accounting was inconsistent
+   reproduced `-ENOENT` updates for qgroup `0/260`; enabling only the
+   qgroup-removal fallback kept the inconsistency but eliminated those errors.
+   Upstream teardown order explains the result. This establishes a qgroup
+   removal failure mode, but host IDs do not yet link it to the eight 20:00
+   errors, and it does not prove the cause of the reported long system-wide
+   stalls. Continue correlating host cleanup, transaction waits, and storage
+   pressure. See
+   [`GOAL-done.md`](GOAL-done.md) for evidence and caveats.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs, including distributions and worst
-   observed stalls. Use host-scale storage measurements before deciding the
-   modified module is acceptable for host use.
+   observed stalls. Expose every added kernel behavior independently and
+   verify an all-nonstock-features-off custom-module run against stock, as well
+   as the default feature-on run. The corrected 32K two-vCPU run uses the
+   upstream value `skip_subtree_walk_when_no_accounting=1` and matches stock's
+   snapshot inconsistency/scan pattern. A focused run exercises deletion while
+   inconsistent and confirms that enabling only the removal fallback prevents
+   the reproduced missing-item errors. The 32K TCG all-on run shows accurate
+   snapshot accounting without snapshot-time rescans. These runs do not
+   establish host-scale latency. Use host-scale storage measurements before
+   deciding the modified module is acceptable for host use.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    do not treat the deletion threshold as the only possible trigger. Identify
@@ -78,7 +67,7 @@ path or dependency.
 
 ## Remaining work
 
-1. **Four-collective accounting and recovery — 88%:** Preserve separate snapshot
+1. **Four-collective accounting and recovery — 90%:** Preserve separate snapshot
    qgroups for p8-root, p8-home, Kingston-root, and Kingston-home. Validate
    their exclusive-space totals against a completed full rescan while updates
    are quiesced. Verify repeated snapshots, cleanup, deletion, stale-value

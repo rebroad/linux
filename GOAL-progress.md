@@ -66,6 +66,14 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
   same Snapper snapshot path without the hold file; see `GOAL-done.md`. Keep a
   host trace as supplemental evidence for host-specific pause/stall causes,
   not as a prerequisite for controlled QEMU work.
+- A privileged read-only sample at 11:59:35 on 2026-10-27 again confirmed
+  stock Btrfs build ID `c2d998d4752632e0f5cf36eaab134a3e73b18940`, both
+  filesystems `inconsistent=1`, and no active rescans. The 15 sampled D-state
+  tasks were all TTM workers waiting in `dma_fence_default_wait`; none was a
+  Btrfs task. I/O PSI `some avg10` was 1.26% and memory PSI `some avg10` was
+  0.30%. This sample identifies the current blocked-task family but does not
+  explain the earlier multi-minute Btrfs transaction stalls. The follow-up
+  stack read was not completed because sudo authentication was not provided.
 - A second on-demand QEMU run used the actual Debian stock 7.2.9 Btrfs module
   and Snapper 0.13.2/libsnapper 8.2.0 with the hold absent. The loaded guest
   module build ID matched the host's preserved stock module. It reproduced

@@ -6401,3 +6401,29 @@ checkout.
   it does not establish that the modification is safe on host-scale workloads,
   explain the previously observed multi-minute stalls, or justify installing
   the custom module on the host.
+
+## Host blocked-task and qgroup snapshot (2026-10-27 11:59)
+
+- A privileged read-only snapshot reported kernel
+  `7.2.9+deb13-amd64` and loaded Btrfs build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`, the preserved stock module.
+  Both filesystems had `qgroups/inconsistent=1`; `btrfs quota rescan -s` said
+  no operation was in progress on `/` or `/mnt/kingston`.
+- The process sample contained 15 D-state TTM workers, all in
+  `dma_fence_default_wait`; no Btrfs or Snapper task was in D state. Their PIDs
+  were 784705, 879102, 913763, 915648, 915932, 915937, 915938, 915940,
+  915942, 953602, 953605, 953629, 953631, 953632, and 953633. I/O PSI reported
+  `some avg10=1.26`, `avg60=1.84`; memory PSI reported `some avg10=0.30`,
+  `avg60=0.85`. This is a GPU-fence wait sample, not evidence that qgroup
+  rescans caused this particular blocked-task burst. Per-task kernel stacks
+  were not captured, so the fence owner and reason remain unknown.
+- The last two hours of kernel messages included `qgroup scan paused` at
+  10:00:34, 10:01:06, 11:00:40, and 11:01:14. The corresponding hourly
+  timeline services ran from 10:00:03 to 10:01:06 and from 11:00:03 to
+  11:01:17, then logged duplicate-target notices. There was no rescan active
+  at 11:59. In the stock 7.2.9 source, `rescan_should_stop()` can stop the
+  worker for filesystem closing, remounting, disabled qgroups, or the runtime
+  cancel flag; `qgroup_mark_inconsistent()` itself sets that cancel flag.
+  Thus these messages do not prove that Snapper or a user explicitly cancelled
+  a scan. The exact caller and stop condition for the hourly messages remain
+  untraced.

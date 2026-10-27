@@ -6602,3 +6602,15 @@ be completed: sudo required a password in the escalated shell, and the
 unprivileged shell is restricted by `no_new_privileges`. The current qgroup
 consistency and active-rescan state remain unverified; do not carry forward
 the last privileged result as current state.
+
+## Live qgroup state recheck (2026-10-27 14:32 local)
+
+After desktop sudo authentication, `btrfs quota rescan -s /` and
+`btrfs quota rescan -s /mnt/kingston` both reported `no rescan operation in
+progress`. The loaded kernel remained the stock Debian kernel. The sysfs
+`qgroups/inconsistent` value was `1` for both p8 and Kingston. Thus both
+production filesystems were stale and neither was being rescanned at that
+time. The
+qgroup tables were not read because their counters are stale. The installed
+`btrfs-progs` does not provide a `btrfs quota status` subcommand; the sysfs
+flags supplied the inconsistency state.

@@ -103,9 +103,10 @@ Current runtime and diagnostic facts that affect these open gates:
 
 - The host is running Debian kernel `7.2.9+deb13-amd64`. The loaded Btrfs
   module's sysfs build ID matches the exact stock module used in QEMU, so the
-  modified shared-parent module is not loaded. The last privileged qgroup
-  check found both production filesystems inconsistent with no rescan active;
-  refresh that state during the next privileged host capture.
+  modified shared-parent module is not loaded. A privileged check at 14:32
+  local on 2026-10-27 found no active rescans and both p8 and Kingston
+  qgroup inconsistency flags set. Command evidence is in
+  [`GOAL-done.md`](GOAL-done.md).
 - The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
 - A 19:06 stock-kernel capture showed the qgroup scans had paused by 19:02;
   `btrfs-cleaner` was blocked reading extent-tree metadata during snapshot-drop

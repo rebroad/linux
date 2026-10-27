@@ -26,9 +26,9 @@ path or dependency.
    A 2026-10-27 stock-host capture identified the Snapper snapshot-creation
    path that marked qgroups inconsistent in the same trace window as a scan
    pause, but could not prove their exact ordering. The run also flooded
-   journald and overflowed BPF maps. Its latency samples are unusable; replace
-   it with a strictly capped, low-volume capture before drawing stall
-   conclusions.
+   journald and overflowed BPF maps. Its latency samples are unusable; use a
+   strictly capped, low-volume capture. One is armed for 16:59:45 CET, ahead
+   of the 17:00 timeline run; review its output before drawing conclusions.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

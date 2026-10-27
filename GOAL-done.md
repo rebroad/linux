@@ -6755,3 +6755,22 @@ flags supplied the inconsistency state.
 - A filtered kernel-log query since 16:05 found no Btrfs, storage, GPU-fence,
   hung-task, or OOM messages. This capture does not attribute the elevated
   load or PSI to Btrfs; host-scale stall attribution remains open.
+
+## Stock-host transaction counters before the next timeline run (2026-10-27 16:18 local)
+
+- A one-sample collector preflight found no D-state tasks. Both filesystems
+  remained qgroup-inconsistent (`qgroups/inconsistent=1`). The p8 commit
+  counters reported 1,365 commits, `cur_commit_ms=0`, `last_commit_ms=35`,
+  and `max_commit_ms=66,053`; Kingston reported 1,238 commits, current 0 ms,
+  last 24 ms, and max 25,075 ms. These maxima are not tied to the reported
+  multi-minute stalls or a specific workload.
+- At the sample, load was 7.25 / 10.68 / 15.60; 10-second I/O PSI was
+  0.51% `some` / 0.17% `full`, and memory PSI was 0.20% / 0.20%. This differs
+  from the higher-pressure 16:10 sample and shows that pressure was changing
+  over the interval.
+- A reduced trace passed BPF's dry-run probe-attach check. It records
+  only capped qgroup-mark stacks and rescan-worker boundaries; transaction
+  states are aggregated, while host pressure, commit stats, disk counters,
+  and D-state stacks are sampled every five seconds to a private file under
+  the external build tree. It is scheduled around the 17:00 Snapper run; the
+  result is still pending.

@@ -6615,7 +6615,7 @@ qgroup tables were not read because their counters are stale. The installed
 `btrfs-progs` does not provide a `btrfs quota status` subcommand; the sysfs
 flags supplied the inconsistency state.
 
-## Stock-module QEMU hold and expiry check (2026-10-27)
+## Stock-module QEMU hold, wrapper, and expiry check (2026-10-27)
 
 - Booted the exact Debian 7.2.9 kernel and preserved stock Btrfs module in a
   disposable four-config QEMU fixture. Each source subvolume had only four
@@ -6624,7 +6624,7 @@ flags supplied the inconsistency state.
   Kingston qgroup accounting inconsistent.
 - With a future hold deadline configured, further Snapper snapshot calls
   emitted the explicit `automatic rescan deferred by hold file until` warning
-  eight times. Both filesystem inconsistency flags stayed set and the scan
+  nine times. Both filesystem inconsistency flags stayed set and the scan
   count stayed at zero. `snapper list` for p8-root and Kingston-root displayed
   last-known used-space values and printed
   `qgroup data is inconsistent; displaying last-known used-space values`.
@@ -6633,11 +6633,20 @@ flags supplied the inconsistency state.
   counters are stale; quota cleanup deferred)`. The scalar limit `1` used in
   an earlier fixture made all cleanup ranges degenerate and skipped the
   quota-aware phase, so it did not test this guard.
+- The fixture then ran the exact installed all-roots timeline wrapper,
+  including its duplicate-target handling, while the hold was active. Each of
+  the four configs created one snapshot; both filesystems
+  remained inconsistent and the scan count stayed at zero. After expiring the
+  marker, a second wrapper run completed two scans and left neither scan
+  active. This verifies the wrapper's Snapper calls obey the same hold and
+  expiry policy; the wrapper's separate explicit rescan block remains
+  commented out.
 - After the test expired the marker by moving its deadline into the past, the
-  next p8 and Kingston snapshot calls each completed a recovery scan. QEMU
-  exited with status 0 and the fixture's assertions passed.
-- This test did not run the timeline wrapper or perform an actual
-  suspend/resume; it validated Snapper's internal quota path, stale display,
-  quota-cleanup deferral, and deadline behavior only. The small workload is not
-  latency evidence. Artifacts are in the external
+  second wrapper run completed two recovery scans. QEMU exited with status 0
+  and the fixture's assertions passed.
+- This test manually invoked the timeline wrapper, but it did not exercise the
+  systemd timer or perform an actual suspend/resume. It validated Snapper's
+  internal quota path, stale display, quota-cleanup deferral, wrapper behavior,
+  and deadline recovery only. The small workload is not latency evidence.
+  Artifacts are in the external
   `linux.build/qgroup-snapper-hold-20261027` build tree.

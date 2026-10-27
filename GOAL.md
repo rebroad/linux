@@ -1,12 +1,12 @@
 # Goal: accurate Btrfs qgroup stats without unacceptable filesystem latency
 
-This file is the active checklist only. Keep it focused on work that remains
-to do. Put current status, evidence, and per-item completion percentages in
-[`GOAL-progress.md`](GOAL-progress.md); put verified completed work and its
-supporting detail in [`GOAL-done.md`](GOAL-done.md). Update those files instead
-of adding progress reports or historical findings here.
+This is the active checklist. Keep every item below 100% here, with its rough
+completion percentage and remaining gates. Put completed work and detailed
+evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
+file. Percentages estimate acceptance work completed, not confidence or test
+pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off
+## First priority: diagnose the stalls and establish the accounting trade-off — 65%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -46,26 +46,26 @@ path or dependency.
 
 ## Remaining work
 
-1. **Four-collective accounting and recovery:** Preserve separate snapshot
+1. **Four-collective accounting and recovery — 80%:** Preserve separate snapshot
    qgroups for p8-root, p8-home, Kingston-root, and Kingston-home. Validate
    their exclusive-space totals against a completed full rescan while updates
    are quiesced. Verify repeated snapshots, cleanup, deletion, stale-value
    display, deferred cleanup, and recovery on the selected design. Complete
    independent p8 accounting and safe host cleanup/rollback checks before
    restoring quota-based cleanup limits.
-2. **Locally built Snapper:** Keep the host target on our locally built
+2. **Locally built Snapper — 85%:** Keep the host target on our locally built
    Snapper based on the latest official upstream source. Complete stale-quota,
    cleanup, rollback/runtime, and subsequent local-package upgrade checks.
    A deferred rescan must show last-known numbers with an explicit stale
    status; quota-based deletion must wait for current counters.
-3. **Conditional kernel durability:** First establish whether a kernel change
-   is necessary. If selected, support every installed kernel and the next APT
+3. **Conditional kernel durability — 65%:** First establish whether a kernel
+   change is necessary. If selected, support every installed kernel and the next APT
    candidate with a matching reviewed, signed module in the initramfs. Finish
    exact-release comparisons and a disposable end-to-end APT kernel
    transaction, including build failure, package-state, boot-selection,
    rollback, and security-update behavior. Never let an unsupported release
    silently boot with stock Btrfs in place of the selected implementation.
-4. **Suspend-aware rescan containment:** Keep Snapper's hold-file gate and
+4. **Suspend-aware rescan containment — 70%:** Keep Snapper's hold-file gate and
    local-time window configurable; leave the per-day scan limit disabled
    during this investigation. Keep the window at 05:00-21:00 local time. The
    `force-suspend` hold is active overnight only (21:00 until its configured
@@ -74,8 +74,6 @@ path or dependency.
    machine waking to remove the marker. In a controlled case, capture the
    stale state before suspend and the explicit hold-deferral result during
    resume timer catch-up.
-   The recent host catch-up likely exercised the internal gate, but no
-   pre-suspend inconsistency value or explicit deferral log was retained.
    Verify the hold blocks both Snapper's internal quota path and the timeline
    wrapper, and a deferred scan may resume only after the hold expires and
    policy allows it. A deferred scan must never relabel stale values as
@@ -100,5 +98,20 @@ new scans until its configured deadline. The timeline wrapper's separate
 explicit rescan commands remain disabled. Preserve visible stale status and
 prevent quota-based deletion while accounting is stale.
 
-See [`GOAL-progress.md`](GOAL-progress.md) for current item percentages and
-open gates, and [`GOAL-done.md`](GOAL-done.md) for completed evidence.
+Current runtime and diagnostic facts that affect these open gates:
+
+- The host was last verified on Debian 7.2.9 with the stock Btrfs module.
+  Both production filesystems were inconsistent and no rescan was active.
+- The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
+  Earlier captures did show Btrfs metadata/drop waits, but no captured event
+  yet explains the reported multi-minute stalls.
+- Exact-release QEMU tests show stock and custom feature-off reproduce
+  inconsistency/rescans; quick-inherit feature-on kept counters accurate in
+  both tested snapshot orders. The small tests do not establish host-scale
+  latency. A high-count comparison is being recreated with retained logs.
+- Snapper's local-time hold/window behavior is installed and simulated. The
+  remaining controlled test must show stale values before suspend and explicit
+  hold deferral through resume catch-up.
+
+See [`GOAL-done.md`](GOAL-done.md) for completed evidence, test detail, and
+historical captures.

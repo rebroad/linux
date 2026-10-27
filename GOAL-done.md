@@ -6855,12 +6855,22 @@ flags supplied the inconsistency state.
   active on either filesystem.
 - Exact-source QEMU work has reproduced a qgroup teardown defect that can
   leave an in-memory qgroup after its disk item was removed, later causing a
-  missing-item error. A separate stock QEMU fixture with test-only deletion
-  threshold 1 logged `qgroup info item update error -2` during a recovery scan
-  after deletion. Those results are consistent with the host error formats,
-  but do not prove that host deletion caused them: the host capture lacked the
-  errno and IDs, and daily cleanup does not run until 21:41. Snapper's parent
-  mismatch explains the second scan, not the first scan's update failures.
+  missing-item error. In the stock Debian 7.2.9 fixture with test-only
+  `drop_subtree_threshold=1`, the recovery scans logged
+  `qgroup info item update error -2`, followed about 10 ms later by
+  `qgroup scan completed (inconsistency flag cleared)` on both filesystems.
+  Source explains this ordering: `btrfs_qgroup_rescan()` zeroes and dirties
+  every in-memory qgroup; the final leaf transaction can then fail to update a
+  missing qgroup item and mark accounting inconsistent. Since the final leaf
+  already returned a positive completion result, the worker does not check
+  its cancel flag again and clears the inconsistency flag on its positive
+  result. Thus the message proves the extent walk ended, not that all dirty
+  qgroup updates succeeded. The QEMU log lacks the failing qgroup IDs, so it
+  remains unknown whether these were only deleted qgroup objects or whether
+  any live qgroup's counters were affected. This fixture's threshold 1 does
+  not establish that ordinary threshold-3 deletion caused the host errors;
+  the host capture also lacked the IDs and errno. Snapper's parent mismatch
+  explains the second scan, not the first scan's update failures.
 - One sample caught the p8 rescan worker in D state at
   `read_extent_buffer_pages`; its `/proc` stack was empty. Separate samples
   caught a swap-folio wait in `steamwebhelper` and Btrfs discard workers in

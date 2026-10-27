@@ -29,13 +29,20 @@ path or dependency.
    qgroup info/limit update failures with `-ENOENT`; source confirms those
    functions return that error when the corresponding on-disk qgroup key is
    absent. The trace did not identify the qgroup IDs or the operation that
-   removed/omitted those keys. A second Snapper rescan followed inheritance
-   from source `0/262` to requested parent `1/100`; no Kingston worker was
-   seen. Snapper source calls the rescan policy from
-   `Btrfs::prepareQGroupTracking()` before snapshot creation, but this capture
-   did not record the user-space call site. Review [`GOAL-done.md`](GOAL-done.md).
-   A targeted 21:00 trace is armed to record failing qgroup IDs and qgroup
-   removals. Keep the ordinary-deletion cause and stall attribution open;
+   removed/omitted those keys, and the qgroup state predates this capture.
+   Snapper cleanup ran earlier in the same boot, so the loaded stock module
+   is not proof that stock introduced the missing-key state. A second Snapper
+   rescan followed inheritance from source `0/262` to requested parent
+   `1/100`; no Kingston worker was seen. The Snapper source calls its rescan
+   policy from `Btrfs::prepareQGroupTracking()` before snapshot creation; the
+   capture did not record the user-space call site. Review
+   [`GOAL-done.md`](GOAL-done.md).
+   Targeted traces are armed around the 21:00 timeline and 21:41 cleanup to
+   record failing qgroup IDs and qgroup removals. Stock v7.2.9 source exposes
+   a candidate: relation removal can request a rescan after deleting the
+   in-memory relation, and qgroup teardown may then return before deleting
+   the qgroup object. Match the IDs and return values before treating this as
+   the cause. Keep the ordinary-deletion cause and stall attribution open;
    these host captures show transient waits, not a prolonged stall.
    A stock 7.2.9 QEMU run with 32,768 metadata files per source, 28 snapshots
    per config, and the default deletion threshold 3 reproduced stale counters

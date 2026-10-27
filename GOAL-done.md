@@ -6914,8 +6914,23 @@ flags supplied the inconsistency state.
   translate a positive `btrfs_search_slot()` result into `-ENOENT`, meaning
   the in-memory qgroup being persisted had no matching on-disk info or limit
   key. The trace did not capture that qgroup ID or when/how its key became
-  absent. This is consistent with the known stale in-memory qgroup teardown
-  failure, but does not prove it caused this host event.
+  absent. This matches the source-level stale-object candidate below, but does
+  not prove that path caused this host event.
+- Correction after comparing against the exact upstream `v7.2.9` source:
+  stock `btrfs_remove_qgroup()` tolerates `-ENOENT` from `del_qgroup_item()`
+  and continues, so that is not the candidate path. The source does expose a
+  narrower candidate: `__del_qgroup_relation()` can remove a relation from
+  memory and return positive when quick accounting requires a rescan;
+  `btrfs_remove_qgroup()` treats any nonzero relation result as a failure and
+  exits before deleting the qgroup object. Since `del_qgroup_item()` already
+  removed its info/limit keys, a later dirty-qgroup update could then report
+  the captured `-ENOENT`. This chain is source-backed but not yet linked to
+  the host error IDs.
+- This event proves the error occurred with the stock module loaded; it does
+  not prove stock code created the underlying qgroup state. The filesystem's
+  qgroup tree was not freshly initialized, and the 21:41 Snapper cleanup ran
+  earlier in the same boot. The cleanup's per-qgroup deletion IDs and return
+  values were not recorded.
 - Immediately after the first worker ended, Snapper inherited source `0/262`
   into destination `7106` with requested parent `1/100`; another Snapper
   process entered the rescan ioctl about 0.05 seconds later. Its p8 worker
@@ -6932,6 +6947,9 @@ flags supplied the inconsistency state.
 - A targeted trace is armed for 20:59:45 before the next timeline run. It
   adds the qgroup ID and result for each `update_qgroup_limit_item()` call
   (the info and limit updates operate on the same dirty qgroup), and captures
-  `btrfs_remove_qgroup()` IDs/stacks plus dropped-subvolume cleanup events.
-  Its purpose is to determine whether the missing qgroup keys correspond to
-  recently removed qgroups.
+  `btrfs_remove_qgroup()` IDs/results and dropped-subvolume cleanup events.
+  It also records `__del_qgroup_relation()` IDs and return values to detect
+  the positive rescan-fallback path, plus user stacks for Snapper's call site.
+  A second identical trace is armed for 21:40:45, immediately before the next
+  daily cleanup. Together they can connect the missing qgroup IDs to an
+  earlier or current deletion only if the same IDs and return paths match.

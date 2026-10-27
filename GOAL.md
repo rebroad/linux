@@ -107,55 +107,5 @@ new scans until its configured deadline. The timeline wrapper's separate
 explicit rescan commands remain disabled. Preserve visible stale status and
 prevent quota-based deletion while accounting is stale.
 
-Current runtime and diagnostic facts that affect these open gates:
-
-- The host is running Debian kernel `7.2.9+deb13-amd64`. At 15:10 local on
-  2026-10-27, the loaded module's build ID matched the stock module extracted
-  from the selected stock initrd; the different DKMS module was present on
-  disk but was not loaded. Both filesystems were inconsistent, neither had
-  an active rescan, and no tasks were in D state. This confirms the host was
-  using stock Btrfs during this capture, not the modified shared-parent code.
-  Evidence is in [`GOAL-done.md`](GOAL-done.md).
-- Kernel logs show pairs of `qgroup scan paused` messages on p8 around each
-  hourly Snapper timeline run from 10:00 through 15:01. The 14:00 and 15:00
-  runs also have corresponding root/home snapshot records. Stock Btrfs source
-  shows `qgroup_mark_inconsistent()` can set the scan-cancel flag, which makes
-  the worker log `qgroup scan paused`; the worker also stops for other reasons.
-  The timing strongly correlates the messages with the timeline workload, but
-  does not identify the stop condition or exact triggering operation/reason.
-  A live trace is still needed. The prior TTM GPU-fence capture remains
-  separate evidence and did not show Btrfs tasks blocked.
-- A five-second scheduler trace at 15:29 local on 2026-10-27 ran while both
-  rescans were idle. It sampled swap page-fault waits and a Psensor thread
-  waiting for an NVMe hwmon log read, plus USB-resume and ordinary TTY/process
-  waits; it saw no qgroup marks or rescan-worker activity. This does not
-  attribute the earlier systemwide hangs. A focused trace is armed for the
-  next timeline run and records D-state wait durations as well as stacks.
-- The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
-- A 19:06 stock-kernel capture showed the qgroup scans had paused by 19:02;
-  `btrfs-cleaner` was blocked reading extent-tree metadata during snapshot-drop
-  delayed-ref work while `fstrim` was blocked on synchronous discard. The trim
-  ran 18:49-19:08 and discarded about 508 GiB on Kingston and 214.6 GiB on p8.
-  Stock source and a threshold-zero QEMU reproduction show that an
-  inconsistency transition can itself stop a rescan. The host pause's exact
-  caller/threshold and the cause of the reported multi-minute stalls remain
-  unproven; the capture does not show the rescan worker blocked.
-- Exact-release QEMU tests show stock and custom feature-off reproduce
-  inconsistency/rescans; quick-inherit feature-on kept counters accurate in
-  both tested snapshot orders. A matched 217-snapshot comparison now also
-  covers 131,072 metadata files per source. Quick-inherit kept all four
-  counters accurate through snapshots; stock counters differed after full
-  rescans. At threshold 1, deletion made both implementations stale. In TCG,
-  custom and stock median snapshot cycles were 1,490 ms and 500 ms; stock also
-  had 29 s and 53 s cycles while rescans ran. These are not host-latency
-  measurements; live host stall attribution and host-scale storage evidence
-  remain open.
-- Snapper's local-time hold/window behavior is installed and simulated. The
-  stock-module QEMU test now captured stale values, explicit hold deferrals,
-  quota-cleanup deferral, and two recovery scans after expiry. The all-roots
-  timeline wrapper also held scans while stale and recovered after expiry.
-  An actual suspend/resume and systemd timer catch-up remain untested. Detailed
-  results are in [`GOAL-done.md`](GOAL-done.md).
-
 See [`GOAL-done.md`](GOAL-done.md) for completed evidence, test detail, and
 historical captures.

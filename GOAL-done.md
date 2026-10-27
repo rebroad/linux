@@ -6735,3 +6735,23 @@ flags supplied the inconsistency state.
   had fallen from 30.25 at 16:02:59 to 10.99; the longer averages remained
   elevated. This brief recovery sample does not establish the cause of the
   preceding load spike.
+
+## Stock-host pressure sample with rescans idle (2026-10-27 16:10 local)
+
+- This was the same boot previously verified to use the stock Debian 7.2.9
+  Btrfs module. Both `/` and `/mnt/kingston` reported no active quota rescan,
+  and no Btrfs D-state task appeared in the host process snapshot.
+- At 16:10:54, load averages were 9.57 / 13.46 / 18.61. `vmstat` showed
+  29,146,444 KiB in swap and active swap-in/out; memory PSI was 11.66% `some`
+  and 10.12% `full` over 10 seconds, I/O PSI 11.03% / 8.62%, and CPU PSI
+  12.57% `some` with no `full` pressure. Sixteen D-state tasks were TTM
+  workers in `dma_fence_default_wait`. A short follow-up found those workers
+  back in `worker_thread`; the sample does not show a persistent wait.
+- A two-second `/proc/diskstats` delta showed 0.33 ms mean request time and
+  21.4% utilization for `nvme0n1` (1.01 ms and 12.7% for `nvme0n1p5`, which
+  backs `/` and `/home`); Kingston's `sda1` averaged 0.33 ms with negligible
+  activity. This short sample cannot rule out earlier latency spikes. `iostat`
+  was not installed, so this is only a point-in-time counter delta.
+- A filtered kernel-log query since 16:05 found no Btrfs, storage, GPU-fence,
+  hung-task, or OOM messages. This capture does not attribute the elevated
+  load or PSI to Btrfs; host-scale stall attribution remains open.

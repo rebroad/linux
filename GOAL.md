@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 79%
+## First priority: diagnose the stalls and establish the accounting trade-off — 80%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -23,6 +23,11 @@ path or dependency.
    writers and distinguish snapshot/drop work, discard, metadata I/O, and
    unrelated device or GPU waits. Correlate only evidence from the same event;
    do not infer that a rescan caused a stall merely because they overlap.
+   A 2026-10-27 stock-host capture identified Snapper snapshot creation as
+   marking qgroups inconsistent during an active scan, but trace timing could
+   not prove the exact ordering and the run flooded journald and overflowed
+   BPF maps. Its latency samples are unusable; replace it with a strictly
+   capped, low-volume capture before drawing stall conclusions.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

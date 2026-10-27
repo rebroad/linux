@@ -6705,5 +6705,34 @@ flags supplied the inconsistency state.
   sensor read during this sample, but the trace did not record its thread ID
   or duration. The D-state count had fallen to zero in a later snapshot. This
   was not a captured multi-minute hang and cannot explain the earlier
-  systemwide incidents. The subsequent one-shot trace was updated to record
-  TIDs and waits of at least 100 ms, and remains armed for 15:59:45 CET.
+  systemwide incidents. A subsequent one-shot trace was armed for 15:59:45
+  CET; its result and limitations are recorded below.
+
+## Stock-host qgroup trace at the Snapper timeline event (2026-10-27 16:00 local)
+
+- The host was using the stock Debian Btrfs module. The trace observed a
+  `snapper` task enter `btrfs_ioctl_snap_create_v2()`;
+  `__btrfs_ioctl_snap_create()` called `btrfs_qgroup_inherit()`, which called
+  `qgroup_mark_inconsistent()` with reason `qgroup inherit needs a rescan`.
+  The kernel logged `qgroup scan paused` in the same event window. This is
+  direct evidence that this Snapper snapshot-inheritance path marks qgroups
+  inconsistent while a rescan is active, and is consistent with the stock
+  kernel's cancellation behavior. Because the trace's event timing is
+  unreliable (below), it does not prove the exact ordering between that mark
+  and the worker exit.
+- The rescan worker reported 54.1 seconds of monotonic runtime. Its journal
+  start record appeared only 5.5 seconds before the end record, so the
+  journal wall-clock timestamps cannot establish the worker's actual start
+  time. Do not infer precise scan/snapshot ordering from this capture.
+- The trace was not suitable for latency or system-stall attribution. Its
+  per-request block probes generated high-volume output, BPF maps filled,
+  journald reported suppressing 186,133 service messages, and repeated
+  `Map full` warnings occurred. Treat load and latency measurements from
+  this trace window as instrumentation-contaminated; replace the trace with
+  capped, low-volume probes before collecting performance evidence.
+- At 16:05, no BPF tracing process remained and no qgroup scan was active on
+  either filesystem. Three D-state tasks were TTM GPU-fence workers waiting
+  in `dma_fence_default_wait`, not Btrfs tasks. The one-minute load average
+  had fallen from 30.25 at 16:02:59 to 10.99; the longer averages remained
+  elevated. This brief recovery sample does not establish the cause of the
+  preceding load spike.

@@ -6951,5 +6951,7 @@ flags supplied the inconsistency state.
   It also records `__del_qgroup_relation()` IDs and return values to detect
   the positive rescan-fallback path, plus user stacks for Snapper's call site.
   A second identical trace is armed for 21:40:45, immediately before the next
-  daily cleanup. Together they can connect the missing qgroup IDs to an
-  earlier or current deletion only if the same IDs and return paths match.
+  daily cleanup. A third is armed for 21:59:45 to see whether the cleanup's
+  relation-deletion return IDs match the following scan's missing-key IDs.
+  These traces can link a deletion to the update errors only if the IDs and
+  return paths match.

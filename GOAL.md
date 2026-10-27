@@ -37,13 +37,14 @@ path or dependency.
    policy from `Btrfs::prepareQGroupTracking()` before snapshot creation; the
    capture did not record the user-space call site. Review
    [`GOAL-done.md`](GOAL-done.md).
-   Targeted traces are armed around the 21:00 timeline and 21:41 cleanup to
-   record failing qgroup IDs and qgroup removals. Stock v7.2.9 source exposes
-   a candidate: relation removal can request a rescan after deleting the
-   in-memory relation, and qgroup teardown may then return before deleting
-   the qgroup object. Match the IDs and return values before treating this as
-   the cause. Keep the ordinary-deletion cause and stall attribution open;
-   these host captures show transient waits, not a prolonged stall.
+   Targeted traces are armed around the 21:00 timeline, 21:41 cleanup, and
+   22:00 follow-up scan to record failing qgroup IDs and qgroup removals.
+   Stock v7.2.9 source exposes a candidate: relation removal can request a
+   rescan after deleting the in-memory relation, and qgroup teardown may
+   then return before deleting the qgroup object. Match the IDs and return
+   values before treating this as the cause. Keep the ordinary-deletion cause
+   and stall attribution open; these host captures show transient waits, not
+   a prolonged stall.
    A stock 7.2.9 QEMU run with 32,768 metadata files per source, 28 snapshots
    per config, and the default deletion threshold 3 reproduced stale counters
    after snapshot inheritance but no qgroup info/limit update errors during

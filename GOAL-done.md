@@ -6769,12 +6769,12 @@ flags supplied the inconsistency state.
   from the higher-pressure 16:10 sample and shows that pressure was changing
   over the interval.
 - A reduced trace passed BPF's dry-run probe-attach check. It records capped
-  qgroup-mark stacks, `btrfs_qgroup_inherit()` source/destination IDs, parent
-  IDs and copy counts, plus rescan-worker boundaries. Transaction states are
-  aggregated, while host pressure, commit stats, disk counters, and D-state
-  stacks are sampled every five seconds to a private file under the external
-  build tree. It is scheduled around the 17:00 Snapper run; the result is
-  still pending.
+  qgroup-mark stacks, `btrfs_qgroup_inherit()` source/destination IDs, up to
+  eight parent IDs and copy counts, plus rescan-worker boundaries.
+  Transaction states are aggregated, while host pressure, commit stats, disk
+  counters, and D-state stacks are sampled every five seconds to a private
+  file under the external build tree. It is scheduled around the 17:00
+  Snapper run; the result is still pending.
 - Exact `v7.2.9` source shows that snapshot inheritance requests a full rescan
   when the source has no parent, its parent differs from the requested parent,
   it has multiple parents, or the parent is not exclusively accounting all
@@ -6783,3 +6783,8 @@ flags supplied the inconsistency state.
   conservative fallback rules; they do not establish whether the observed
   layout is a bug. The upcoming inherit-argument capture is needed to identify
   which rule the host's Snapper call reaches.
+- BPF reports `qgroup_snapshot_quick_inherit()` as non-traceable on the
+  running kernel, so the capture cannot read that helper's return value
+  directly. Its `btrfs_qgroup_inherit()` arguments should still reveal the
+  requested parents and copy-list counts; the exact fallback branch may remain
+  unresolved if those inputs alone do not identify it.

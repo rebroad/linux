@@ -6427,3 +6427,26 @@ checkout.
   Thus these messages do not prove that Snapper or a user explicitly cancelled
   a scan. The exact caller and stop condition for the hourly messages remain
   untraced.
+
+## Initial audit of custom Btrfs paths against v7.2.9
+
+- `git diff v7.2.9..HEAD -- fs/btrfs` shows the custom delta is limited to
+  `qgroup.c`, qgroup sysfs/toggle plumbing, and qgroup sanity tests; the
+  transaction implementation itself has no custom delta.
+- The shared-parent quick-inherit call runs inside the existing qgroup
+  inheritance path with `qgroup_lock` held. The added work walks qgroup
+  membership/ancestor lists and updates counters in memory; it adds no
+  transaction start, metadata read, commit, or explicit blocking wait. It does
+  extend the spinlock critical section with work proportional to the qgroup
+  graph, so large or deep group hierarchies still need performance coverage.
+- The stale-accounting subtree change returns before the old block-tree walk
+  when qgroup accounting is disabled, which removes work rather than adding a
+  wait. The qgroup-removal changes affect deletion and fallback bookkeeping;
+  they remain candidates for correctness/latency testing during deletion.
+- This source inspection cannot rule out indirect lock contention or a defect
+  in deletion accounting. However, the matching stock 7.2.9 module reproduces
+  the snapshot inconsistency/rescan behavior in QEMU, and a separate stock-host
+  capture already recorded a Btrfs cleaner waiting on qgroup subtree metadata
+  reads during snapshot deletion. Therefore custom code is not required for
+  those behaviors; whether it worsened a particular earlier stall remains
+  unproven.

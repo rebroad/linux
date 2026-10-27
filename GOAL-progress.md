@@ -74,6 +74,15 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
   0.30%. This sample identifies the current blocked-task family but does not
   explain the earlier multi-minute Btrfs transaction stalls. The follow-up
   stack read was not completed because sudo authentication was not provided.
+- An initial source audit against upstream `v7.2.9` found the custom delta
+  confined to qgroup code, qgroup sysfs toggles, and tests. Shared-parent
+  quick-inherit adds in-memory qgroup-graph traversal under `qgroup_lock`, but
+  no transaction start, metadata read, commit, or explicit blocking wait. The
+  stale-accounting optimization skips a subtree read walk. This lowers the
+  likelihood of a direct blocking-I/O regression in those paths, but does not
+  rule out longer spinlock holds, deletion-path effects, or indirect
+  transaction contention. A full modified-kernel comparison and stall trace
+  remain open.
 - A second on-demand QEMU run used the actual Debian stock 7.2.9 Btrfs module
   and Snapper 0.13.2/libsnapper 8.2.0 with the hold absent. The loaded guest
   module build ID matched the host's preserved stock module. It reproduced

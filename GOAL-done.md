@@ -6319,3 +6319,37 @@ checkout.
   `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-trigger-20261027/`;
   the serial log SHA-256 is
   `b5b67ad984597dc45a7996f99d467985d145b35acb6c6cc7064c306d7b323b8e`.
+
+## Stock-module Snapper comparison in QEMU (2026-10-27)
+
+- Ran the same four-config Snapper workload on the Debian 7.2.9 kernel image
+  with the preserved stock Btrfs module. The guest reported module build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`, matching both the host's loaded
+  module and the preserved original module. Snapper was 0.13.2/libsnapper
+  8.2.0. The QEMU guest had no active hold marker, an open 00:00-24:00 test
+  window, and no daily scan limit; the script invoked Snapper on demand rather
+  than waiting for a timer.
+- With `shared_parent_quick_inherit` unavailable in the stock module, the
+  first root snapshots took 410 ms (p8) and 220 ms (Kingston), with zero
+  completed scans and one inconsistency warning per call. The next root
+  snapshots took 770 ms and 680 ms; the scan counter advanced once for each
+  filesystem during those calls. The four home snapshots took 230-270 ms
+  each and did not increment the scan counter. This reproduces, on stock Btrfs,
+  the Snapper snapshot path that requests a rescan after inheritance has made
+  qgroup accounting inconsistent.
+- The fixture's explicit full-rescan comparison changed the qgroup tables,
+  showing that stale values differed from the recomputed values; therefore its
+  unchanged-table verification failed, as expected for stale accounting. The
+  test then forced the deletion fallback threshold to 1, performed cleanup and
+  deletion, and observed both filesystems become inconsistent again. It is a
+  behavioral reproduction, not a counter-preservation pass or a useful
+  host-scale performance benchmark. The recorded snapshot timings are only
+  small-QEMU-fixture measurements.
+- Harness limitation: its pre-verification loop prints both filesystems'
+  `qgroups/inconsistent` paths beneath each filesystem label. Do not interpret
+  those repeated label/value rows as filesystem-specific state. The actual
+  QEMU filesystem UUIDs and later per-mount rescan status are present in the
+  serial log.
+- QEMU exited normally (status 0). Artifacts are under
+  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-stock-20261027/`;
+  serial-log SHA-256: `f3bdd7e70ee486bac40ef5100b6d4f0972bff9b4093e541b800cf0ce4b2ba0ac`.

@@ -7,7 +7,7 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
 
 | Item in `GOAL.md` | Progress | Evidence completed | Main open gates |
 | --- | ---: | --- | --- |
-| First priority: diagnose stalls and establish the accounting trade-off | **55%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. An on-demand QEMU run with Snapper 0.13.2 and the 7.2.9 fallback accounting path reproduced automatic scans during later snapshot calls with the hold absent; it recorded two completed scans across the p8/Kingston root configs without waiting for the host timer. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. The 10:11 live probe produced no events and is no longer running. | Reproduce and explain the host's 10:00 scan pause condition; capture callers/stacks during a naturally occurring host event. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. Controlled QEMU testing does not depend on a host timer. |
+| First priority: diagnose stalls and establish the accounting trade-off | **60%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. Both the fallback accounting path and the actual Debian stock 7.2.9 Btrfs module reproduce automatic scans during later Snapper snapshot calls, on demand and with no hold. The stock QEMU run used module build ID `c2d998d4752632e0f5cf36eaab134a3e73b18940`; two root-config snapshots marked each filesystem inconsistent, then the next root snapshot calls advanced the scan counter once per filesystem. Explicit full rescans changed stale qgroup tables, and later deletion marked them inconsistent again. The run did not measure host-scale latency. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. The 10:11 live probe produced no events and is no longer running. | Reproduce and explain the host's 10:00 scan pause condition; capture callers/stacks during a naturally occurring host event. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. Controlled QEMU testing does not depend on a host timer. |
 | Four-collective accounting and recovery | **70%** | QEMU workloads compare the four exclusive-space collectives to full-rescan tables and cover snapshots, deletion, cleanup, stale values, and recovery. | Complete independent p8 accounting, safe host cleanup/rollback checks, and repeated live snapshot/deletion validation before restoring quota-based cleanup. |
 | Locally built Snapper | **85%** | Latest-upstream local build is installed; package pinning, retained configs, timeline wiring, and read-only operation have been checked. | Complete stale-quota and cleanup behavior, rollback/runtime checks, and an upgrade to a subsequent local build. |
 | Conditional kernel-change durability | **65%** | Signed DKMS/preflight sources cover installed 7.2.6 and 7.2.9 releases; exact-release module/Secure Boot QEMU paths and much of the APT preflight behavior have been exercised. | Decide whether a kernel change is needed. If selected, finish exact 7.2.9 comparison, real disposable APT kernel-transaction and failure/rollback coverage, and support for every installed and next kernel. |
@@ -66,5 +66,25 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
   same Snapper snapshot path without the hold file; see `GOAL-done.md`. Keep a
   host trace as supplemental evidence for host-specific pause/stall causes,
   not as a prerequisite for controlled QEMU work.
+- A second on-demand QEMU run used the actual Debian stock 7.2.9 Btrfs module
+  and Snapper 0.13.2/libsnapper 8.2.0 with the hold absent. The loaded guest
+  module build ID matched the host's preserved stock module. It reproduced
+  the same sequence: root snapshot inheritance marked both filesystems
+  inconsistent, later root snapshot calls each completed a rescan, and
+  deletion made the qgroups inconsistent again. The QEMU fixture's explicit
+  pre/post full-rescan table comparison changed values, as expected when
+  replacing stale accounting; it did not pass the unchanged-counter check.
+  The fixture also repeats both inconsistency sysfs paths under each printed
+  filesystem label, so those particular label/value lines are not per-FS
+  evidence. Snapshot timings were 220-770 ms in this small virtual-disk test;
+  they are not a host-latency estimate. Full details and the serial-log hash
+  are in `GOAL-done.md`.
+- A privileged host snapshot at 10:54 on 2026-10-27 confirmed the same loaded
+  stock module build ID, no rescan on `/` or `/mnt/kingston`, and
+  `qgroups/inconsistent=1` on both filesystems. No D-state tasks were present
+  in the sample. The 09:00-to-10:54 kernel journal contained no Btrfs stall
+  message, and the Snapper journal showed the known 09:25 resume catch-up and
+  10:00 timer run only. This quiet snapshot does not explain the earlier scan
+  pause or reproduce a multi-minute stall.
 
 Detailed captures, test limits, and completed work belong in `GOAL-done.md`.

@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 68%
+## First priority: diagnose the stalls and establish the accounting trade-off — 74%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -46,7 +46,7 @@ path or dependency.
 
 ## Remaining work
 
-1. **Four-collective accounting and recovery — 80%:** Preserve separate snapshot
+1. **Four-collective accounting and recovery — 88%:** Preserve separate snapshot
    qgroups for p8-root, p8-home, Kingston-root, and Kingston-home. Validate
    their exclusive-space totals against a completed full rescan while updates
    are quiesced. Verify repeated snapshots, cleanup, deletion, stale-value
@@ -107,13 +107,14 @@ Current runtime and diagnostic facts that affect these open gates:
   yet explains the reported multi-minute stalls.
 - Exact-release QEMU tests show stock and custom feature-off reproduce
   inconsistency/rescans; quick-inherit feature-on kept counters accurate in
-  both tested snapshot orders. A matched 217-snapshot QEMU pair at 32,768
-  metadata files per source shows custom quick-inherit kept counters accurate
-  through snapshot creation while stock counters changed after full rescans;
-  threshold-1 deletion made both filesystems stale. The custom snapshot-cycle
-  median was 1,310 ms versus 340 ms for stock. A corrected comparison using
-  131,072 metadata files per source is underway; host-scale latency evidence
-  remains open.
+  both tested snapshot orders. A matched 217-snapshot comparison now also
+  covers 131,072 metadata files per source. Quick-inherit kept all four
+  counters accurate through snapshots; stock counters differed after full
+  rescans. At threshold 1, deletion made both implementations stale. In TCG,
+  custom and stock median snapshot cycles were 1,490 ms and 500 ms; stock also
+  had 29 s and 53 s cycles while rescans ran. These are not host-latency
+  measurements; live host stall attribution and host-scale storage evidence
+  remain open.
 - Snapper's local-time hold/window behavior is installed and simulated. The
   remaining controlled test must show stale values before suspend and explicit
   hold deferral through resume catch-up.

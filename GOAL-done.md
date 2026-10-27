@@ -6498,9 +6498,10 @@ checkout.
   directories with 64 files each: 32,768 files per source. The run directories
   have been renamed to say `32k`.
 - The older generator and logs are missing, so its 131,072-file count cannot
-  be independently verified. Do not treat that recorded count as confirmed.
-  A corrected run must retain the generator and raw serial log, and confirm
-  the count emitted by the file-creation loop.
+  be independently verified. A corrected 2026-10-27 custom run now confirms
+  131,072 files per source in the generator and serial log; the matched stock
+  comparison used a reflinked copy of those populated Btrfs volumes. See the
+  completed comparison below.
 
 ## Matched 217-snapshot QEMU comparison at 32,768 files per source (2026-10-27)
 
@@ -6535,3 +6536,56 @@ checkout.
   stalls or establish latency on host storage. Raw logs and guest images are
   under `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-home-first-32k-threshold1/`
   and `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/host-counts-stock-home-first-32k-threshold1/`.
+
+## Corrected 131,072-files-per-source QEMU comparison (2026-10-27)
+
+- The corrected generator created 2,048 metadata directories with 64 files
+  each in each of the four source subvolumes. Every `METADATA-START` record
+  reports 131,072 files. Both guests used Debian's exact 7.2.9 kernel image,
+  4 GiB RAM, two TCG vCPUs, Snapper 0.13.2/libsnapper 8.2.0, the four qgroup
+  layout, 4 KiB nodes, home-first ordering, and the test-only
+  `drop_subtree_threshold=1`.
+- Custom quick-inherit loaded build ID
+  `3469c7f84bd613e66a464afc0f771c627a2b00e3`. The first guest session completed
+  201 synced snapshot cycles before the execution session was terminated; the
+  test resumed from reflinked guest disks, checked Snapper's per-config counts,
+  and created the final 16 cycles. Across both logs all 217 cycles completed
+  without scans or warnings: 240-4,430 ms, median 1,490 ms, p95 3,430 ms. The
+  final full-rescan comparisons matched for both filesystems (p8 109.71 s,
+  Kingston 104.35 s). Per-config counts were p8-root 79, p8-home 28,
+  Kingston-root 82, and Kingston-home 28.
+- Threshold-1 cleanup took 1.09, 0.30, 1.12, and 0.44 s. Subsequent deletes
+  took 16.41, 1.32, 17.57, and 1.28 s and marked both filesystems inconsistent.
+  Explicit recovery rescans completed (4.31 s and 3.63 s); no scan remained,
+  and the post-rescan qgroup reports no longer warned that values were stale.
+  First-session log SHA-256:
+  `78c48b54ddcd8f9503f1235603b17d44787eebab5e95582e3001c421543c4ee9`; resume
+  log SHA-256: `6e21068aedc9814622052c8af575f323fb3ba23ad5967e8dc317ee01f2851719`.
+- The matched stock test loaded build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940` and reused reflinked copies of the
+  same populated, fully rescanned volumes. Four baseline snapshots remained
+  after custom-run cleanup (p8 root 2, p8 home 0, Kingston root 1, Kingston
+  home 1); stock created 213 more to reach the same final per-config counts.
+  No rescan was active at the start. The first stock snapshots made qgroups
+  inconsistent; two scans completed during snapshot creation at about 46 s
+  and 112 s of guest uptime. No reservation errors occurred after the
+  fixture created `/var/lib/snapper` before using the locally built Snapper.
+- After the 217-snapshot population, both stock qgroup tables changed across
+  the explicit full rescans (p8 80.53 s, Kingston 83.53 s). Stock snapshot
+  cycles were 260-52,870 ms, median 500 ms, p95 1,260 ms. The two long cycles
+  overlapped the initial rescan activity. Threshold-1 deletion made both
+  filesystems inconsistent again; deletes took 15.34, 1.37, 8.32, and 1.26 s.
+  Recovery rescans cleared both inconsistency flags. Result status was 0 and
+  the guest reached `HOST-TOPOLOGY: STOCK-131K-COMPLETE`; the stock log SHA-256
+  is `ed17d66dd424b63fcca07a160480c3481cea7be89205cfc96587b6246eb99545`.
+- This pair provides a controlled accuracy/latency comparison at the tested
+  snapshot and source-file counts: quick-inherit maintained accurate counters
+  through snapshot creation at higher median cycle time, while stock was faster
+  in the median but made counters stale and had two long cycles during rescans.
+  These remain TCG measurements, and the stock test began with four rescanned
+  baseline snapshots created under the custom module. Neither result explains
+  the host's earlier long Btrfs stalls or establishes host NVMe latency.
+- Artifacts are under `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/`,
+  in `host-counts-home-first-131k-live/`,
+  `host-counts-home-first-131k-resume/`, and
+  `host-counts-stock-home-first-131k-fixedstate/`.

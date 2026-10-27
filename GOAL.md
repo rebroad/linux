@@ -48,9 +48,13 @@ path or dependency.
    snapshot inconsistency/scan pattern. A focused run exercises deletion while
    inconsistent and confirms that enabling only the removal fallback prevents
    the reproduced missing-item errors. The 32K TCG all-on run shows accurate
-   snapshot accounting without snapshot-time rescans. These runs do not
-   establish host-scale latency. Use host-scale storage measurements before
-   deciding the modified module is acceptable for host use.
+   snapshot accounting without snapshot-time rescans. A separate single-run
+   consistent-accounting deletion test matched counters against full rescans,
+   but root-snapshot deletion took about 107-108 s versus 2-3 s when accounting
+   was already inconsistent. These TCG runs do not establish host-scale
+   latency or repeatable distributions. Measure the same trade-off on
+   representative storage before deciding the modified module is acceptable
+   for host use.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    do not treat the deletion threshold as the only possible trigger. Identify
@@ -60,7 +64,10 @@ path or dependency.
    while infrequent deletion makes them explicitly stale for later recovery.
    If not, identify and quantify which accuracy and latency requirements
    cannot both be met under the tested kernel, layout, workload, and limits.
-   Do not call a design universally impossible based on incomplete testing.
+   Current TCG evidence suggests consistent counters may make root-snapshot
+   deletion much slower; repeat and attribute this result before treating it as
+   a design trade-off. Do not call a design universally impossible based on
+   incomplete testing.
 5. Fix and regression-test any confirmed defect. Do not install a modified
    Btrfs module on the host unless its correctness, latency, stall behavior,
    Secure Boot signature, and rollback path have passed review.

@@ -7133,3 +7133,24 @@ flags supplied the inconsistency state.
   `54ebc1be8599c5d2c57027419cc8469733392c3f`. The change to include qgroup IDs
   in info/limit update error messages is diagnostic-only. These modules were
   tested in QEMU only and were not installed on the host.
+
+## Accurate-accounting deletion comparison (2026-10-27)
+
+- A two-vCPU TCG run with all ten qgroup behavior switches enabled kept both
+  filesystems consistent through snapshots, cleanup, and deletion. It recorded
+  no scans during those operations. After deletion, full rescans completed in
+  about 0.5 seconds per filesystem, and the pre-delete qgroup tables matched
+  the post-rescan tables. The run therefore verified the tested qgroup totals
+  while the status remained consistent.
+- In that run, deleting the root snapshot collective took 106.69 seconds on
+  p8 and 108.22 seconds on Kingston; home deletion took 1.34 and 1.26 seconds.
+  A stock-equivalent run with accounting already inconsistent took 2.25 and
+  3.29 seconds for the root deletes, and 1.30 and 1.27 seconds for home.
+  These are single-run TCG measurements, not a controlled latency distribution
+  or host-storage comparison. The difference is substantial but its precise
+  cause has not been isolated; repeat measurements and profile the deletion
+  path before concluding that consistent accounting itself causes the delay.
+- Run logs are under
+  `qgroup-snapper-current-20261027/runs/custom-consistent-delete-20261027/all-on/`
+  and
+  `qgroup-snapper-current-20261027/runs/custom-noaccounting-drop-qids-20261027/all-off/`.

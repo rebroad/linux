@@ -6650,3 +6650,37 @@ flags supplied the inconsistency state.
   and deadline recovery only. The small workload is not latency evidence.
   Artifacts are in the external
   `linux.build/qgroup-snapper-hold-20261027` build tree.
+
+## Host qgroup-pause and loaded-module recheck (2026-10-27 15:10 local)
+
+- The host runs `7.2.9+deb13-amd64`. The loaded Btrfs build ID was
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`; extracting the module from
+  `/boot/initrd.img-7.2.9+deb13-amd64-stock` produced the same ID. The installed
+  DKMS module on disk had build ID `29eef0f63dbf1853b12c4714903b7f53be56015f`,
+  so it was not the loaded module. `modinfo -F filename btrfs` reports the
+  DKMS file available on disk and must not be treated as loaded-module
+  provenance. The selected stock initrd did boot the stock Btrfs module.
+- At 15:10, `btrfs quota rescan -s /` and
+  `btrfs quota rescan -s /mnt/kingston` both reported no operation in
+  progress. The inconsistency sysfs flag was `1` for both filesystems, and a
+  process/thread snapshot found no D-state tasks. This was a responsive
+  snapshot; it does not explain earlier stalls.
+- Kernel logs show two `qgroup scan paused` messages on `nvme0n1p5` around
+  each hourly run: 10:00:34/10:01:06, 11:00:40/11:01:14,
+  12:00:33/12:01:07, 13:00:31/13:01:02, 14:00:31/14:01:05, and
+  15:00:38/15:01:09. The 14:00 and 15:00 `snapper-timeline.service` runs
+  started at the hour and finished just after 01:00. Snapshot records show
+  host root at 14:00:00 and 15:00:07, host home at 14:00:33 and 15:00:38,
+  and Kingston root at 14:01:06 and 15:01:11. This is a strong temporal
+  correlation with the timeline workload, but the kernel messages do not
+  identify which transaction stopped each scan.
+- The inspected Btrfs qgroup path explains one way to produce the message:
+  marking qgroups inconsistent sets `BTRFS_QGROUP_RUNTIME_FLAG_CANCEL_RESCAN`;
+  the worker checks that flag in `rescan_should_stop()` and logs
+  `qgroup scan paused` after stopping. The worker also stops for other reasons,
+  so the log alone does not identify which stop condition fired. The warning
+  that normally records the inconsistency reason
+  is emitted only on the transition from consistent to inconsistent, so it
+  cannot reveal the later triggering reasons while the on-disk flag remains
+  set. A live trace of the `qgroup_mark_inconsistent()` caller/reason is still
+  needed to attribute each hourly pause.

@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 76%
+## First priority: diagnose the stalls and establish the accounting trade-off — 78%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -103,12 +103,22 @@ prevent quota-based deletion while accounting is stale.
 
 Current runtime and diagnostic facts that affect these open gates:
 
-- The host is running Debian kernel `7.2.9+deb13-amd64`. The loaded Btrfs
-  module's sysfs build ID matches the exact stock module used in QEMU, so the
-  modified shared-parent module is not loaded. A privileged check at 14:32
-  local on 2026-10-27 found no active rescans and both p8 and Kingston
-  qgroup inconsistency flags set. Command evidence is in
-  [`GOAL-done.md`](GOAL-done.md).
+- The host is running Debian kernel `7.2.9+deb13-amd64`. At 15:10 local on
+  2026-10-27, the loaded module's build ID matched the stock module extracted
+  from the selected stock initrd; the different DKMS module was present on
+  disk but was not loaded. Both filesystems were inconsistent, neither had
+  an active rescan, and no tasks were in D state. This confirms the host was
+  using stock Btrfs during this capture, not the modified shared-parent code.
+  Evidence is in [`GOAL-done.md`](GOAL-done.md).
+- Kernel logs show pairs of `qgroup scan paused` messages on p8 around each
+  hourly Snapper timeline run from 10:00 through 15:01. The 14:00 and 15:00
+  runs also have corresponding root/home snapshot records. Stock Btrfs source
+  shows `qgroup_mark_inconsistent()` can set the scan-cancel flag, which makes
+  the worker log `qgroup scan paused`; the worker also stops for other reasons.
+  The timing strongly correlates the messages with the timeline workload, but
+  does not identify the stop condition or exact triggering operation/reason.
+  A live trace is still needed. The prior TTM GPU-fence capture remains
+  separate evidence and did not show Btrfs tasks blocked.
 - The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
 - A 19:06 stock-kernel capture showed the qgroup scans had paused by 19:02;
   `btrfs-cleaner` was blocked reading extent-tree metadata during snapshot-drop

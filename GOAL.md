@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 84%
+## First priority: diagnose the stalls and establish the accounting trade-off — 85%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -44,7 +44,9 @@ path or dependency.
    then return before deleting the qgroup object. Match the IDs and return
    values before treating this as the cause. Keep the ordinary-deletion cause
    and stall attribution open; these host captures show transient waits, not
-   a prolonged stall.
+   a prolonged stall. The modified kernel's qgroup sanity test now passes in
+   QEMU across five node sizes, including its stock-behavior toggle; it uses
+   dummy qgroups and does not reproduce the persistent on-disk cleanup path.
    A stock 7.2.9 QEMU run with 32,768 metadata files per source, 28 snapshots
    per config, and the default deletion threshold 3 reproduced stale counters
    after snapshot inheritance but no qgroup info/limit update errors during

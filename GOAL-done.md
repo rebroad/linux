@@ -5686,6 +5686,20 @@ then restored to the normal `CONFIG_BTRFS_FS=m` configuration. This validates
 compilation of the new test code; the sanity tests themselves have not run on a
 kernel with that option enabled.
 
+## Qgroup teardown sanity test in QEMU (2026-10-27)
+
+- The `sanity-fast` QEMU image booted the modified Btrfs module with
+  `CONFIG_BTRFS_FS_RUN_SANITY_TESTS=y`. Its serial log shows the qgroup test
+  suite running five times, for node sizes from 4 KiB through 64 KiB.
+- Each run executed the new removal-after-rescan-fallback case, the missing
+  info-item case, and a stock-mode toggle followed by recovery with the fix
+  enabled. The log contains no qgroup `test_err()` output; the guest reached
+  its expected poweroff. This verifies the in-memory control-flow test on the
+  modified kernel, not persistent qgroup-tree changes or the host cleanup
+  workload.
+- This supersedes the 2026-10-20 note above that the sanity tests had only
+  been compiled and had not yet run.
+
 ## Btrfs source style check (2026-10-20)
 
 `scripts/checkpatch.pl --no-tree --no-signoff --strict` was run against the

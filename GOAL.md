@@ -64,10 +64,13 @@ path or dependency.
    silently boot with stock Btrfs in place of the selected implementation.
 4. **Suspend-aware rescan containment:** Keep Snapper's hold-file gate and
    local-time window configurable; leave the per-day scan limit disabled
-   during this investigation. Keep the window at 05:00-21:00 local time and
-   the `force-suspend` hold expiry at 04:00 unless the configured policy is
-   deliberately changed. In a controlled case, capture the stale state before
-   suspend and the explicit hold-deferral result during resume timer catch-up.
+   during this investigation. Keep the window at 05:00-21:00 local time. The
+   `force-suspend` hold is active overnight only (21:00 until its configured
+   04:00 expiry); from 04:00 through 21:00 its marker must be expired and must
+   not block a scan. Expiry is deadline-based and must not depend on the
+   machine waking to remove the marker. In a controlled case, capture the
+   stale state before suspend and the explicit hold-deferral result during
+   resume timer catch-up.
    The recent host catch-up likely exercised the internal gate, but no
    pre-suspend inconsistency value or explicit deferral log was retained.
    Verify the hold blocks both Snapper's internal quota path and the timeline

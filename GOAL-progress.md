@@ -7,11 +7,11 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
 
 | Item in `GOAL.md` | Progress | Evidence completed | Main open gates |
 | --- | ---: | --- | --- |
-| First priority: diagnose stalls and establish the accounting trade-off | **50%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. | Capture the next relevant scan start/stop with stacks and the triggering actor; determine whether pausing comes from Snapper, quota state, or another caller. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. |
+| First priority: diagnose stalls and establish the accounting trade-off | **50%** | Exact-version QEMU reproductions, source-path analysis, and stock/custom comparisons. The overnight 10.7-hour `systemd-journal` D-state was an expected freezer wait across system suspend, not a Btrfs stall. The loaded host module is confirmed to match the preserved stock 7.2.9 module. A 10:00 timeline run on 2026-10-27 logged two `qgroup scan paused` messages for `nvme0n1p5`; qgroups remained inconsistent. A read-only live trace is now capturing qgroup inconsistency reasons/stacks, rescan ioctl callers, inheritance calls, and worker entry/return through the next hourly run. | Attribute the 10:00 scan pause and capture the next scan start/stop with stacks and triggering actor; determine whether pausing comes from Snapper, quota state, or another caller. Capture a complete live multi-minute Btrfs stall, compare stock/custom on representative host storage, and decide the accuracy/latency policy. |
 | Four-collective accounting and recovery | **70%** | QEMU workloads compare the four exclusive-space collectives to full-rescan tables and cover snapshots, deletion, cleanup, stale values, and recovery. | Complete independent p8 accounting, safe host cleanup/rollback checks, and repeated live snapshot/deletion validation before restoring quota-based cleanup. |
 | Locally built Snapper | **85%** | Latest-upstream local build is installed; package pinning, retained configs, timeline wiring, and read-only operation have been checked. | Complete stale-quota and cleanup behavior, rollback/runtime checks, and an upgrade to a subsequent local build. |
 | Conditional kernel-change durability | **65%** | Signed DKMS/preflight sources cover installed 7.2.6 and 7.2.9 releases; exact-release module/Secure Boot QEMU paths and much of the APT preflight behavior have been exercised. | Decide whether a kernel change is needed. If selected, finish exact 7.2.9 comparison, real disposable APT kernel-transaction and failure/rollback coverage, and support for every installed and next kernel. |
-| Suspend-aware rescan containment | **60%** | Configurable hold, local-time window, disabled daily limit, and timer handling are installed. The current marker is expired at 04:00 on 2026-10-27. Source changes removing resume-time refresh and limiting a new hold to the overnight window are committed and pushed on the home-repository branch `fix/snapper-rescan-hold-daytime`. | The installed `/usr/local/libexec/snapper-timeline-sleep` still refreshes expired holds; deployment was blocked because this shell cannot use sudo. A controlled stale-before-suspend case with explicit deferral logging is still needed. Verify both Snapper's internal quota gate and the timeline wrapper, and ensure stale values remain visibly stale. |
+| Suspend-aware rescan containment | **70%** | Configurable hold, local-time scan window, and disabled daily limit are installed. The source and installed `/usr/local/libexec/snapper-rescan-hold` now enforce an overnight-only hold (21:00 to 04:00); daytime refresh writes an expired deadline, so no wake-up cleanup is required. Simulated 03:00, daytime-with-stale-future-marker, and 22:00 cases passed. The live marker is expired. | Capture a controlled stale-before-suspend case with explicit deferral logging. Verify the internal Snapper gate and any wrapper path that may start rescans, and ensure stale values remain visibly stale. |
 
 ## Current diagnostic context
 
@@ -55,5 +55,14 @@ checklist; `GOAL-done.md` holds completed evidence and detailed history.
   requested it or why; the trace ended before 10:00, so the exact trigger was
   not captured. Raw trace output remains under `/var/tmp`, not in the source
   checkout.
+- At 10:11 on 2026-10-27, both production filesystems still reported
+  `qgroups/inconsistent=1`, with no rescan in progress and no sampled D-state
+  Btrfs/Snapper tasks. The host remains on the stock 7.2.9 module. The 10:00
+  timeline service ran from 10:00:03 to 10:01:06; its journal contains only
+  duplicate-target notices plus two p8 `qgroup scan paused` messages. The
+  exact rescan caller and stop reason were not logged. A short-lived
+  system-wide probe trace is running from `/var/tmp` to catch the next event;
+  it records `qgroup_mark_inconsistent()` reasons/stacks, rescan ioctl callers,
+  qgroup inheritance, and rescan worker entry/return.
 
 Detailed captures, test limits, and completed work belong in `GOAL-done.md`.

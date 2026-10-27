@@ -6628,12 +6628,16 @@ flags supplied the inconsistency state.
   count stayed at zero. `snapper list` for p8-root and Kingston-root displayed
   last-known used-space values and printed
   `qgroup data is inconsistent; displaying last-known used-space values`.
+- With `SPACE_LIMIT=0.01` and a non-degenerate `TIMELINE_LIMIT_HOURLY=1-2`,
+  `snapper cleanup timeline` emitted `quota cleanup skipped (qgroup quota
+  counters are stale; quota cleanup deferred)`. The scalar limit `1` used in
+  an earlier fixture made all cleanup ranges degenerate and skipped the
+  quota-aware phase, so it did not test this guard.
 - After the test expired the marker by moving its deadline into the past, the
   next p8 and Kingston snapshot calls each completed a recovery scan. QEMU
   exited with status 0 and the fixture's assertions passed.
-- The `snapper cleanup timeline` call did not emit the stale-counter quota
-  cleanup guard, so this fixture does not prove that quota-based deletion is
-  deferred. Investigate why the expected guard was not emitted. This test
-  also did not run the timeline wrapper or perform an actual suspend/resume;
-  it validated the internal Snapper path and deadline behavior only. Artifacts
-  are in the external `linux.build/qgroup-snapper-hold-20261027` build tree.
+- This test did not run the timeline wrapper or perform an actual
+  suspend/resume; it validated Snapper's internal quota path, stale display,
+  quota-cleanup deferral, and deadline behavior only. The small workload is not
+  latency evidence. Artifacts are in the external
+  `linux.build/qgroup-snapper-hold-20261027` build tree.

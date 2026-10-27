@@ -6380,6 +6380,15 @@ checkout.
   260-560 ms in the home-then-root run. These are single QEMU-TCG observations,
   not a distribution or host-scale latency comparison. The two explicit
   full-rescan verification rounds are separate from the snapshot path.
+- Parsed timing samples from the retained serial logs: stock had 8 end-to-end
+  snapshot cycles at 230-800 ms (median 255 ms); custom feature-off had 8 at
+  290-940 ms (median 385 ms); custom feature-on combined 16 cycles across the
+  two config orders at 260-560 ms (median 300 ms). Cleanup medians were
+  360/360/350 ms, and synchronous-delete medians were 1.775/1.810/1.770 s
+  for stock/feature-off/feature-on respectively. The maximum feature-on delete
+  was 3.32 s. These are small two-snapshot-per-config runs; they show little
+  deletion difference at this population and cannot be extrapolated to the
+  previously tested 217-snapshot workload.
 - A separate test-only build enabled Btrfs sanity tests. Its serial output
   shows the qgroup add/remove, removal-fallback, shared-parent quick-inherit,
   fallback-topology, and counter-overflow test groups ran; the guest then
@@ -6401,6 +6410,13 @@ checkout.
   it does not establish that the modification is safe on host-scale workloads,
   explain the previously observed multi-minute stalls, or justify installing
   the custom module on the host.
+- The prior high-count QEMU artifacts were recorded under
+  `/mnt/kingston/builds/rebroad/src/linux.build/qgroup-module-load-7.2.9-20261020/`.
+  That exact `linux.build` directory is absent from the current Kingston build
+  tree, so the documented 217-snapshot results cannot currently be
+  re-checked against their raw logs. Current 2026-10-27 logs remain available
+  under `/var/tmp/builds/rebroad/src/linux.build/`; repeat any high-count run
+  there before using it as final acceptance evidence.
 
 ## Host blocked-task and qgroup snapshot (2026-10-27 11:59)
 

@@ -6865,12 +6865,16 @@ flags supplied the inconsistency state.
   already returned a positive completion result, the worker does not check
   its cancel flag again and clears the inconsistency flag on its positive
   result. Thus the message proves the extent walk ended, not that all dirty
-  qgroup updates succeeded. The QEMU log lacks the failing qgroup IDs, so it
-  remains unknown whether these were only deleted qgroup objects or whether
-  any live qgroup's counters were affected. This fixture's threshold 1 does
-  not establish that ordinary threshold-3 deletion caused the host errors;
-  the host capture also lacked the IDs and errno. Snapper's parent mismatch
-  explains the second scan, not the first scan's update failures.
+  qgroup updates succeeded. However, parsing the 21 qgroup rows printed for
+  each filesystem immediately before and after this erroring scan shows the
+  tables are identical. This fixture therefore shows no visible change to
+  live qgroup counters from the erroring scan. The QEMU log lacks the failing
+  qgroup IDs, so it remains unknown whether these were only deleted qgroup
+  objects; the unchanged tables do not identify the missing object. This
+  fixture's threshold 1 does not establish that ordinary threshold-3
+  deletion caused the host errors; the host capture also lacked the IDs and
+  errno. Snapper's parent mismatch explains the second scan, not the first
+  scan's update failures.
 - One sample caught the p8 rescan worker in D state at
   `read_extent_buffer_pages`; its `/proc` stack was empty. Separate samples
   caught a swap-folio wait in `steamwebhelper` and Btrfs discard workers in

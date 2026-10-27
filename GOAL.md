@@ -28,7 +28,9 @@ path or dependency.
    pause, but could not prove their exact ordering. The run also flooded
    journald and overflowed BPF maps. Its latency samples are unusable; use a
    strictly capped, low-volume capture. One is armed for 16:59:45 CET, ahead
-   of the 17:00 timeline run; review its output before drawing conclusions.
+   of the 17:00 timeline run; it records qgroup-inherit counts and parent IDs
+   as well as scan and host-state samples. Review its output before drawing
+   conclusions.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

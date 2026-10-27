@@ -6788,3 +6788,29 @@ flags supplied the inconsistency state.
   directly. Its `btrfs_qgroup_inherit()` arguments should still reveal the
   requested parents and copy-list counts; the exact fallback branch may remain
   unresolved if those inputs alone do not identify it.
+
+## Live qgroup hierarchy before the 17:00 timeline event (2026-10-27 16:30 CET)
+
+- Read-only `btrfs qgroup show -p/-c --raw` queries completed for p8 and
+  Kingston. Both warned that qgroup counters are inconsistent, so only the
+  parent/child relationships below are used; Referenced and Exclusive values
+  from these tables are stale.
+- p8 root live qgroup `0/262` and root snapshot collective `1/100` are the two
+  children of tracker `2/0`. p8 home live qgroup `0/263` and home snapshot
+  collective `1/101` are the two children of tracker `2/1`.
+- Kingston root live qgroup `0/256` and root snapshot collective `1/100` are
+  the two children of tracker `2/1`. Kingston home live qgroup `0/257` and
+  home snapshot collective `1/101` are the two children of tracker `2/0`.
+  Thus root and home use separate snapshot collectives on both filesystems;
+  each live/snapshot pair has the exact two-child shared-tracker structure the
+  local quick-inherit optimization was designed to handle.
+- In stock `v7.2.9`, the quick-inherit helper requires the requested target
+  parent to be the source's own parent. The resulting tree places snapshots
+  under `1/100` or `1/101`, while their live source is under tracker `2/0` or
+  `2/1`; if Snapper requests those snapshot parents, the mismatch selects the
+  full-rescan fallback. This is a strong explanation for snapshot-triggered
+  inconsistency on the stock module and evidence of a conservative design
+  trade-off, not by itself proof of an upstream defect. The scheduled trace
+  will verify the actual inherit IDs passed by Snapper.
+- Both filesystems still reported no active rescan at 16:32:51, after the
+  hierarchy queries.

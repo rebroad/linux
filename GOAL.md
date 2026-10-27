@@ -31,6 +31,9 @@ path or dependency.
    of the 17:00 timeline run; it records qgroup-inherit counts and parent IDs
    as well as scan and host-state samples. Review its output before drawing
    conclusions.
+   Current qgroup trees show each live subvolume and snapshot collective as
+   separate siblings under a tracker; the capture must confirm which parent
+   IDs Snapper actually passes.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

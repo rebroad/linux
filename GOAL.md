@@ -23,11 +23,12 @@ path or dependency.
    writers and distinguish snapshot/drop work, discard, metadata I/O, and
    unrelated device or GPU waits. Correlate only evidence from the same event;
    do not infer that a rescan caused a stall merely because they overlap.
-   A 2026-10-27 stock-host capture identified Snapper snapshot creation as
-   marking qgroups inconsistent during an active scan, but trace timing could
-   not prove the exact ordering and the run flooded journald and overflowed
-   BPF maps. Its latency samples are unusable; replace it with a strictly
-   capped, low-volume capture before drawing stall conclusions.
+   A 2026-10-27 stock-host capture identified the Snapper snapshot-creation
+   path that marked qgroups inconsistent in the same trace window as a scan
+   pause, but could not prove their exact ordering. The run also flooded
+   journald and overflowed BPF maps. Its latency samples are unusable; replace
+   it with a strictly capped, low-volume capture before drawing stall
+   conclusions.
    Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
    host's hourly timer to make controlled-test progress. Host captures remain
    necessary for host-specific stalls and scan stop causes.

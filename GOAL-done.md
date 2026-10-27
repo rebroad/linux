@@ -6714,12 +6714,11 @@ flags supplied the inconsistency state.
   `snapper` task enter `btrfs_ioctl_snap_create_v2()`;
   `__btrfs_ioctl_snap_create()` called `btrfs_qgroup_inherit()`, which called
   `qgroup_mark_inconsistent()` with reason `qgroup inherit needs a rescan`.
-  The kernel logged `qgroup scan paused` in the same event window. This is
-  direct evidence that this Snapper snapshot-inheritance path marks qgroups
-  inconsistent while a rescan is active, and is consistent with the stock
-  kernel's cancellation behavior. Because the trace's event timing is
-  unreliable (below), it does not prove the exact ordering between that mark
-  and the worker exit.
+  The kernel logged `qgroup scan paused` in the same event window. Source
+  confirms that marking qgroups inconsistent sets `CANCEL_RESCAN`, which the
+  worker checks, so this is consistent with stock cancellation behavior.
+  Because trace event timing is unreliable (below), it does not prove that
+  this specific mark caused that specific worker exit.
 - The rescan worker reported 54.1 seconds of monotonic runtime. Its journal
   start record appeared only 5.5 seconds before the end record, so the
   journal wall-clock timestamps cannot establish the worker's actual start

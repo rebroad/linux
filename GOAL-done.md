@@ -6367,28 +6367,39 @@ checkout.
   automatic scans on later root snapshot calls, and qgroup tables that differed
   from the completed full-rescan tables. This confirms the toggle-off path
   remains a useful within-build baseline.
-- With the feature enabled, a root-then-home run and a home-then-root run each
-  made two snapshots in every required config. Neither run logged an
-  inconsistency warning or an automatic scan during snapshot creation. The
-  four qgroup counters matched completed full-rescan output on both filesystems
-  before deletion. Timeline cleanup and manual deletion at the default
-  `drop_subtree_threshold` kept both filesystems consistent; the final
-  counter-verification pass matched the full-rescan results. This is direct
-  evidence for accurate counters on this four-group topology and workload,
-  including both config orders.
-- The feature-on snapshot calls took 260-560 ms in the root-then-home run and
-  260-560 ms in the home-then-root run. These are single QEMU-TCG observations,
-  not a distribution or host-scale latency comparison. The two explicit
+- With the feature enabled, a verified root-then-home run and a verified
+  home-then-root run each made two snapshots in every required config. Neither
+  run logged an inconsistency warning or an automatic scan during snapshot
+  creation. The four qgroup counters matched completed full-rescan output on
+  both filesystems before deletion. Timeline cleanup and manual deletion at
+  the default `drop_subtree_threshold` kept both filesystems consistent; the
+  final counter-verification pass matched the full-rescan results. This is
+  direct evidence for accurate counters on this four-group topology and both
+  actual config orders.
+- Timing from the two valid feature-on logs: 16 end-to-end snapshot cycles took
+  250-560 ms (median 295 ms); 8 cleanup calls took 330-450 ms (median 365 ms);
+  and 8 synchronous deletes took 1.25-2.55 s (median 1.765 s). These small
+  QEMU-TCG samples are not a host-scale latency comparison. The two explicit
   full-rescan verification rounds are separate from the snapshot path.
+- The earlier run named `fast-home-root` was mislabeled: its init script
+  printed the `home-root` boot argument but did not branch on it, and its
+  serial log shows root snapshots before home snapshots. It is excluded from
+  the reverse-order evidence and timing aggregates. A corrected build-tree
+  init override now performs home snapshots before root snapshots and the
+  serial log confirms that order. The reusable build-tree `overlay/init`
+  template now branches on `order`, and `sh -n` accepts it. Its log SHA-256 is
+  `97a4f6dea3a0e6cdb32187e88e993d91e97819be2166b624abd135168fb19e04`; the
+  fixture is under
+  `/var/tmp/builds/rebroad/src/linux.build/qgroup-snapper-current-20261027/runs/fast-home-first-verified/`.
 - Parsed timing samples from the retained serial logs: stock had 8 end-to-end
   snapshot cycles at 230-800 ms (median 255 ms); custom feature-off had 8 at
-  290-940 ms (median 385 ms); custom feature-on combined 16 cycles across the
-  two config orders at 260-560 ms (median 300 ms). Cleanup medians were
-  360/360/350 ms, and synchronous-delete medians were 1.775/1.810/1.770 s
-  for stock/feature-off/feature-on respectively. The maximum feature-on delete
-  was 3.32 s. These are small two-snapshot-per-config runs; they show little
-  deletion difference at this population and cannot be extrapolated to the
-  previously tested 217-snapshot workload.
+  290-940 ms (median 385 ms); custom feature-on combined the verified root-home
+  and home-root runs for 16 cycles at 250-560 ms (median 295 ms). Cleanup
+  medians were 360/360/365 ms, and synchronous-delete medians were
+  1.775/1.810/1.765 s for stock/feature-off/feature-on respectively. The
+  maximum feature-on delete was 2.55 s. These are small two-snapshot-per-config
+  runs; they show little deletion difference at this population and cannot be
+  extrapolated to the previously tested 217-snapshot workload.
 - A separate test-only build enabled Btrfs sanity tests. Its serial output
   shows the qgroup add/remove, removal-fallback, shared-parent quick-inherit,
   fallback-topology, and counter-overflow test groups ran; the guest then

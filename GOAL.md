@@ -100,8 +100,11 @@ prevent quota-based deletion while accounting is stale.
 
 Current runtime and diagnostic facts that affect these open gates:
 
-- The host was last verified on Debian 7.2.9 with the stock Btrfs module.
-  Both production filesystems were inconsistent and no rescan was active.
+- The host is running Debian kernel `7.2.9+deb13-amd64`. The loaded Btrfs
+  module's sysfs build ID matches the exact stock module used in QEMU, so the
+  modified shared-parent module is not loaded. The last privileged qgroup
+  check found both production filesystems inconsistent with no rescan active;
+  refresh that state during the next privileged host capture.
 - The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
   Earlier captures did show Btrfs metadata/drop waits, but no captured event
   yet explains the reported multi-minute stalls.

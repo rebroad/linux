@@ -6589,3 +6589,16 @@ checkout.
   in `host-counts-home-first-131k-live/`,
   `host-counts-home-first-131k-resume/`, and
   `host-counts-stock-home-first-131k-fixedstate/`.
+
+## Host Btrfs module provenance recheck (2026-10-27)
+
+The running kernel is `7.2.9+deb13-amd64`. The loaded module exposes GNU build
+ID `c2d998d4752632e0f5cf36eaab134a3e73b18940` at
+`/sys/module/btrfs/notes/.note.gnu.build-id`; this exactly matches the stock
+7.2.9 module used in the matched QEMU run above. The modified shared-parent
+module (build ID `3469c7f84bd613e66a464afc0f771c627a2b00e3`) is therefore not
+loaded in this host session. A `btrfs quota rescan status /` check could not
+be completed: sudo required a password in the escalated shell, and the
+unprivileged shell is restricted by `no_new_privileges`. The current qgroup
+consistency and active-rescan state remain unverified; do not carry forward
+the last privileged result as current state.

@@ -66,10 +66,13 @@ path or dependency.
    local-time window configurable; leave the per-day scan limit disabled
    during this investigation. Keep the window at 05:00-21:00 local time and
    the `force-suspend` hold expiry at 04:00 unless the configured policy is
-   deliberately changed. Verify a real suspend/resume cycle cannot trigger a
-   fresh scan through either Snapper's internal quota path or the timeline
-   wrapper, and that a deferred scan may resume only after the hold expires
-   and policy allows it. A deferred scan must never relabel stale values as
+   deliberately changed. In a controlled case, capture the stale state before
+   suspend and the explicit hold-deferral result during resume timer catch-up.
+   The recent host catch-up likely exercised the internal gate, but no
+   pre-suspend inconsistency value or explicit deferral log was retained.
+   Verify the hold blocks both Snapper's internal quota path and the timeline
+   wrapper, and a deferred scan may resume only after the hold expires and
+   policy allows it. A deferred scan must never relabel stale values as
    consistent.
 
 ## Acceptance

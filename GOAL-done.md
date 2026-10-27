@@ -6240,3 +6240,52 @@ These reads may contribute to NVMe queue pressure but happened after the
 message in the sampled period. Commit counters continued advancing from 478 at
 22:19 to 489 at 22:25; the last p8 commit at 22:25 was 529 ms. This confirms
 progress, not the source of the high latency.
+
+## Resume catch-up and qgroup state (2026-10-26 to 2026-10-27)
+
+The laptop entered system suspend at 22:43:56 on 2026-10-26 and returned at
+09:25:15 on 2026-10-27. The long `systemd-journal` D-state captured by the
+trace was in `__refrigerator()` across this sleep interval; it is expected
+freezer behavior, not evidence of a ten-hour Btrfs stall. The 23:00 timeline
+activation was missed while asleep. On resume, systemd restarted the hourly
+timeline timer and immediately ran its catch-up service from 09:25:15 to
+09:25:22.
+
+The live trace recorded four Snapper calls to `qgroup_mark_inconsistent()`
+with reason `qgroup inherit needs a rescan`. Their stacks entered through
+`btrfs_qgroup_inherit()` and the snapshot-create ioctl; two calls were on each
+of the two filesystems. The sysfs `qgroups/inconsistent` value was `1` for
+both filesystems afterward. Thus the resume catch-up created snapshots and
+marked quota accounting stale even though the wrapper's separate explicit
+rescan block was commented out.
+
+The shared hold file was rewritten at 09:25:15.875 and contained the expiry
+epoch for 04:00 local time on 2026-10-28. A privileged
+`btrfs quota rescan --status` query after the catch-up reported no operation
+in progress on either filesystem. The trace contained no D-state entry or
+slow-I/O record attributed to `btrfs-qgroup-rescan`, and the kernel journal
+showed no qgroup scan event in the resume interval. The `qgroups/inconsistent`
+sysfs values remained `1` afterward, so the query was not observing a scan
+that had completed and cleared the stale state.
+
+Source inspection of the installed Snapper 0.13.2 code path confirms that
+quota-tracked `Btrfs::createSnapshot()` calls `prepareQGroupTracking()` before
+creating a snapshot, regardless of `SPACE_LIMIT`. That preparation calls
+`quota_rescan_if_needed()`, which consults the configured hold before starting
+a scan when qgroups are already inconsistent. Thus `SPACE_LIMIT="1.0"` only
+disables quota-aware cleanup; it does not bypass the snapshot-creation gate.
+The 20:00 kernel logs show scans pausing earlier that evening, and the
+post-resume trace shows no rescan running while the refreshed hold was active.
+This is strong evidence that the catch-up respected the hold, but the stale
+state immediately before suspend was not captured and Snapper emitted no
+retained explicit hold-deferral message. A controlled run should begin with a
+confirmed inconsistent state and retain that message to prove the gate
+directly.
+
+The same source review confirms `qgroup_mark_inconsistent()` sets the
+inconsistent, cancel-rescan, and no-accounting flags; it does not queue a new
+scan. The scan worker is queued separately by the rescan entry point. So the
+four inheritance marks prove snapshots made accounting stale, not that a full
+scan started. Raw trace data remains at
+`/var/tmp/btrfs-stall-followup-20261026-2300.log`; it is not part of the source
+checkout.

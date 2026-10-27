@@ -6943,8 +6943,10 @@ flags supplied the inconsistency state.
 - This event proves the error occurred with the stock module loaded; it does
   not prove stock code created the underlying qgroup state. The filesystem's
   qgroup tree was not freshly initialized, and the 21:41 Snapper cleanup ran
-  earlier in the same boot. The cleanup's per-qgroup deletion IDs and return
-  values were not recorded.
+  earlier in the same boot (Oct 26, 21:41:06–21:41:45). The cleanup wrapper
+  ran number and timeline cleanup for p8 root/home, and both configs enable
+  those algorithms. The journal and current snapshot list do not reveal which
+  snapshots it deleted; per-qgroup IDs and return values were not recorded.
 - Immediately after the first worker ended, Snapper inherited source `0/262`
   into destination `7106` with requested parent `1/100`; another Snapper
   process entered the rescan ioctl about 0.05 seconds later. Its p8 worker

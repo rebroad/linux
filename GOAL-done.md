@@ -6614,3 +6614,26 @@ time. The
 qgroup tables were not read because their counters are stale. The installed
 `btrfs-progs` does not provide a `btrfs quota status` subcommand; the sysfs
 flags supplied the inconsistency state.
+
+## Stock-module QEMU hold and expiry check (2026-10-27)
+
+- Booted the exact Debian 7.2.9 kernel and preserved stock Btrfs module in a
+  disposable four-config QEMU fixture. Each source subvolume had only four
+  metadata directories with eight files each; this was a behavior check, not
+  a performance measurement. Two initial Snapper snapshots made p8 and
+  Kingston qgroup accounting inconsistent.
+- With a future hold deadline configured, further Snapper snapshot calls
+  emitted the explicit `automatic rescan deferred by hold file until` warning
+  eight times. Both filesystem inconsistency flags stayed set and the scan
+  count stayed at zero. `snapper list` for p8-root and Kingston-root displayed
+  last-known used-space values and printed
+  `qgroup data is inconsistent; displaying last-known used-space values`.
+- After the test expired the marker by moving its deadline into the past, the
+  next p8 and Kingston snapshot calls each completed a recovery scan. QEMU
+  exited with status 0 and the fixture's assertions passed.
+- The `snapper cleanup timeline` call did not emit the stale-counter quota
+  cleanup guard, so this fixture does not prove that quota-based deletion is
+  deferred. Investigate why the expected guard was not emitted. This test
+  also did not run the timeline wrapper or perform an actual suspend/resume;
+  it validated the internal Snapper path and deadline behavior only. Artifacts
+  are in the external `linux.build/qgroup-snapper-hold-20261027` build tree.

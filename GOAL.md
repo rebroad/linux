@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 74%
+## First priority: diagnose the stalls and establish the accounting trade-off — 76%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -54,7 +54,7 @@ path or dependency.
    display, deferred cleanup, and recovery on the selected design. Complete
    independent p8 accounting and safe host cleanup/rollback checks before
    restoring quota-based cleanup limits.
-2. **Locally built Snapper — 85%:** Keep the host target on our locally built
+2. **Locally built Snapper — 88%:** Keep the host target on our locally built
    Snapper based on the latest official upstream source. Complete stale-quota,
    cleanup, rollback/runtime, and subsequent local-package upgrade checks.
    A deferred rescan must show last-known numbers with an explicit stale
@@ -66,7 +66,7 @@ path or dependency.
    transaction, including build failure, package-state, boot-selection,
    rollback, and security-update behavior. Never let an unsupported release
    silently boot with stock Btrfs in place of the selected implementation.
-4. **Suspend-aware rescan containment — 70%:** Keep Snapper's hold-file gate and
+4. **Suspend-aware rescan containment — 78%:** Keep Snapper's hold-file gate and
    local-time window configurable; leave the per-day scan limit disabled
    during this investigation. Keep the window at 05:00-21:00 local time. The
    `force-suspend` hold is active overnight only (21:00 until its configured
@@ -78,7 +78,10 @@ path or dependency.
    Verify the hold blocks both Snapper's internal quota path and the timeline
    wrapper, and a deferred scan may resume only after the hold expires and
    policy allows it. A deferred scan must never relabel stale values as
-   consistent.
+   consistent. The internal path, stale-value display, and deadline recovery
+   passed in stock-module QEMU. Still verify the timeline wrapper/resume
+   catch-up and quota-cleanup behavior; the QEMU cleanup invocation did not
+   emit its expected stale-counter guard, so that check remains inconclusive.
 
 ## Acceptance
 
@@ -127,8 +130,10 @@ Current runtime and diagnostic facts that affect these open gates:
   measurements; live host stall attribution and host-scale storage evidence
   remain open.
 - Snapper's local-time hold/window behavior is installed and simulated. The
-  remaining controlled test must show stale values before suspend and explicit
-  hold deferral through resume catch-up.
+  stock-module QEMU test now captured stale values, explicit hold deferrals,
+  and two recovery scans after expiry. The timeline wrapper and an actual
+  resume catch-up remain untested. Detailed results are in
+  [`GOAL-done.md`](GOAL-done.md).
 
 See [`GOAL-done.md`](GOAL-done.md) for completed evidence, test detail, and
 historical captures.

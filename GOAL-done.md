@@ -6684,3 +6684,26 @@ flags supplied the inconsistency state.
   cannot reveal the later triggering reasons while the on-disk flag remains
   set. A live trace of the `qgroup_mark_inconsistent()` caller/reason is still
   needed to attribute each hourly pause.
+
+## Stock-host pressure sample with rescans idle (2026-10-27 15:26-15:30 local)
+
+- At 15:26:53, I/O PSI was elevated (avg10 23.44%, avg60 26.99%, avg300
+  28.35%) and memory PSI avg300 was 13.75%. `vmstat` showed about 28.3 GB
+  swap in use, with swap-in and swap-out during the sample. A short `iotop`
+  sample showed about 14.9 MB/s of reads, mostly attributed to application
+  and browser processes; Btrfs end-I/O workers also handled some writeback.
+- At 15:27:40, both `btrfs quota rescan -s` checks reported no active scan.
+  A five-second BPF `sched_switch` trace, saved at
+  `/var/tmp/btrfs-pressure-trace-20261027-1528.log`, captured 25 D-state
+  switch-outs (the configured cap). It showed several page-fault waits in
+  `do_swap_page()`/`folio_wait_bit_common()`, a Psensor task waiting in
+  `nvme_get_log()` -> `nvme_hwmon_read()` -> `blk_execute_rq()`, and USB hub
+  resume waits in `usb_start_wait_urb()`. Other stacks were TTY flush and
+  process-creation completion waits. The sample contained no
+  `qgroup_mark_inconsistent()` or rescan-worker event.
+- The Psensor stack is a plausible explanation for a brief unresponsive
+  sensor read during this sample, but the trace did not record its thread ID
+  or duration. The D-state count had fallen to zero in a later snapshot. This
+  was not a captured multi-minute hang and cannot explain the earlier
+  systemwide incidents. The subsequent one-shot trace was updated to record
+  TIDs and waits of at least 100 ms, and remains armed for 15:59:45 CET.

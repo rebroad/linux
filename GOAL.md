@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 78%
+## First priority: diagnose the stalls and establish the accounting trade-off — 79%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -119,6 +119,12 @@ Current runtime and diagnostic facts that affect these open gates:
   does not identify the stop condition or exact triggering operation/reason.
   A live trace is still needed. The prior TTM GPU-fence capture remains
   separate evidence and did not show Btrfs tasks blocked.
+- A five-second scheduler trace at 15:29 local on 2026-10-27 ran while both
+  rescans were idle. It sampled swap page-fault waits and a Psensor thread
+  waiting for an NVMe hwmon log read, plus USB-resume and ordinary TTY/process
+  waits; it saw no qgroup marks or rescan-worker activity. This does not
+  attribute the earlier systemwide hangs. A focused trace is armed for the
+  next timeline run and records D-state wait durations as well as stacks.
 - The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
 - A 19:06 stock-kernel capture showed the qgroup scans had paused by 19:02;
   `btrfs-cleaner` was blocked reading extent-tree metadata during snapshot-drop

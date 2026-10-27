@@ -17,14 +17,15 @@ contributed to each observed stall; if not, identify the responsible kernel
 path or dependency.
 
 1. Capture blocked-task stacks, transaction progress, device request latency,
-   qgroup state, and the rescan stop condition during representative live
-   events. Identify transaction writers and distinguish snapshot/drop work,
-   discard, metadata I/O, and unrelated device or GPU waits. Correlate only
-   evidence from the same event; do not infer that a rescan caused a stall
-   merely because they overlap. Reproduce Snapper-triggered scans on demand in
-   QEMU; do not wait for the host's hourly timer to make controlled-test
-   progress. Host captures remain necessary for host-specific stalls and scan
-   stop causes.
+   qgroup state, and the caller/reason that stops each rescan during
+   representative live events. Record `qgroup_mark_inconsistent()` reasons,
+   since that path can stop an active scan internally. Identify transaction
+   writers and distinguish snapshot/drop work, discard, metadata I/O, and
+   unrelated device or GPU waits. Correlate only evidence from the same event;
+   do not infer that a rescan caused a stall merely because they overlap.
+   Reproduce Snapper-triggered scans on demand in QEMU; do not wait for the
+   host's hourly timer to make controlled-test progress. Host captures remain
+   necessary for host-specific stalls and scan stop causes.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs, including distributions and worst
@@ -106,8 +107,14 @@ Current runtime and diagnostic facts that affect these open gates:
   check found both production filesystems inconsistent with no rescan active;
   refresh that state during the next privileged host capture.
 - The latest blocked-task sample found TTM GPU-fence waits, not Btrfs tasks.
-  Earlier captures did show Btrfs metadata/drop waits, but no captured event
-  yet explains the reported multi-minute stalls.
+- A 19:06 stock-kernel capture showed the qgroup scans had paused by 19:02;
+  `btrfs-cleaner` was blocked reading extent-tree metadata during snapshot-drop
+  delayed-ref work while `fstrim` was blocked on synchronous discard. The trim
+  ran 18:49-19:08 and discarded about 508 GiB on Kingston and 214.6 GiB on p8.
+  Stock source and a threshold-zero QEMU reproduction show that an
+  inconsistency transition can itself stop a rescan. The host pause's exact
+  caller/threshold and the cause of the reported multi-minute stalls remain
+  unproven; the capture does not show the rescan worker blocked.
 - Exact-release QEMU tests show stock and custom feature-off reproduce
   inconsistency/rescans; quick-inherit feature-on kept counters accurate in
   both tested snapshot orders. A matched 217-snapshot comparison now also

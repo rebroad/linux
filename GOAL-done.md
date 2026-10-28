@@ -7532,3 +7532,28 @@ flags supplied the inconsistency state.
   other specific deletion. A separate one-shot read-only qgroup-removal trace
   is armed for Oct 28 21:35-21:45 to observe tonight's scheduled cleanup if
   the timer runs; it does not wake the host.
+
+## Kingston rescan-policy gap (2026-10-28 15:36 local)
+
+- The 14:43 capture's initial status records both p8 and Kingston as
+  inconsistent. Its only two `RESCAN_REQUEST` records are from Snapper on p8;
+  none is recorded on Kingston. Snapper inheritance marks show snapshot work
+  on both filesystems.
+- The mounted p8 root-prefix has
+  `/mnt/p8/@/etc/sysconfig/snapper` with `SNAPPER_CONFIGS="root home"`.
+  Kingston has `/mnt/kingston/@/etc/snapper/configs/{root,home}` with QGROUP,
+  window, and hold settings, but has no
+  `/mnt/kingston/@/etc/sysconfig/snapper`.
+- The checked-out Snapper rescan gate reads the root-prefixed sysconfig and
+  refuses to start a scan if `SNAPPER_CONFIGS` cannot be loaded. The active
+  `/lib/libsnapper.so.8` contains the corresponding error and deferral messages.
+  `createSnapshot()` continues after a deferred result, while
+  `/usr/local/sbin/snapper-timeline-all-roots` redirects stderr to `/dev/null`
+  for root-prefixed runs. Together, these facts explain why Kingston's stale
+  qgroups did not get an automatic recovery scan and why its deferral was
+  invisible in the service log. This is a recovery-policy/configuration gap;
+  it does not identify what first made Kingston inconsistent.
+- Next, reproduce the missing-policy case and its corrected behavior in QEMU,
+  then fix the root-prefix configuration/reporting path. Do not add a live
+  Kingston policy file or trigger a host rescan until the QEMU behavior and
+  expected scan timing are reviewed.

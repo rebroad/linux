@@ -37,7 +37,14 @@ path or dependency.
    IDs are absent from current p8 and Kingston subvolume listings, but no
    retained removal trace explains them. A read-only trace is scheduled for
    21:35 to capture tonight's cleanup if it runs; it does not wake the host.
-   See [`GOAL-done.md`](GOAL-done.md).
+   The 15:00 trace began with both filesystems inconsistent but recorded scan
+   requests only on p8. Kingston has its root/home Snapper configs but lacks
+   `/mnt/kingston/@/etc/sysconfig/snapper`; the active Snapper library's gate
+   requires that file to verify shared policy and refuses the scan when it is
+   missing. The all-roots wrapper discards stderr for these calls. This likely
+   explains missing Kingston recovery scans, not the origin of inconsistency.
+   Reproduce and fix this policy/configuration gap without starting an
+   uncontrolled host rescan. See [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
@@ -81,7 +88,9 @@ path or dependency.
    Snapper based on the latest official upstream source. Complete stale-quota,
    cleanup, rollback/runtime, and subsequent local-package upgrade checks.
    A deferred rescan must show last-known numbers with an explicit stale
-   status; quota-based deletion must wait for current counters.
+   status; quota-based deletion must wait for current counters. Ensure every
+   root-prefix used by the all-roots timeline wrapper has a readable
+   `SNAPPER_CONFIGS` policy file, and do not suppress rescan-deferral errors.
 3. **Conditional kernel durability — 65%:** First establish whether a kernel
    change is necessary. If selected, support every installed kernel and the next APT
    candidate with a matching reviewed, signed module in the initramfs. Finish

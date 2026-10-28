@@ -36,8 +36,10 @@ path or dependency.
    is active now; this weakens the theory that a running rescan caused that
    hang. The 10:25 timeline timer catch-up preceded the deletion work, but the
    exact snapshot deletion trigger is not yet proven. Capture all-task stacks
-   and transaction stage/owner on the next stall. Fix Snapper's handling of a
-   paused scan before retrying host recovery. See
+   and transaction stage/owner on the next stall. Snapper's post-wait status
+   check is implemented and unit-tested; QEMU confirms stale values remain
+   visible after a deferred query, but did not reproduce a scan pausing while
+   Snapper waits. Reproduce that path before retrying host recovery. See
    [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
@@ -85,10 +87,11 @@ path or dependency.
    status; quota-based deletion must wait for current counters. Ensure every
    root-prefix used by the all-roots timeline wrapper has a readable
    `SNAPPER_CONFIGS` policy file. The wrapper now preserves deferral messages,
-   and Kingston's matching policy file is installed. Fix and QEMU-test the
-   quota status path so a rescan that pauses with qgroups still inconsistent
-   returns last-known values marked stale; then repeat the controlled host
-   recovery check.
+   and Kingston's matching policy file is installed. The new post-wait stale
+   check is unit-tested, and QEMU confirms the last-known 16 KiB value remains
+   visible with a stale warning on a deferred query. Still reproduce a scan
+   that pauses while Snapper is waiting, verify it returns last-known values
+   marked stale, then repeat the controlled host recovery check.
 3. **Conditional kernel durability — 65%:** First establish whether a kernel
    change is necessary. If selected, support every installed kernel and the next APT
    candidate with a matching reviewed, signed module in the initramfs. Finish

@@ -7669,3 +7669,25 @@ flags supplied the inconsistency state.
   not only waiters), transaction stage/timing, and device request latency while
   the stall is active. The hourly timeline service logs and this kernel stack
   do not prove which request caused the snapshot deletion.
+
+## Snapper stale quota display after cleanup in stock-kernel QEMU (2026-10-28)
+
+- Ran a four-qgroup-layout guest on stock Debian `7.2.9+deb13-amd64`; the
+  loaded module build ID matched `c2d998d4752632e0f5cf36eaab134a3e73b18940`.
+  The guest used the newly built Snapper 0.13.2 binary and library, verified
+  by hashes in the serial log. The reduced workload created two timeline
+  snapshots per config and cleaned up to the configured hourly limit.
+- After Kingston root cleanup, `snapper list --columns number,used-space`
+  returned status 0 and printed both
+  `qgroup data is inconsistent; displaying last-known used-space values` and
+  `1,16384`. The corrected QEMU assertion passed, confirming last-known quota
+  values remain visible with an explicit stale warning on the deferred query.
+- No qgroup scan was active immediately before or after that query. This run
+  did not exercise Snapper blocked in `BTRFS_IOC_QUOTA_RESCAN_WAIT` when a scan
+  pauses; the post-wait check still needs a deterministic QEMU reproduction.
+  Later explicit scans logged qgroup info-item `-ENOENT` but completed, unlike
+  the host's repeated info/limit errors followed by `qgroup scan paused`.
+- Artifacts are under
+  `linux.build/qgroup-snapper-stale-display-20261028/`. This is a userland
+  status regression check, not evidence that the host's paused scan or
+  transaction stall is fixed.

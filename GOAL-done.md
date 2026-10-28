@@ -7359,3 +7359,20 @@ flags supplied the inconsistency state.
   snapshot-inheritance reasons, but did not reproduce the earlier stall. It
   also captured qgroup item-update error reasons without their errno values or
   qgroup IDs; see the noon trace section above.
+
+## Qgroup quick-inherit kernel selftests (2026-10-28)
+
+- A disposable QEMU boot loaded the sanity-test Btrfs module built for the
+  matched 7.2.9 kernel. The guest checked the module build ID
+  `cbcbcbf924e2aa834e2f85563476cbfdefad0b75` against the expected value before
+  accepting the run.
+- The log contains the shared-parent quick-inherit, fallback, and counter
+  overflow test markers at all five metadata node sizes (4, 8, 16, 32, and
+  64 KiB). No selftest `file:line` failure records appeared. The guest printed
+  `BTRFS_QGROUP_SANITY_PASS` and powered off cleanly (QEMU status 0).
+- The first attempt had insufficient guest RAM to unpack the large initramfs
+  and panicked before init. The 4-GiB rerun reached the tests. An initial
+  harness failure matcher also misclassified the expected zoned-test error
+  messages; it was narrowed to the kernel selftest failure format before the
+  verified pass. Artifacts are under
+  `qgroup-snapper-current-20261027/runs/qgroup-sanity-quick-inherit-20261028/`.

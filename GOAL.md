@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 94%
+## First priority: diagnose the stalls and establish the accounting trade-off — 95%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -28,9 +28,11 @@ path or dependency.
    QEMU A/B and its reversed-order repeat isolated `shared_parent_quick_inherit`:
    enabled kept all four groups consistent and full-rescan counters unchanged;
    disabled triggered rescans and counters changed. A matched 4-vCPU stock
-   control reproduced the disabled-switch accounting result. Still test other
-   hierarchies, measure on host-like storage, and profile cleanup and
-   transaction stalls before selecting a kernel behavior. See
+   control reproduced the disabled-switch accounting result. The isolated
+   qgroup quick-inherit, fallback, and overflow selftests also passed in QEMU
+   on the exact 7.2.9 module across all five tested metadata node sizes. Still
+   test other hierarchies, measure on host-like storage, and profile cleanup
+   and transaction stalls before selecting a kernel behavior. See
    [`GOAL-done.md`](GOAL-done.md) for results.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;

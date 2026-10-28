@@ -7295,6 +7295,38 @@ flags supplied the inconsistency state.
   stalls. They do show that the shared-parent quick-inherit path can preserve
   counters and avoid repeated rescans for this exact layout; compare stock and
   test other hierarchies before treating it as a general fix.
+- A matched stock-module run used the same 7.2.9 kernel image, four-vCPU TCG
+  setup, initrd userspace, Snapper and libsnapper hashes, four-config layout,
+  root-home order, fresh 8-GiB disks, and 32,768-file fixture per source. The
+  stock module build ID was verified as
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`; the two Snapper userspace hashes
+  matched the custom runs. Stock produced two snapshot-phase rescans and four
+  inconsistency warnings, then both qgroup tables changed across full-rescan
+  verification. This matches the custom `shared_parent_quick_inherit=0`
+  accounting outcome. The enabled custom run instead had no snapshot-phase
+  scans or warnings and passed both full-rescan comparisons.
+- Stock snapshot medians were 0.68 s for the two p8-root snapshots, 0.30 s
+  for p8-home, 0.30 s for Kingston-root, and 0.31 s for Kingston-home. Its
+  timeline cleanup took 0.41–0.79 s; root deletions took 106.56 s (p8) and
+  131.69 s (Kingston), while home deletions took 1.50/1.37 s. The stock run
+  completed without `-ENOENT` text in its serial log. Together with the custom
+  runs, this does not show a large deletion penalty unique to the consistent
+  mode; the root delete timings vary substantially in TCG and need profiling.
+- The stock run is in
+  `qgroup-snapper-current-20261027/runs/stock-shared-parent-4vcpu-20261028/`.
+  It exited 0, verified the loaded stock module ID, and completed the recovery
+  scans. Its 4-vCPU run script uses the same stock initrd as the earlier
+  2-vCPU stock test.
+- The stock run's per-config snapshot medians were 0.68 s for the two p8-root
+  snapshots, 0.30 s for p8-home, 0.30 s for Kingston-root, and 0.31 s for
+  Kingston-home. Its qgroup state and full-rescan mismatch matched the custom
+  fallback run, while the fast run preserved counters. Root deletion took
+  106.56 s on p8 and 131.69 s on Kingston; the fast run took 99.38/101.48 s
+  and fallback took 101.35/108.89 s in this initial order. Reversed-order
+  custom runs ranged from 101.33 to 105.84 s for fast and 106.76 to 136.77 s
+  for fallback. These small guest samples do not show that accurate counters
+  impose a large deletion penalty, but they are insufficient to explain the
+  earlier long cleaner stalls.
 - Logs and the run harness are in
   `qgroup-snapper-current-20261027/runs/custom-shared-parent-isolation-20261028/`
   (`fast/serial.log`, `fallback/serial.log`, `fallback-reverse/serial.log`,

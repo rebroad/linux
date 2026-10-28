@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 93%
+## First priority: diagnose the stalls and establish the accounting trade-off — 94%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -27,9 +27,11 @@ path or dependency.
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
    QEMU A/B and its reversed-order repeat isolated `shared_parent_quick_inherit`:
    enabled kept all four groups consistent and full-rescan counters unchanged;
-   disabled triggered rescans and counters changed. Still compare stock, test
-   other hierarchies, and profile cleanup and transaction stalls before
-   selecting a kernel behavior. See [`GOAL-done.md`](GOAL-done.md) for results.
+   disabled triggered rescans and counters changed. A matched 4-vCPU stock
+   control reproduced the disabled-switch accounting result. Still test other
+   hierarchies, measure on host-like storage, and profile cleanup and
+   transaction stalls before selecting a kernel behavior. See
+   [`GOAL-done.md`](GOAL-done.md) for results.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    identify the extent/backref work that dominates cleanup and whether it can
@@ -38,10 +40,11 @@ path or dependency.
    while infrequent deletion makes them explicitly stale for later recovery.
    If not, identify and quantify which accuracy and latency requirements
    cannot both be met under the tested kernel, layout, workload, and limits.
-   Current TCG evidence suggests consistent counters may make root-snapshot
-   deletion much slower; repeat and attribute this result before treating it as
-   a design trade-off. Do not call a design universally impossible based on
-   incomplete testing.
+   Earlier multi-switch TCG results suggested consistent counters might make
+   root-snapshot deletion much slower, but matched 4-vCPU runs show long root
+   deletions across stock and both custom modes. Attribute the variability
+   before treating it as a design trade-off. Do not call a design universally
+   impossible based on incomplete testing.
 5. Fix and regression-test any confirmed defect. Do not install a modified
    Btrfs module on the host unless its correctness, latency, stall behavior,
    Secure Boot signature, and rollback path have passed review.

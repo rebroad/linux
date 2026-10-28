@@ -30,7 +30,11 @@ path or dependency.
    the cleaner waited for a transaction during dropped-snapshot qgroup
    cleanup, and Tor waited on an ordered extent. Identify the transaction
    blocker and device latency in a live capture, and account for the other 56
-   qgroup IDs.
+   qgroup IDs. A 14:43-15:13 capture across the hourly run observed two
+   Snapper-originated p8 rescans (31.464s and 31.179s), a 1.230s
+   `systemd-journald` transaction wait, and a 2.587s transaction commit. It
+   did not reproduce the multi-minute stall; the 15:00 rescan-window request
+   histograms peaked below 32ms. See [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

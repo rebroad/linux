@@ -7475,3 +7475,36 @@ flags supplied the inconsistency state.
   rescans completed. Its block-request map reached its key limit, so block
   latency details after that point are incomplete. The log is
   `qgroup-snapper-current-20261027/diagnostics/2026-10-28-qgroup-mark-args/capture-20261028-1400.log`.
+
+## Host capture across hourly Snapper run (2026-10-28 15:00 local)
+
+- A 30-minute read-only BPF and host-sampler capture ran from 14:43:21 to
+  15:13:20 on the 7.2.9 host. Both samplers exited successfully. The log is
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-28-transaction-capture/capture-20261028-1442.log`.
+- `snapper-timeline.service` ran from 15:00:00 to 15:01:05 and used 1.576 s
+  CPU time. BPF recorded two rescan requests from Snapper on p8. Their workers
+  ran for 31.464 s and 31.179 s. No Kingston rescan request was observed.
+  Inheritance marks covered p8 `0/262 -> 0/7145`, p8 `0/263 -> 0/7146`,
+  Kingston `0/257 -> 0/5665`, and Kingston `0/256 -> 0/5666`. Both filesystem
+  qgroup states remained inconsistent in the sampled status.
+- During the second p8 rescan's transaction, `btrfs_qgroup_account_extents()`
+  took 1.361 s, Snapper's rescan commit took 1.438 s, and `systemd-journald`
+  waited 1.230 s in `wait_current_trans()` from `btrfs_truncate()` while
+  updating a file. A later transaction-thread commit took 2.587 s at about
+  15:01:38, including 742 ms in delayed-reference processing. The trace
+  recorded no `wait_for_commit()` wait over one second or
+  `btrfs_wait_ordered_roots()` wait over 100 ms. No D-state backlog was
+  sampled during the Snapper run or at 15:05. This captures measurable short
+  transaction contention, but not the earlier multi-minute system-wide
+  stall.
+- Per-minute block-request histograms spanning the two scans peaked in the
+  16-32 ms bucket on `nvme0n1` and 4-8 ms on `sda`; they showed no request over
+  32 ms in those windows. The event log's 32 individual `>=50 ms` samples
+  were capped and all came from an earlier NVMe write burst at 14:43:26-28
+  (73.7-75.3 ms), so those individual samples do not characterize the 15:00
+  scan window. The histogram covers that window.
+- At 14:48, a separate process snapshot showed two Chromium processes using
+  about 247% and 63% CPU and Xorg about 26%, with no D-state tasks and load
+  near 5. This is evidence of temporary CPU contention that could explain
+  some perceived sluggishness then, but it does not establish the cause of a
+  specific UI delay.

@@ -7508,3 +7508,27 @@ flags supplied the inconsistency state.
   near 5. This is evidence of temporary CPU contention that could explain
   some perceived sluggishness then, but it does not establish the cause of a
   specific UI delay.
+
+## Audit of the 56 unmatched qgroup IDs (2026-10-28 15:22 local)
+
+- Parsed all nine retained `capture*.log` files under the investigation's
+  diagnostics directory. Only the Oct 27 21:41 capture contains
+  `QGROUP_REMOVE` events: 18 distinct IDs. Sixteen intersect the 72 qgroup
+  IDs with `-ENOENT` updates from the Oct 28 14:00 trace; the other two
+  removals (5603 and 5605) do not. No other retained capture records a qgroup
+  removal event.
+- Rechecked the remaining 56 IDs against current Btrfs subvolume listings on
+  both `/mnt/p8` and `/mnt/kingston`; none is a current subvolume. The IDs are:
+  6500, 6508, 6581, 6582, 6595, 6596, 6597, 6605, 6606, 6685, 6686, 6735,
+  6785, 6786, 6883, 6884, 6897, 6898, 7020, 7022, 7024, 7026, 7027, 7028,
+  7029, 7030, 7031, 7032, 7033, 7034, 7035, 7036, 7037, 7038, 7039, 7040,
+  7043, 7044, 7047, 7048, 7049, 7050, 7051, 7052, 7053, 7054, 7055, 7056,
+  7067, 7069, 7071, 7077, 7079, 7081, 7085, 7087. Their absence does not
+  identify when or which cleanup removed them.
+- `snapper-cleanup.service` also ran on Oct 26 at 21:41, but its journal
+  records only service start/finish and duplicate-target messages. Its wrapper
+  calls Snapper cleanup algorithms without logging deleted snapshot IDs.
+  Thus the retained evidence cannot attribute the 56 IDs to that run or any
+  other specific deletion. A separate one-shot read-only qgroup-removal trace
+  is armed for Oct 28 21:35-21:45 to observe tonight's scheduled cleanup if
+  the timer runs; it does not wake the host.

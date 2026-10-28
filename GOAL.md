@@ -28,13 +28,16 @@ path or dependency.
    qgroup IDs. The Debian 7.2.9 source patch set does not modify qgroup code.
    A separate Oct 28 10:40 system-wide stall occurred with the stock module:
    the cleaner waited for a transaction during dropped-snapshot qgroup
-   cleanup, and Tor waited on an ordered extent. Identify the transaction
-   blocker and device latency in a live capture, and account for the other 56
-   qgroup IDs. A 14:43-15:13 capture across the hourly run observed two
-   Snapper-originated p8 rescans (31.464s and 31.179s), a 1.230s
-   `systemd-journald` transaction wait, and a 2.587s transaction commit. It
-   did not reproduce the multi-minute stall; the 15:00 rescan-window request
-   histograms peaked below 32ms. See [`GOAL-done.md`](GOAL-done.md).
+   cleanup, and Tor waited on an ordered extent. Identify the transaction's
+   blocking writer and the device request behind Tor's wait. The 14:43-15:13
+   host capture observed two Snapper-originated p8 rescans (31.464s and
+   31.179s), a 1.230s `systemd-journald` transaction wait, and a 2.587s
+   transaction commit. It did not reproduce the multi-minute stall; the
+   15:00 request histograms peaked below 32 ms. The other 56 failed-update
+   IDs are absent from current p8 and Kingston subvolume listings, but no
+   retained removal trace explains them. A read-only trace is scheduled for
+   21:35 to capture tonight's cleanup if it runs; it does not wake the host.
+   See [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

@@ -7533,7 +7533,7 @@ flags supplied the inconsistency state.
   is armed for Oct 28 21:35-21:45 to observe tonight's scheduled cleanup if
   the timer runs; it does not wake the host.
 
-## Kingston rescan-policy gap (2026-10-28 15:36 local)
+## Kingston rescan-policy gap and wrapper logging (2026-10-28)
 
 - The 14:43 capture's initial status records both p8 and Kingston as
   inconsistent. Its only two `RESCAN_REQUEST` records are from Snapper on p8;
@@ -7546,23 +7546,24 @@ flags supplied the inconsistency state.
   `/mnt/kingston/@/etc/sysconfig/snapper`.
 - The checked-out Snapper rescan gate reads the root-prefixed sysconfig and
   refuses to start a scan if `SNAPPER_CONFIGS` cannot be loaded. The active
-  `/lib/libsnapper.so.8` contains the corresponding error and deferral messages.
-  `createSnapshot()` continues after a deferred result, while
-  `/usr/local/sbin/snapper-timeline-all-roots` redirects stderr to `/dev/null`
-  for root-prefixed runs. Together, these facts explain why Kingston's stale
-  qgroups did not get an automatic recovery scan and why its deferral was
-  invisible in the service log. This is a recovery-policy/configuration gap;
-  it does not identify what first made Kingston inconsistent.
-- A stock Debian 7.2.9 QEMU run now reproduces the missing-policy behavior.
-  With Kingston's root-prefixed sysconfig absent, Snapper logs the failed file
-  open and refuses to start a scan; qgroups remain stale and the scan counter
-  does not change. Restoring `SNAPPER_CONFIGS="kingston-root kingston-home"`
-  allows Kingston recovery, and p8 with its policy present is a positive
-  control. The explicit `SNAPPER_ROOTPREFIX_POLICY_QEMU_PASS` marker confirms
-  all assertions passed. This explains the missing Kingston recovery scan; it
-  does not explain the original inconsistency. Safely correct the host
-  configuration and stop hiding the deferral before enabling this path there.
-  Artifacts are under
+  library has the same behavior. `createSnapshot()` continues after a deferred
+  result. The installed all-roots wrapper previously discarded stderr for
+  root-prefixed calls; commit `91f447e1f` removed only that redirection, keeping
+  its existing exit handling so the deferral is visible in service logs.
+  This explains why Kingston's stale qgroups did not get an automatic recovery
+  scan and why its deferral was invisible. It does not identify what first
+  made Kingston inconsistent.
+- The stock Debian 7.2.9 QEMU fixture now matches the host layout: root prefix
+  `/mnt/kingston/@`, sibling `@home`, and root/home configs under
+  `/mnt/kingston/@/etc/snapper/configs`. With
+  `/mnt/kingston/@/etc/sysconfig/snapper` absent, the actual installed wrapper
+  emitted both deferral messages; Kingston remained stale and its scan count
+  stayed unchanged. Restoring `SNAPPER_CONFIGS="root home"` allowed the
+  Kingston scan to complete, and p8 with its policy present was a positive
+  control. `SNAPPER_ROOTPREFIX_POLICY_QEMU_PASS` confirms all assertions
+  passed. The host policy file remains absent; this QEMU result explains the
+  missing recovery scan, not the original inconsistency. No host scan was
+  started by this test. Artifacts are under
   `linux.build/qgroup-snapper-current-20261027/runs/snapper-rootprefix-policy-20261028/`.
 
 ## Stock-host trace at the 16:00 Snapper run (2026-10-28)

@@ -25,8 +25,9 @@ path or dependency.
    evidence confirms stale-item failures after cleanup, but 56 failed IDs
    still lack a matching removal record. Kingston's root-prefixed recovery
    policy gap now reproduces in QEMU: absent `SNAPPER_CONFIGS` defers the scan,
-   restored policy permits recovery. Safely correct the host configuration
-   and stop hiding the deferral. See [`GOAL-done.md`](GOAL-done.md).
+   restored policy permits recovery. The all-roots wrapper now surfaces the
+   deferral; add the matching host policy file and run one controlled recovery
+   scan. See [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
@@ -72,7 +73,8 @@ path or dependency.
    A deferred rescan must show last-known numbers with an explicit stale
    status; quota-based deletion must wait for current counters. Ensure every
    root-prefix used by the all-roots timeline wrapper has a readable
-   `SNAPPER_CONFIGS` policy file, and do not suppress rescan-deferral errors.
+   `SNAPPER_CONFIGS` policy file. The wrapper now preserves deferral messages;
+   Kingston's policy file and host recovery check remain.
 3. **Conditional kernel durability — 65%:** First establish whether a kernel
    change is necessary. If selected, support every installed kernel and the next APT
    candidate with a matching reviewed, signed module in the initramfs. Finish

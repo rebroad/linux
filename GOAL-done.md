@@ -7561,9 +7561,9 @@ flags supplied the inconsistency state.
   stayed unchanged. Restoring `SNAPPER_CONFIGS="root home"` allowed the
   Kingston scan to complete, and p8 with its policy present was a positive
   control. `SNAPPER_ROOTPREFIX_POLICY_QEMU_PASS` confirms all assertions
-  passed. The host policy file remains absent; this QEMU result explains the
-  missing recovery scan, not the original inconsistency. No host scan was
-  started by this test. Artifacts are under
+  passed. The host policy file was absent during this test and was installed
+  later; this QEMU result explains the missing recovery scan, not the original
+  inconsistency. No host scan was started by this test. Artifacts are under
   `linux.build/qgroup-snapper-current-20261027/runs/snapper-rootprefix-policy-20261028/`.
 
 ## Stock-host trace at the 16:00 Snapper run (2026-10-28)
@@ -7586,3 +7586,86 @@ flags supplied the inconsistency state.
   a rescan on stock Btrfs during the hourly run; it does not establish that
   this scan caused the concurrent user-visible slowdown or the earlier
   system-wide transaction stalls.
+
+## Kingston policy restoration and paused recovery scan (2026-10-28 16:31-16:41)
+
+- Installed `/mnt/kingston/@/etc/sysconfig/snapper` as `root:root`, mode
+  `0644`, with `SNAPPER_CONFIGS="root home"`, matching p8. Both Kingston
+  configs specify the `05:00-21:00` rescan window, no daily limit, and the
+  same hold-file path. At the recovery attempt the hold deadline had passed
+  at 10:25 local time; the query ran inside the allowed window. Kingston and
+  p8 were inconsistent, with no scan active before the attempt.
+- On stock Debian `7.2.9+deb13-amd64` with locally built Snapper 0.13.2,
+  `snapper --no-dbus --root /mnt/kingston/@ --config root list` returned 0
+  after 32 seconds. The kernel logged `qgroup scan paused`; no scan remained
+  active and `btrfs qgroup show` still reported inconsistent data. A second
+  read-only `used-space` query at 16:40:28-16:41:00 behaved the same. This
+  establishes that restoring the policy allows a recovery attempt, but does
+  not make the scan complete on the host.
+- A temporary BPF probe of `qgroup_mark_inconsistent()` captured repeated
+  `qgroup info item update error -2` and `qgroup limit item update error -2`
+  calls from PID 778 (`btrfs-transacti`). The stack was
+  `btrfs_run_qgroups()` -> `commit_cowonly_roots()` ->
+  `btrfs_commit_transaction()` -> `transaction_kthread()`. `-2` is `-ENOENT`.
+  In the matching source, both update helpers return `-ENOENT` when the
+  expected qgroup info or limit item is absent from the quota tree.
+- Linux 7.2.9's `qgroup_mark_inconsistent()` sets the runtime rescan-cancel
+  flag. Since the filesystem was already inconsistent, its usual warning
+  path does not print the new reason. The captured item-update errors and
+  subsequent pause strongly indicate that this accounting failure cancelled
+  the scan; the flag transition itself was not directly traced. The host
+  error did not include a qgroup ID. Its current qgroup table includes the
+  configured parent groups `1/100` and `1/101`, but does not identify the
+  missing item.
+- This error signature matches the existing exact-7.2.9 QEMU deletion
+  reproduction: after cleanup removes the first root snapshot, dirty in-memory
+  qgroup `0/260` is updated after its on-disk item is gone, producing
+  `-ENOENT`. That makes the same teardown defect the leading explanation for
+  the host recovery failure, but a matching live host qgroup ID and deletion
+  event have not been captured. See the QEMU teardown trace and fallback
+  results above.
+- Snapper's current `wait_for_qgroup_rescan()` returns `Rescanned` whenever
+  `BTRFS_IOC_QUOTA_RESCAN_WAIT` returns success, without checking whether the
+  qgroup status still has the inconsistency or rescan flag. The host query
+  returned success while accounting remained inconsistent, so this code path
+  can misclassify a paused scan as fresh. Add a post-wait status check and a
+  QEMU regression test before repeating host recovery.
+- Diagnostic logs and output are under
+  `linux.build/qgroup-snapper-current-20261027/diagnostics/host-recovery-2026-10-28/`;
+  the temporary BPF tracing units were stopped after the capture. No kernel
+  module was changed or installed.
+
+## Stock-kernel dropped-snapshot transaction stall (2026-10-28)
+
+- The host was running Debian `7.2.9+deb13-amd64`; the loaded Btrfs module build
+  ID was `c2d998d4752632e0f5cf36eaab134a3e73b18940`, matching the stock module,
+  and the hung-task report says `Not tainted`. This stall therefore occurred
+  without our modified Btrfs module loaded.
+- At 10:25:31, the hourly timeline service ran after a timer catch-up and
+  finished at 10:26:49. P8 qgroup rescans paused at 10:26, 10:28, and 10:31.
+  At 10:40:46, the kernel reported tasks blocked for over 120 seconds. The
+  `btrfs-cleaner` stack was
+  `wait_for_commit()` -> `btrfs_commit_transaction()` ->
+  `btrfs_qgroup_cleanup_dropped_subvolume()` -> `btrfs_drop_snapshot()` ->
+  `btrfs_clean_one_deleted_snapshot()` -> `cleaner_kthread()`.
+- At the same timestamp, PID 344 `btrfs-transacti`, PID 1 `systemd`,
+  `systemd-journal`, `systemd-timesyncd`, ZeroTier, NetDB, and other unrelated
+  processes were blocked in `wait_current_trans()` through
+  `start_transaction()`. Journald hit its three-minute watchdog and restarted.
+  This confirms a filesystem transaction stall while Btrfs was cleaning up a
+  dropped snapshot. It does not identify the task holding up the transaction
+  commit, nor prove that the 10:25 timeline run queued this deletion.
+- The 571,110 ms maximum in p8's `/sys/fs/btrfs/.../commit_stats` confirms a
+  very long commit occurred during this boot, but the counter has no timestamp
+  so it cannot yet be matched to the 10:40 dump. Kingston's maximum was
+  38,902 ms. At 16:57, both qgroup scans were idle, no Btrfs task was blocked,
+  and current Btrfs device error counters were zero; these later readings do
+  not exclude transient device latency during the stall.
+- The separate 16:57 high-load snapshot showed CPU pressure, low I/O pressure,
+  two D-state TTM workers, and Chromium WebGPU/Vulkan plus Xorg CPU use. It did
+  not show an active qgroup scan or blocked Btrfs tasks. This is a distinct
+  live-load observation and does not explain the earlier transaction stall.
+- Next capture must include all-task stacks (to find the transaction owner,
+  not only waiters), transaction stage/timing, and device request latency while
+  the stall is active. The hourly timeline service logs and this kernel stack
+  do not prove which request caused the snapshot deletion.

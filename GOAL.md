@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 95%
+## First priority: diagnose the stalls and establish the accounting trade-off — 90%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -18,16 +18,27 @@ path or dependency.
 
 1. During a real stall, capture blocked-task stacks, transaction progress,
    device request latency, qgroup state, and the caller/reason that stops each
-   rescan. Host traces now tie Snapper's hourly snapshot path to repeated
-   rescans on stock 7.2.9; a separate stock-module stall involved dropped-
-   snapshot cleanup. The transaction's blocking writer and the device request
-   behind ordered-extent waits remain unidentified. Cross-capture qgroup
+   rescan. A 10:40:46 stock-7.2.9 hung-task dump now directly shows
+   `btrfs-cleaner` blocked in `btrfs_qgroup_cleanup_dropped_subvolume()` while
+   committing a dropped snapshot; systemd, journald, the transaction kthread,
+   and unrelated services were waiting in `wait_current_trans()`. The p8
+   commit-stat maximum is 571 seconds since boot, but has no timestamp. The
+   active transaction's blocking writer and its storage wait remain
+   unidentified. Cross-capture qgroup
    evidence confirms stale-item failures after cleanup, but 56 failed IDs
    still lack a matching removal record. Kingston's root-prefixed recovery
-   policy gap now reproduces in QEMU: absent `SNAPPER_CONFIGS` defers the scan,
-   restored policy permits recovery. The all-roots wrapper now surfaces the
-   deferral; add the matching host policy file and run one controlled recovery
-   scan. See [`GOAL-done.md`](GOAL-done.md).
+   policy gap now reproduces in QEMU, and the matching host policy file is
+   installed. A controlled stock-7.2.9 recovery query instead pauses after
+   repeated qgroup info/limit item updates return `-ENOENT` in transaction
+   commit. This matches the deleted-qgroup failure already reproduced in
+   QEMU, but the live host qgroup ID and triggering cleanup event remain
+   unproven. The rescan was already paused before the 10:40 stall, and no scan
+   is active now; this weakens the theory that a running rescan caused that
+   hang. The 10:25 timeline timer catch-up preceded the deletion work, but the
+   exact snapshot deletion trigger is not yet proven. Capture all-task stacks
+   and transaction stage/owner on the next stall. Fix Snapper's handling of a
+   paused scan before retrying host recovery. See
+   [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
@@ -73,8 +84,11 @@ path or dependency.
    A deferred rescan must show last-known numbers with an explicit stale
    status; quota-based deletion must wait for current counters. Ensure every
    root-prefix used by the all-roots timeline wrapper has a readable
-   `SNAPPER_CONFIGS` policy file. The wrapper now preserves deferral messages;
-   Kingston's policy file and host recovery check remain.
+   `SNAPPER_CONFIGS` policy file. The wrapper now preserves deferral messages,
+   and Kingston's matching policy file is installed. Fix and QEMU-test the
+   quota status path so a rescan that pauses with qgroups still inconsistent
+   returns last-known values marked stale; then repeat the controlled host
+   recovery check.
 3. **Conditional kernel durability — 65%:** First establish whether a kernel
    change is necessary. If selected, support every installed kernel and the next APT
    candidate with a matching reviewed, signed module in the initramfs. Finish

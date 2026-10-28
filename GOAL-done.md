@@ -7553,7 +7553,35 @@ flags supplied the inconsistency state.
   qgroups did not get an automatic recovery scan and why its deferral was
   invisible in the service log. This is a recovery-policy/configuration gap;
   it does not identify what first made Kingston inconsistent.
-- Next, reproduce the missing-policy case and its corrected behavior in QEMU,
-  then fix the root-prefix configuration/reporting path. Do not add a live
-  Kingston policy file or trigger a host rescan until the QEMU behavior and
-  expected scan timing are reviewed.
+- A stock Debian 7.2.9 QEMU run now reproduces the missing-policy behavior.
+  With Kingston's root-prefixed sysconfig absent, Snapper logs the failed file
+  open and refuses to start a scan; qgroups remain stale and the scan counter
+  does not change. Restoring `SNAPPER_CONFIGS="kingston-root kingston-home"`
+  allows Kingston recovery, and p8 with its policy present is a positive
+  control. The explicit `SNAPPER_ROOTPREFIX_POLICY_QEMU_PASS` marker confirms
+  all assertions passed. This explains the missing Kingston recovery scan; it
+  does not explain the original inconsistency. Safely correct the host
+  configuration and stop hiding the deferral before enabling this path there.
+  Artifacts are under
+  `linux.build/qgroup-snapper-current-20261027/runs/snapper-rootprefix-policy-20261028/`.
+
+## Stock-host trace at the 16:00 Snapper run (2026-10-28)
+
+- The running kernel is Debian `7.2.9+deb13-amd64`. The live Btrfs module's
+  sysfs GNU build ID is `c2d998d4752632e0f5cf36eaab134a3e73b18940`, matching
+  the module in `/boot/initrd.img-7.2.9+deb13-amd64-stock`. `modinfo -n btrfs`
+  still selects the separately installed DKMS module under `updates/dkms`;
+  that on-disk path is not the loaded-module identity. The
+  ordinary initramfs contains the DKMS module, while the selected stock
+  initramfs contains Debian's module.
+- `snapper-timeline.timer` started the all-roots service at 16:00:02. During
+  the `home` snapshot command, Snapper entered Btrfs ioctl `0x942e`
+  (`BTRFS_IOC_QUOTA_RESCAN`) on `/home/.snapshots`; p8 reported a rescan in
+  progress. The kernel logged `qgroup scan paused` at 16:00:34 and 16:01:09.
+  The service finished at 16:01:10, and both p8 and Kingston reported no
+  rescan in progress by 16:01:18.
+- CPU and I/O pressure were elevated during the run, but no D-state Btrfs task
+  or transaction-wait stack was captured. This confirms that Snapper requested
+  a rescan on stock Btrfs during the hourly run; it does not establish that
+  this scan caused the concurrent user-visible slowdown or the earlier
+  system-wide transaction stalls.

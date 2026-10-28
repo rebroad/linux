@@ -16,35 +16,17 @@ limitation, or a defect. Also determine whether our kernel changes caused or
 contributed to each observed stall; if not, identify the responsible kernel
 path or dependency.
 
-1. Capture blocked-task stacks, transaction progress, device request latency,
-   qgroup state, and the caller/reason that stops each rescan during an actual
-   stall. The Oct 28 14:00 stock 7.2.9 trace tied two p8 rescans to Snapper's
-   per-snapshot qgroup preflight and recorded four inheritance marks. It also
-   captured 72 qgroup IDs whose limit-item updates returned `-ENOENT` during
-   transaction accounting. Cross-capture matching ties 16 of those IDs to
-   Oct 27 cleanup removals whose relation and qgroup removal returned
-   rescan-required; this confirms the stale-qgroup failure on the host. The
-   loaded module's message format matches upstream v7.2.9; this checkout adds
-   qgroup IDs. The Debian 7.2.9 source patch set does not modify qgroup code.
-   A separate Oct 28 10:40 system-wide stall occurred with the stock module:
-   the cleaner waited for a transaction during dropped-snapshot qgroup
-   cleanup, and Tor waited on an ordered extent. Identify the transaction's
-   blocking writer and the device request behind Tor's wait. The 14:43-15:13
-   host capture observed two Snapper-originated p8 rescans (31.464s and
-   31.179s), a 1.230s `systemd-journald` transaction wait, and a 2.587s
-   transaction commit. It did not reproduce the multi-minute stall; the
-   15:00 request histograms peaked below 32 ms. The other 56 failed-update
-   IDs are absent from current p8 and Kingston subvolume listings, but no
-   retained removal trace explains them. A read-only trace is scheduled for
-   21:35 to capture tonight's cleanup if it runs; it does not wake the host.
-   The 15:00 trace began with both filesystems inconsistent but recorded scan
-   requests only on p8. Kingston has its root/home Snapper configs but lacks
-   `/mnt/kingston/@/etc/sysconfig/snapper`; the active Snapper library's gate
-   requires that file to verify shared policy and refuses the scan when it is
-   missing. The all-roots wrapper discards stderr for these calls. This likely
-   explains missing Kingston recovery scans, not the origin of inconsistency.
-   Reproduce and fix this policy/configuration gap without starting an
-   uncontrolled host rescan. See [`GOAL-done.md`](GOAL-done.md).
+1. During a real stall, capture blocked-task stacks, transaction progress,
+   device request latency, qgroup state, and the caller/reason that stops each
+   rescan. Host traces now tie Snapper's hourly snapshot path to repeated
+   rescans on stock 7.2.9; a separate stock-module stall involved dropped-
+   snapshot cleanup. The transaction's blocking writer and the device request
+   behind ordered-extent waits remain unidentified. Cross-capture qgroup
+   evidence confirms stale-item failures after cleanup, but 56 failed IDs
+   still lack a matching removal record. Kingston's root-prefixed recovery
+   policy gap now reproduces in QEMU: absent `SNAPPER_CONFIGS` defers the scan,
+   restored policy permits recovery. Safely correct the host configuration
+   and stop hiding the deferral. See [`GOAL-done.md`](GOAL-done.md).
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

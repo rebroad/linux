@@ -7232,6 +7232,67 @@ flags supplied the inconsistency state.
   and
   `qgroup-snapper-current-20261027/runs/repeat-isolated-20261028-01/all-on-control/all-on/serial.log`.
 
+## Noon Snapper trace and matched shared-parent A/B (2026-10-28)
+
+- The live host was on kernel `7.2.9+deb13-amd64` with the stock Btrfs module:
+  the loaded module build ID matched `/boot/initrd.img-7.2.9+deb13-amd64-stock`.
+  `/usr/bin/snapper` was the locally built Snapper `0.13.2-1+local1`, built
+  from the checked-out `7d4db170` source revision. Its `createSnapshot()` path
+  calls `prepareQGroupTracking()` before creating a snapshot; that path can
+  issue `BTRFS_IOC_QUOTA_RESCAN` when qgroup accounting is already inconsistent.
+  Thus the timeline wrapper's commented-out explicit rescan block does not
+  prevent Snapper itself from requesting a rescan.
+- A kprobe capture during the 12:00 `snapper-timeline.service` run recorded
+  two `btrfs_qgroup_rescan()` requests from processes named `snapper` (PIDs
+  2739565 and 2740868), with two qgroup worker starts. Kernel logs recorded
+  `qgroup scan paused` at 12:00:31 and 12:01:03. The same capture recorded four
+  `qgroup inherit needs a rescan` transitions from snapshot creation, plus
+  repeated qgroup info/limit item update errors in the transaction worker
+  (144 of each reason string; the probe did not capture their errno or qgroup
+  IDs). By 12:04 no rescan was running, but `btrfs qgroup show` still reported
+  p8 accounting inconsistent. The kernel stack for the inheritance events
+  ran through `btrfs_qgroup_inherit()` and `create_pending_snapshot()`.
+- This noon run did not reproduce the severe slowdown. Load peaked at 3.46
+  during the 11:59:45–12:02 window; follow-up process samples found no
+  D-state task. One-second
+  block samples in that window showed p95 await below 8 ms for NVMe and below
+  2 ms for `sda`; the 25-minute capture peaked at load 5.54. This does not
+  explain the separately reported earlier severe slowdown, which still lacks
+  a captured stall stack and scan-stop caller.
+  Logs are in
+  `qgroup-diagnostics/stock-qgroup-events-2026-10-28-1200.log` and
+  `qgroup-diagnostics/block-io-2026-10-28-1200.log`.
+- A matched QEMU pair used fresh sparse 8-GiB disks, four vCPUs, 4 GiB RAM,
+  kernel `7.2.9+deb13-amd64`, and the verified custom Btrfs module
+  (`a3ed379fb474e11ad3e470aacf5112417107feb9`). Both runs used the same
+  four-config layout, snapshot order, and 32,768-file metadata fixture. The
+  only changed switch was `shared_parent_quick_inherit` on both filesystems;
+  the other four added switches stayed at their module defaults.
+- With the switch enabled, all four qgroups stayed consistent through the
+  snapshot workload: no snapshot-triggered scan or inconsistency warning was
+  recorded. The four per-config snapshot counts were 2 root, 28 home, 28
+  Kingston-root, and 28 Kingston-home. Their median durations were 0.46 s,
+  0.56 s, 0.54 s, and 0.52 s respectively. After the snapshots, full rescans
+  took 3.30 s on p8 and 5.51 s on Kingston and changed no qgroup counters.
+- With only that switch disabled, the snapshot workload completed two
+  rescans and logged four inconsistency warnings. Both filesystems reported
+  inconsistent qgroup state; full rescans then changed both qgroup tables, so
+  the counter verification failed. A later explicit recovery scan cleared the
+  inconsistent flags. Median snapshot durations were 1.45 s for the two root
+  snapshots, 0.31 s for home, 0.36 s for Kingston-root, and 0.30 s for
+  Kingston-home.
+- Timeline cleanup took 0.36–0.61 s with the switch enabled and 0.38–0.59 s
+  with it disabled. Root snapshot deletion took 99–101 s enabled and 101–109 s
+  disabled; home deletion took about 1.3 s in both runs. These are single-run
+  TCG timings and do not explain or reproduce the host's severe stalls. They
+  do show that the shared-parent quick-inherit path can preserve counters and
+  avoid repeated rescans for this exact layout; repeat in reverse order and
+  compare stock before treating it as a general fix.
+- Logs and the run harness are in
+  `qgroup-snapper-current-20261027/runs/custom-shared-parent-isolation-20261028/`
+  (`fast/serial.log`, `fallback/serial.log`, and `run-mode.sh`). Both QEMU
+  runs exited successfully.
+
 ## Host slowdown during unattended upgrade (2026-10-28)
 
 - Rechecked the live module by build ID. The running `7.2.9+deb13-amd64`
@@ -7253,8 +7314,8 @@ flags supplied the inconsistency state.
   high-load period. This timing links the slowdown to overlapping package
   and snapshot activity on stock Btrfs, but does not prove that the rescan
   caused the stall or identify what set its stop condition.
-- The installed timeline wrapper still has its explicit rescan block
-  commented out. A temporary kprobe on the stock module is recording
-  `qgroup_mark_inconsistent()`, rescan requests, and worker starts across the
-  next hourly snapshot to capture the caller and reason if they recur. Output
-  is in the external build diagnostics tree.
+- The installed timeline wrapper's explicit rescan block remained commented
+  out. A noon kprobe follow-up recorded two rescan requests from Snapper and
+  snapshot-inheritance reasons, but did not reproduce the earlier stall. It
+  also captured qgroup item-update error reasons without their errno values or
+  qgroup IDs; see the noon trace section above.

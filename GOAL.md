@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 91%
+## First priority: diagnose the stalls and establish the accounting trade-off — 92%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -17,60 +17,23 @@ contributed to each observed stall; if not, identify the responsible kernel
 path or dependency.
 
 1. Capture blocked-task stacks, transaction progress, device request latency,
-   qgroup state, and the caller/reason that stops each rescan during
-   representative live events. Record `qgroup_mark_inconsistent()` reasons,
-   since that path can stop an active scan internally. Identify transaction
-   writers and distinguish snapshot/drop work, discard, metadata I/O, and
-   unrelated device or GPU waits. Correlate only evidence from the same event;
-   do not infer that a rescan caused a stall merely because they overlap.
-   Host captures show hourly Snapper inheritance marking qgroups inconsistent
-   on stock Btrfs without starting rescans. The 20:00 run separately requested
-   a rescan and logged eight `-ENOENT` qgroup updates, but did not capture their
-   IDs. A 21:41 stock cleanup trace recorded 18 positive relation-deletion
-   returns during snapshot drops, plus metadata-read waits and elevated I/O
-   pressure; it saw no qgroup update errors in that interval. In a controlled
-   7.2.9 QEMU run, deleting snapshots while accounting was inconsistent
-   reproduced `-ENOENT` updates for qgroup `0/260`; enabling only the
-   qgroup-removal fallback kept the inconsistency but eliminated those errors.
-   Upstream teardown order explains the result. This establishes a qgroup
-   removal failure mode, but host IDs do not yet link it to the eight 20:00
-   errors, and it does not prove the cause of the reported long system-wide
-   stalls. Continue correlating host cleanup, transaction waits, and storage
-   pressure. The 2026-10-28 high-load episode is confirmed on the stock 7.2.9
-   Btrfs module and overlapped APT's Snapper hooks plus a p8 rescan; the scan
-   paused near APT completion, but its stop caller is still unknown. A live
-   kprobe capture through the next hourly run is pending. See
-   [`GOAL-done.md`](GOAL-done.md) for evidence and caveats.
+   qgroup state, and the caller/reason that stops each rescan during an actual
+   stall. The Oct 28 noon trace on stock 7.2.9 tied two rescan requests to the
+   hourly Snapper run, but that run stayed responsive. The earlier severe
+   slowdown still lacks matching blocked-task stacks and a rescan stop caller;
+   capture those, and record qgroup update IDs and errno values.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
-   transaction-commit, and recovery costs, including distributions and worst
-   observed stalls. Expose every added kernel behavior independently and
-   compare a true upstream-behavior control (all five added switches off) with
-   the feature-on module and stock. An earlier controls-off run left the new
-   `skip_subtree_walk_when_no_accounting` switch enabled, so it was not an exact
-   stock-behavior control: upstream 7.2.9 still walks the subtree when qgroup
-   accounting is disabled. Corrected 32K two-vCPU TCG runs drained queued
-   snapshot drops before timing individual deletes. All-on queue drain took
-   239.64 s and 232.57 s in two runs; explicit deletes took 1.26-1.69 s.
-   All-off runs took 17.12-25.24 s to drain and 1.25-1.82 s per delete;
-   counters were stale and recovery reproduced `-ENOENT` updates. A reversed-
-   order repeat selected 82 snapshots for deletion with all-on and 81 with
-   all-off. The runs change several switches and accounting state together,
-   so they do not isolate the cause. One all-on snapshot sample caught Snapper
-   waiting in ordered-extent and transaction-commit paths; commits continued
-   advancing, with a 3.447 s maximum commit. No blocked task was sampled during
-   the long cleaner drain. A stock 7.2.9 QEMU run also sampled a snapshot
-   waiting in transaction commit, but at `write_all_supers`, not the same
-   stack or workload. The source patch does not change transaction or ordered-
-   extent implementation, though qgroup changes can still add transaction
-   work. The subtree-skip A/B shows no clear benefit. Equalize the cleanup
-   workload, isolate each switch, profile cleaner/transaction work, repeat the
-   comparisons, and measure on host storage.
+   transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
+   QEMU pair isolated `shared_parent_quick_inherit`: enabled kept all four
+   groups consistent and full-rescan counters unchanged; disabled triggered
+   rescans and counters changed. Repeat in reverse order, compare stock, and
+   profile the remaining cleanup and transaction stalls before selecting a
+   kernel behavior. See [`GOAL-done.md`](GOAL-done.md) for the complete results.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
-   do not treat the deletion threshold as the only possible trigger. Identify
-   the extent/backref work that dominates the slow path and determine whether
-   it can be reduced without compromising the four counters.
+   identify the extent/backref work that dominates cleanup and whether it can
+   be reduced without compromising the four counters.
 4. Decide whether routine snapshots can keep all required counters accurate
    while infrequent deletion makes them explicitly stale for later recovery.
    If not, identify and quantify which accuracy and latency requirements

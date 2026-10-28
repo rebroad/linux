@@ -7254,11 +7254,10 @@ flags supplied the inconsistency state.
   ran through `btrfs_qgroup_inherit()` and `create_pending_snapshot()`.
 - This noon run did not reproduce the severe slowdown. Load peaked at 3.46
   during the 11:59:45–12:02 window; follow-up process samples found no
-  D-state task. One-second
-  block samples in that window showed p95 await below 8 ms for NVMe and below
-  2 ms for `sda`; the 25-minute capture peaked at load 5.54. This does not
-  explain the separately reported earlier severe slowdown, which still lacks
-  a captured stall stack and scan-stop caller.
+  D-state task. One-second block samples showed p95 await below 8 ms for NVMe
+  and below 2 ms for `sda`. The 25-minute capture peaked at load 5.54. This
+  does not explain the separately reported earlier severe slowdown, which
+  still lacks a captured stall stack and scan-stop caller.
   Logs are in
   `qgroup-diagnostics/stock-qgroup-events-2026-10-28-1200.log` and
   `qgroup-diagnostics/block-io-2026-10-28-1200.log`.
@@ -7281,17 +7280,26 @@ flags supplied the inconsistency state.
   inconsistent flags. Median snapshot durations were 1.45 s for the two root
   snapshots, 0.31 s for home, 0.36 s for Kingston-root, and 0.30 s for
   Kingston-home.
-- Timeline cleanup took 0.36–0.61 s with the switch enabled and 0.38–0.59 s
-  with it disabled. Root snapshot deletion took 99–101 s enabled and 101–109 s
-  disabled; home deletion took about 1.3 s in both runs. These are single-run
-  TCG timings and do not explain or reproduce the host's severe stalls. They
-  do show that the shared-parent quick-inherit path can preserve counters and
-  avoid repeated rescans for this exact layout; repeat in reverse order and
-  compare stock before treating it as a general fix.
+- A reverse-order repeat (fallback first, then fast), again with fresh disks,
+  reproduced the same accounting result: fallback completed two scans, left
+  both filesystems inconsistent, and failed both full-rescan comparisons;
+  fast recorded no snapshot-triggered scans or warnings and passed both
+  comparisons. Both QEMU runs exited 0. Root deletions took 106.76/136.77 s
+  in fallback and 101.33/105.84 s in fast; home deletions remained near
+  1.3–1.4 s. The deletion timings vary too much across these single-run TCG
+  samples to establish a latency advantage for either setting.
+- In the initial pair, timeline cleanup took 0.36–0.61 s with the switch
+  enabled and 0.38–0.59 s with it disabled. Root snapshot deletion took
+  99–101 s enabled and 101–109 s disabled; home deletion took about 1.3 s in
+  both runs. These TCG timings do not explain or reproduce the host's severe
+  stalls. They do show that the shared-parent quick-inherit path can preserve
+  counters and avoid repeated rescans for this exact layout; compare stock and
+  test other hierarchies before treating it as a general fix.
 - Logs and the run harness are in
   `qgroup-snapper-current-20261027/runs/custom-shared-parent-isolation-20261028/`
-  (`fast/serial.log`, `fallback/serial.log`, and `run-mode.sh`). Both QEMU
-  runs exited successfully.
+  (`fast/serial.log`, `fallback/serial.log`, `fallback-reverse/serial.log`,
+  `fast-reverse/serial.log`, `run-mode.sh`, and `run-mode-reverse.sh`). All
+  four QEMU runs exited successfully.
 
 ## Host slowdown during unattended upgrade (2026-10-28)
 

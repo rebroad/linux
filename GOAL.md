@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 92%
+## First priority: diagnose the stalls and establish the accounting trade-off — 93%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -25,11 +25,11 @@ path or dependency.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
-   QEMU pair isolated `shared_parent_quick_inherit`: enabled kept all four
-   groups consistent and full-rescan counters unchanged; disabled triggered
-   rescans and counters changed. Repeat in reverse order, compare stock, and
-   profile the remaining cleanup and transaction stalls before selecting a
-   kernel behavior. See [`GOAL-done.md`](GOAL-done.md) for the complete results.
+   QEMU A/B and its reversed-order repeat isolated `shared_parent_quick_inherit`:
+   enabled kept all four groups consistent and full-rescan counters unchanged;
+   disabled triggered rescans and counters changed. Still compare stock, test
+   other hierarchies, and profile cleanup and transaction stalls before
+   selecting a kernel behavior. See [`GOAL-done.md`](GOAL-done.md) for results.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    identify the extent/backref work that dominates cleanup and whether it can

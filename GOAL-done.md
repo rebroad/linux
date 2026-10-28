@@ -7400,25 +7400,32 @@ flags supplied the inconsistency state.
   format: upstream logs the errno without the qgroup ID, while this checkout
   adds the ID. `del_qgroup_item()` can return `-ENOENT` when an info or limit
   item is absent. Although `btrfs_remove_qgroup()` tolerates that result, it
-  can still return early if relation removal reports that a rescan is needed;
-  the on-disk qgroup items may already be gone while the dirty in-memory
-  qgroup remains. A later `btrfs_run_qgroups()` update then gets `-ENOENT`.
-  This exact teardown path was reproduced in QEMU (see the 22:00 capture and
-  inconsistent-deletion QEMU reproduction above). The host's 72 IDs fit this
-  mechanism, but the Oct 28 capture did not trace their earlier drop-cleanup
-  events, so the link is not proven. The `qgroup_remove_after_rescan_fallback`
-  change addresses the positive relation result;
+  can return early if relation removal reports that a rescan is needed; the
+  disk items may already be gone while the dirty in-memory qgroup remains. A
+  later `btrfs_run_qgroups()` update then gets `-ENOENT`. The existing QEMU
+  reproduction matches this path. A direct cross-capture comparison now
+  confirms it on the host: 16 of the 18 qgroups removed by `btrfs-cleaner` at
+  21:41 on Oct 27 are among the 72 IDs with `-ENOENT` updates at 14:00 on Oct
+  28. For every overlapping ID, the cleanup trace records relation deletion
+  to `1/100` or `1/101` returning `1` and `btrfs_remove_qgroup()` returning
+  `1`. The exact overlap is `6498, 6499, 7057, 7058, 7062, 7063, 7064, 7065,
+  7066, 7068, 7070, 7076, 7078, 7080, 7084, 7086`. This is the upstream
+  early-exit condition. The other 56 failed-update IDs are not matched by that
+  cleanup capture. The
+  `qgroup_remove_after_rescan_fallback` change addresses the positive relation
+  result;
   `qgroup_remove_missing_item_success` only changes the returned missing-item
   status. Compare the Debian source package delta with upstream before treating
-  this as an exact package-source finding.
+  this as an exact Debian-source finding. This deletion failure does not by
+  itself prove the cause of the earlier multi-minute system hang.
 - During `btrfs_run_qgroups()`, the trace recorded 144 info-item and 144
   limit-item update errors. The independent `update_qgroup_limit_item()` return
   probe found 72 unique level-0 qgroup IDs returning `-ENOENT` (twice each).
   Those IDs were still represented in sysfs, but absent from `btrfs qgroup show`
   and from the current subvolume listing after the run. This is consistent
-  with stale in-memory qgroups for removed subvolumes, but does not establish
-  which prior deletion left them behind. The runtime error format matches
-  upstream v7.2.9; exact Debian-source confirmation remains open.
+  with stale in-memory qgroups for removed subvolumes. The overlap above
+  identifies one set of prior deletions; exact Debian-source confirmation
+  remains open.
 - The hourly wrapper ran `snapper create`; no cleanup timer ran at 14:00. Thus
   this event does not show that a deletion during this run caused the missing
   qgroup items. The scheduled cleanup timer was at 21:41.

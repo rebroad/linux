@@ -21,15 +21,13 @@ path or dependency.
    stall. The Oct 28 14:00 stock 7.2.9 trace tied two p8 rescans to Snapper's
    per-snapshot qgroup preflight and recorded four inheritance marks. It also
    captured 72 qgroup IDs whose limit-item updates returned `-ENOENT` during
-   transaction accounting; their relationship to earlier snapshot deletion is
-   unproven. The loaded module's message format matches upstream v7.2.9; this
-   checkout adds qgroup IDs. An earlier QEMU reproduction shows how failed
-   relation removal can leave a dirty in-memory qgroup after its disk items
-   are gone, producing later `-ENOENT` updates. The host IDs fit that path but
-   are not yet tied to specific deletions. The run remained responsive.
-   Capture the earlier severe stall with matching blocked-task stacks, trace
-   those qgroup IDs through dropped-subvolume cleanup, and check the Debian
-   source delta.
+   transaction accounting. Cross-capture matching ties 16 of those IDs to
+   Oct 27 cleanup removals whose relation and qgroup removal returned
+   rescan-required; this confirms the stale-qgroup failure on the host. The
+   loaded module's message format matches upstream v7.2.9; this checkout adds
+   qgroup IDs. The Oct 28 run remained responsive. Capture the earlier severe
+   stall with matching blocked-task stacks, account for the other 56 IDs, and
+   check the Debian source delta.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

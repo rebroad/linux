@@ -7231,3 +7231,30 @@ flags supplied the inconsistency state.
   `qgroup-snapper-current-20261027/runs/repeat-isolated-20261028-01/all-off-control/all-off/serial.log`
   and
   `qgroup-snapper-current-20261027/runs/repeat-isolated-20261028-01/all-on-control/all-on/serial.log`.
+
+## Host slowdown during unattended upgrade (2026-10-28)
+
+- Rechecked the live module by build ID. The running `7.2.9+deb13-amd64`
+  Btrfs module (`c2d998…`) matches the module extracted from
+  `/boot/initrd.img-7.2.9+deb13-amd64-stock`. The ordinary initrd and the
+  installed `updates/dkms` module instead match each other (`29eef0…`). This
+  incident therefore occurred with the stock module, not the modified module.
+- `apt-daily-upgrade.service` ran from 10:26 until monotonic time 72353.644,
+  installing a large package batch and invoking Snapper pre/post snapshot
+  hooks. At 11:24 it was still active with an APT pre-snapshot request. The
+  service later completed with 2m05s CPU time and a 1.3 GiB memory peak.
+- At 11:21 the load averages were 35.58/35.49/30.77; at 11:24 they were
+  12.77/26.82/28.25. A p8 qgroup rescan was active at 11:24 while Kingston
+  had none. The kernel logged `qgroup scan paused` at monotonic time 72346,
+  about seven seconds before the APT service completed. By 11:33 neither
+  filesystem had an active rescan and load had fallen to 2.72/6.51/16.79.
+- No D-state tasks were sampled at 11:24 or 11:33; sampled CPU idle was
+  48–61% and I/O wait 0–1%. There was a journald watchdog failure during the
+  high-load period. This timing links the slowdown to overlapping package
+  and snapshot activity on stock Btrfs, but does not prove that the rescan
+  caused the stall or identify what set its stop condition.
+- The installed timeline wrapper still has its explicit rescan block
+  commented out. A temporary kprobe on the stock module is recording
+  `qgroup_mark_inconsistent()`, rescan requests, and worker starts across the
+  next hourly snapshot to capture the caller and reason if they recur. Output
+  is in the external build diagnostics tree.

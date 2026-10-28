@@ -6,7 +6,7 @@ evidence in [`GOAL-done.md`](GOAL-done.md); do not maintain a separate progress
 file. Percentages estimate acceptance work completed, not confidence or test
 pass rates; items overlap and should not be averaged.
 
-## First priority: diagnose the stalls and establish the accounting trade-off — 90%
+## First priority: diagnose the stalls and establish the accounting trade-off — 91%
 
 Determine whether accurate qgroup statistics for our required layout can
 coexist with low-latency snapshots and cleanup on the supported Btrfs stack.
@@ -36,7 +36,10 @@ path or dependency.
    removal failure mode, but host IDs do not yet link it to the eight 20:00
    errors, and it does not prove the cause of the reported long system-wide
    stalls. Continue correlating host cleanup, transaction waits, and storage
-   pressure. See
+   pressure. The 2026-10-28 high-load episode is confirmed on the stock 7.2.9
+   Btrfs module and overlapped APT's Snapper hooks plus a p8 rescan; the scan
+   paused near APT completion, but its stop caller is still unknown. A live
+   kprobe capture through the next hourly run is pending. See
    [`GOAL-done.md`](GOAL-done.md) for evidence and caveats.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,

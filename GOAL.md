@@ -26,8 +26,11 @@ path or dependency.
    rescan-required; this confirms the stale-qgroup failure on the host. The
    loaded module's message format matches upstream v7.2.9; this checkout adds
    qgroup IDs. The Debian 7.2.9 source patch set does not modify qgroup code.
-   The Oct 28 run remained responsive. Capture the earlier severe stall with
-   matching blocked-task stacks and account for the other 56 IDs.
+   A separate Oct 28 10:40 system-wide stall occurred with the stock module:
+   the cleaner waited for a transaction during dropped-snapshot qgroup
+   cleanup, and Tor waited on an ordered extent. Identify the transaction
+   blocker and device latency in a live capture, and account for the other 56
+   qgroup IDs.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

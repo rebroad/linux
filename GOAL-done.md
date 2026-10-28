@@ -7377,6 +7377,37 @@ flags supplied the inconsistency state.
   verified pass. Artifacts are under
   `qgroup-snapper-current-20261027/runs/qgroup-sanity-quick-inherit-20261028/`.
 
+## Stock-kernel transaction stall after resume (2026-10-28 10:40 local)
+
+- At 10:40:46, the kernel reported `systemd`, `systemd-journal`,
+  `systemd-timesync`, ZeroTier, NetDB, Python, Tor, and Btrfs tasks blocked in
+  Btrfs for more than 120 seconds. The Btrfs transaction thread was waiting in
+  `wait_current_trans()` from `transaction_kthread()`. `btrfs-cleaner` was
+  waiting for a commit in `btrfs_qgroup_cleanup_dropped_subvolume()` called
+  from `btrfs_drop_snapshot()` / `btrfs_clean_one_deleted_snapshot()`. A Tor
+  task was blocked in `btrfs_start_ordered_extent_nowriteback()` during a
+  buffered write. This confirms a system-wide transaction stall during
+  snapshot-drop cleanup, but does not identify the transaction's blocking
+  writer or the ordered extent's device request.
+- The machine resumed from suspend at 10:25:31. `snapper-timeline.timer` then
+  started, and `snapper-timeline.service` ran until 10:26:49. The kernel
+  logged qgroup scan pauses from 10:26 through 10:40 and afterward. No
+  `snapper-cleanup.service` ran from 09:30 to 10:45; the cleaner was handling
+  a previously dropped snapshot, but the journal does not identify who
+  queued that deletion. The timeline run and stall are temporally related, not
+  proven to be direct cause and effect.
+- The 10:40 stall and 14:00 trace share boot ID
+  `45542f96-dc1c-4618-9341-d0c49a62a264`. The 14:00 trace identifies the loaded
+  Btrfs module as stock Debian build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940`; the same build ID is currently
+  loaded. Thus this recorded stall did not require the custom Btrfs changes.
+  It does not rule out their contribution to other stalls.
+- No NVMe or block I/O errors appear in the retained kernel journal from
+  09:00-14:00; this does not rule out a long device wait. The dump has no
+  transaction-owner stack or request-latency data, so a live stall capture is
+  still needed. The filtered kernel log is
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-28-1040/kernel.log`.
+
 ## Host capture at hourly Snapper run (2026-10-28 14:00 local)
 
 - The capture ran on `7.2.9+deb13-amd64` with loaded Btrfs build ID

@@ -18,10 +18,15 @@ path or dependency.
 
 1. Capture blocked-task stacks, transaction progress, device request latency,
    qgroup state, and the caller/reason that stops each rescan during an actual
-   stall. The Oct 28 noon trace on stock 7.2.9 tied two rescan requests to the
-   hourly Snapper run, but that run stayed responsive. The earlier severe
-   slowdown still lacks matching blocked-task stacks and a rescan stop caller;
-   capture those, and record qgroup update IDs and errno values.
+   stall. The Oct 28 14:00 stock 7.2.9 trace tied two p8 rescans to Snapper's
+   per-snapshot qgroup preflight and recorded four inheritance marks. It also
+   captured 72 qgroup IDs whose limit-item updates returned `-ENOENT` during
+   transaction accounting; their relationship to earlier snapshot deletion is
+   unproven, and the loaded
+   stock module's message strings differ from this checkout. The run remained
+   responsive. Capture the earlier severe stall with matching blocked-task
+   stacks, identify why those qgroup items are absent, and verify against the
+   exact stock source.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
@@ -36,6 +41,7 @@ path or dependency.
    [`GOAL-done.md`](GOAL-done.md) for results.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
+   determine whether the 14:00 missing qgroup items belong to deleted snapshots;
    identify the extent/backref work that dominates cleanup and whether it can
    be reduced without compromising the four counters.
 4. Decide whether routine snapshots can keep all required counters accurate

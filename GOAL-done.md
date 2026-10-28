@@ -7376,3 +7376,45 @@ flags supplied the inconsistency state.
   messages; it was narrowed to the kernel selftest failure format before the
   verified pass. Artifacts are under
   `qgroup-snapper-current-20261027/runs/qgroup-sanity-quick-inherit-20261028/`.
+
+## Host capture at hourly Snapper run (2026-10-28 14:00 local)
+
+- The capture ran on `7.2.9+deb13-amd64` with loaded Btrfs build ID
+  `c2d998d4752632e0f5cf36eaab134a3e73b18940` (the stock module). The local
+  Snapper binary reported 0.13.2. `snapper-timeline.service` ran from 14:00:04
+  to 14:01:12.
+- Snapper PID 3003091 requested a p8 rescan at 14:00:04; its worker ran for
+  33.646 s. Snapper PID 3004228 requested a second p8 rescan at 14:00:38; its
+  worker ran for 31.630 s. The stack identifies the request path as
+  `btrfs_qgroup_rescan()` from `btrfs_ioctl()`. No Kingston rescan was
+  requested. Both scans were idle after the run, while both filesystems still
+  reported qgroup data inconsistent.
+- The installed Snapper source's `Btrfs::prepareQGroupTracking()` calls
+  `quota_rescan_if_needed()` before each quota-tracked snapshot. The trace then
+  recorded `qgroup inherit needs a rescan` for the four source qgroups and
+  their new snapshots: p8 `0/262 -> 0/7143`, p8 `0/263 -> 0/7144`, Kingston
+  `0/257 -> 0/5663`, and Kingston `0/256 -> 0/5664`. This explains the two p8
+  preflight scans and shows stock Btrfs marking each snapshot inheritance as
+  needing a rescan. It does not prove the earlier severe system stall.
+- During `btrfs_run_qgroups()`, the trace recorded 144 info-item and 144
+  limit-item update errors. The independent `update_qgroup_limit_item()` return
+  probe found 72 unique level-0 qgroup IDs returning `-ENOENT` (twice each).
+  Those IDs were still represented in sysfs, but absent from `btrfs qgroup show`
+  and from the current subvolume listing after the run. This is consistent
+  with stale in-memory qgroups for removed subvolumes, but does not establish
+  when or how they became stale. The stock module's error format differs from
+  the checked-out source, so exact-source confirmation remains open.
+- The hourly wrapper ran `snapper create`; no cleanup timer ran at 14:00. Thus
+  this event does not show that a deletion during this run caused the missing
+  qgroup items. The scheduled cleanup timer was at 21:41.
+- A brief task wait was captured at 13:49:28: a Python process was in
+  `fdatasync -> btrfs_sync_file -> write_all_supers`; at 13:49:33 a Btrfs flush
+  worker waited in `rq_qos_wait`. Both had cleared by the next sample, and the
+  Python command/file was not captured. At 13:57:28, Chromium was using about
+  114% of one CPU core and Xorg about 25%, with no blocked tasks. These samples
+  offer plausible sources for transient slowness but do not reproduce the
+  earlier multi-minute stall.
+- The read-only BPF/host capture was stopped at 14:05 after the service and
+  rescans completed. Its block-request map reached its key limit, so block
+  latency details after that point are incomplete. The log is
+  `qgroup-snapper-current-20261027/diagnostics/2026-10-28-qgroup-mark-args/capture-20261028-1400.log`.

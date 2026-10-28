@@ -7193,3 +7193,33 @@ flags supplied the inconsistency state.
   qgroups inconsistent but did not start a rescan or reproduce a Btrfs
   transaction stall. Log:
   `qgroup-snapper-current-20261027/diagnostics/2026-10-27-2300/capture.log`.
+
+## Reversed-order cleanup repeat (2026-10-28)
+
+- Repeated the isolated two-vCPU TCG workload in reverse order, all-off first
+  and all-on second, with fresh sparse guest disks and the same 32K metadata
+  fixture. Both QEMU processes exited 0. The all-off cleanup selected 81
+  snapshots (one home snapshot remained); all-on selected 82. Its timed
+  `btrfs subvolume sync` phase took 17.12 s all-off and 232.57 s all-on. The
+  four explicit deletes took 1.28-1.31 s all-off and 1.49-1.69 s all-on.
+- The all-on qgroups stayed consistent and matched a full rescan after the
+  deletes (`COUNTER-VERIFY-PASS`; scans 0.79/1.07 s). All-off stayed
+  inconsistent, its qgroup values differed from the full-rescan results, and
+  recovery again logged `-ENOENT` updates for `0/260` (`COUNTER-VERIFY-FAIL`).
+  This repeat supports the earlier large cleanup-drain difference but remains
+  a small-TCG comparison with all five switches and accounting state changed
+  together; it does not attribute the difference to one behavior.
+- A SysRq sample during all-on snapshot creation caught `snapper` in `D` state
+  under `btrfs_wait_ordered_extents()` / `btrfs_wait_ordered_roots()` in
+  `btrfs_commit_transaction()`. Commit counters continued advancing; the
+  largest observed commit was 3.447 s. Later SysRq samples during the long
+  cleanup drain did not capture blocked tasks. This identifies a transaction
+  wait during one snapshot call, but does not explain the prolonged cleaner
+  drain or prove a kernel regression.
+- The `btrfs subvolume sync` progress denominators differed by filesystem and
+  reflect work still pending as each command ran; the cleaner can process
+  drops concurrently. They are not a count of all snapshots selected for
+  deletion. Logs:
+  `qgroup-snapper-current-20261027/runs/repeat-isolated-20261028-01/all-off-control/all-off/serial.log`
+  and
+  `qgroup-snapper-current-20261027/runs/repeat-isolated-20261028-01/all-on-control/all-on/serial.log`.

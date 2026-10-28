@@ -46,14 +46,20 @@ path or dependency.
    the feature-on module and stock. An earlier controls-off run left the new
    `skip_subtree_walk_when_no_accounting` switch enabled, so it was not an exact
    stock-behavior control: upstream 7.2.9 still walks the subtree when qgroup
-   accounting is disabled. The corrected 32K two-vCPU TCG runs drained queued
-   snapshot drops before timing individual deletes. One all-on run took 239.64 s
-   to drain 82 cleanup drops, then 1.26-1.32 s per explicit delete. Inconsistent
-   all-off runs drained in 17.12-25.24 s and took 1.25-1.82 s per delete, but
-   had stale counters and reproduced `-ENOENT` updates. These single runs
-   suggest a substantial cleanup-time difference, but do not isolate its cause;
-   the subtree-skip A/B also showed no clear benefit. Repeat the comparisons,
-   profile the cleaner/transaction path, and measure on host storage.
+   accounting is disabled. Corrected 32K two-vCPU TCG runs drained queued
+   snapshot drops before timing individual deletes. All-on queue drain took
+   239.64 s and 232.57 s in two runs; explicit deletes took 1.26-1.69 s.
+   All-off runs took 17.12-25.24 s to drain and 1.25-1.82 s per delete;
+   counters were stale and recovery reproduced `-ENOENT` updates. A reversed-
+   order repeat selected 82 snapshots for deletion with all-on and 81 with
+   all-off. The runs change several switches and accounting state together,
+   so they do not isolate the cause. One all-on snapshot sample caught Snapper
+   waiting in ordered-extent and transaction-commit paths; commits continued
+   advancing, with a 3.447 s maximum commit. No blocked task was sampled during
+   the long cleaner drain. The subtree-skip A/B still shows no clear benefit.
+   Equalize the cleanup workload, isolate each switch, profile
+   cleaner/transaction work, repeat the comparisons, and measure on host
+   storage.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    do not treat the deletion threshold as the only possible trigger. Identify

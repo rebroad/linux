@@ -7216,6 +7216,14 @@ flags supplied the inconsistency state.
   cleanup drain did not capture blocked tasks. This identifies a transaction
   wait during one snapshot call, but does not explain the prolonged cleaner
   drain or prove a kernel regression.
+- Comparing this branch with upstream `v7.2.9` shows the source changes are in
+  qgroup code, qgroup state initialization, sysfs controls, and qgroup tests;
+  `transaction.c` and ordered-data implementation are unchanged. This does not
+  rule out qgroup changes adding transaction work. A stock 7.2.9 131K-file
+  QEMU run also sampled a snapshot in `btrfs_commit_transaction()`, waiting
+  under `write_all_supers()` / `btrfs_write_and_wait_transaction()`. That is a
+  different wait point and workload from the modified-module ordered-extent
+  sample, so it shows commit waits occur on stock but is not a matched A/B.
 - The `btrfs subvolume sync` progress denominators differed by filesystem and
   reflect work still pending as each command ran; the cleaner can process
   drops concurrently. They are not a count of all snapshots selected for

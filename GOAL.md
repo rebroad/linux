@@ -56,10 +56,13 @@ path or dependency.
    so they do not isolate the cause. One all-on snapshot sample caught Snapper
    waiting in ordered-extent and transaction-commit paths; commits continued
    advancing, with a 3.447 s maximum commit. No blocked task was sampled during
-   the long cleaner drain. The subtree-skip A/B still shows no clear benefit.
-   Equalize the cleanup workload, isolate each switch, profile
-   cleaner/transaction work, repeat the comparisons, and measure on host
-   storage.
+   the long cleaner drain. A stock 7.2.9 QEMU run also sampled a snapshot
+   waiting in transaction commit, but at `write_all_supers`, not the same
+   stack or workload. The source patch does not change transaction or ordered-
+   extent implementation, though qgroup changes can still add transaction
+   work. The subtree-skip A/B shows no clear benefit. Equalize the cleanup
+   workload, isolate each switch, profile cleaner/transaction work, repeat the
+   comparisons, and measure on host storage.
 3. Reproduce and isolate the first inconsistent transition on the exact
    7.2.9 workflow. Test snapshot creation/inheritance and deletion separately;
    do not treat the deletion threshold as the only possible trigger. Identify

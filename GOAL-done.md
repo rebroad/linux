@@ -7396,14 +7396,29 @@ flags supplied the inconsistency state.
   `0/257 -> 0/5663`, and Kingston `0/256 -> 0/5664`. This explains the two p8
   preflight scans and shows stock Btrfs marking each snapshot inheritance as
   needing a rescan. It does not prove the earlier severe system stall.
+- Source review against upstream `v7.2.9` explains the loaded module's error
+  format: upstream logs the errno without the qgroup ID, while this checkout
+  adds the ID. `del_qgroup_item()` can return `-ENOENT` when an info or limit
+  item is absent. Although `btrfs_remove_qgroup()` tolerates that result, it
+  can still return early if relation removal reports that a rescan is needed;
+  the on-disk qgroup items may already be gone while the dirty in-memory
+  qgroup remains. A later `btrfs_run_qgroups()` update then gets `-ENOENT`.
+  This exact teardown path was reproduced in QEMU (see the 22:00 capture and
+  inconsistent-deletion QEMU reproduction above). The host's 72 IDs fit this
+  mechanism, but the Oct 28 capture did not trace their earlier drop-cleanup
+  events, so the link is not proven. The `qgroup_remove_after_rescan_fallback`
+  change addresses the positive relation result;
+  `qgroup_remove_missing_item_success` only changes the returned missing-item
+  status. Compare the Debian source package delta with upstream before treating
+  this as an exact package-source finding.
 - During `btrfs_run_qgroups()`, the trace recorded 144 info-item and 144
   limit-item update errors. The independent `update_qgroup_limit_item()` return
   probe found 72 unique level-0 qgroup IDs returning `-ENOENT` (twice each).
   Those IDs were still represented in sysfs, but absent from `btrfs qgroup show`
   and from the current subvolume listing after the run. This is consistent
   with stale in-memory qgroups for removed subvolumes, but does not establish
-  when or how they became stale. The stock module's error format differs from
-  the checked-out source, so exact-source confirmation remains open.
+  which prior deletion left them behind. The runtime error format matches
+  upstream v7.2.9; exact Debian-source confirmation remains open.
 - The hourly wrapper ran `snapper create`; no cleanup timer ran at 14:00. Thus
   this event does not show that a deletion during this run caused the missing
   qgroup items. The scheduled cleanup timer was at 21:41.

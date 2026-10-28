@@ -22,11 +22,14 @@ path or dependency.
    per-snapshot qgroup preflight and recorded four inheritance marks. It also
    captured 72 qgroup IDs whose limit-item updates returned `-ENOENT` during
    transaction accounting; their relationship to earlier snapshot deletion is
-   unproven, and the loaded
-   stock module's message strings differ from this checkout. The run remained
-   responsive. Capture the earlier severe stall with matching blocked-task
-   stacks, identify why those qgroup items are absent, and verify against the
-   exact stock source.
+   unproven. The loaded module's message format matches upstream v7.2.9; this
+   checkout adds qgroup IDs. An earlier QEMU reproduction shows how failed
+   relation removal can leave a dirty in-memory qgroup after its disk items
+   are gone, producing later `-ENOENT` updates. The host IDs fit that path but
+   are not yet tied to specific deletions. The run remained responsive.
+   Capture the earlier severe stall with matching blocked-task stacks, trace
+   those qgroup IDs through dropped-subvolume cleanup, and check the Debian
+   source delta.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9

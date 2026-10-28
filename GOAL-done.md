@@ -7415,9 +7415,13 @@ flags supplied the inconsistency state.
   `qgroup_remove_after_rescan_fallback` change addresses the positive relation
   result;
   `qgroup_remove_missing_item_success` only changes the returned missing-item
-  status. Compare the Debian source package delta with upstream before treating
-  this as an exact Debian-source finding. This deletion failure does not by
-  itself prove the cause of the earlier multi-minute system hang.
+  status. The exact Debian source package `7.2.9-1~bpo13+1` was checked by
+  downloading only its 1.5 MB `debian.tar.xz` and verifying the SHA256 against
+  APT's cached source metadata. No applied Debian patch touches
+  `fs/btrfs/qgroup.c` or the qgroup removal/accounting functions; the only
+  applied Btrfs patch warns about RAID5/6 at mount. Thus the loaded Debian
+  module uses the affected upstream qgroup path. This deletion failure does
+  not by itself prove the cause of the earlier multi-minute system hang.
 - During `btrfs_run_qgroups()`, the trace recorded 144 info-item and 144
   limit-item update errors. The independent `update_qgroup_limit_item()` return
   probe found 72 unique level-0 qgroup IDs returning `-ENOENT` (twice each).

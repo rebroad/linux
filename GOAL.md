@@ -25,9 +25,9 @@ path or dependency.
    Oct 27 cleanup removals whose relation and qgroup removal returned
    rescan-required; this confirms the stale-qgroup failure on the host. The
    loaded module's message format matches upstream v7.2.9; this checkout adds
-   qgroup IDs. The Oct 28 run remained responsive. Capture the earlier severe
-   stall with matching blocked-task stacks, account for the other 56 IDs, and
-   check the Debian source delta.
+   qgroup IDs. The Debian 7.2.9 source patch set does not modify qgroup code.
+   The Oct 28 run remained responsive. Capture the earlier severe stall with
+   matching blocked-task stacks and account for the other 56 IDs.
 2. Compare stock and modified Btrfs on the exact supported kernel and the
    representative four-config workload. Measure snapshot, cleanup, deletion,
    transaction-commit, and recovery costs on host-like storage. A fresh 7.2.9
